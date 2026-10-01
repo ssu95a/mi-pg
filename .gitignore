@@ -1,0 +1,75 @@
+# Logs
+*.log
+logs/
+log/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+
+# PostgreSQL dumps / backups
+*.dump
+*.backup
+*.sql.backup
+*.pgdump
+*.tar
+*.gz
+*.zip
+*.7z
+*.rar
+
+# Local environment / secrets
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.jks
+*.crt
+*.cer
+
+# Editor swap / temp files
+*.swp
+*.swo
+*.kate-swp
+*~
+~$*
+.#*
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code
+.vscode/
+
+# Sublime Text
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local generated tree/list files
+tree.txt
+tree-new.txt
+project-tree.txt
+project-files.txt
+
+# Local psql/runtime files
+.pgpass
+psql_history
+.psql_history
+
+# Build / generated release scratch
+tmp/
+temp/
+out/
+build/
