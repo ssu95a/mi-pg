@@ -107,6 +107,54 @@ begin
 END;
 $procedure$
 
+-- Явное освобождение блокировки, ранее установленной через lock_proc
+CREATE PROCEDURE lock_release(
+    IN  lock_handle VARCHAR,
+    OUT ret_code    INTEGER,
+    OUT ret_info    VARCHAR
+)
+AS $$#package
+DECLARE
+    l_res INTEGER;
+BEGIN
+    ret_code := -1;
+
+    l_res := DBMS_LOCK.RELEASE(lock_handle);
+    
+    IF l_res = 0 THEN
+        ret_code := ret_OK;
+        ret_info := 'Success';
+    ELSIF l_res = 3 THEN
+        ret_code := ret_Fail;
+        ret_info := 'Parameter error';
+    ELSIF l_res = 4 THEN
+        ret_code := ret_Fail;
+        ret_info := 'Do not own lock specified by id or lockhandle';
+    ELSIF l_res = 5 THEN
+        ret_code := ret_Fail;
+        ret_info := 'Illegal lock handle';
+    ELSE
+        ret_code := ret_Fail;
+        ret_info := 'Unknown return code: ' || l_res;
+    END IF;
+END;
+$$
+
+-- Функция преобразования строкового представления булева значения в BOOLEAN
+CREATE FUNCTION to_bool(v VARCHAR)
+RETURNS BOOLEAN
+AS $$#package
+BEGIN
+    IF UPPER(v) IN ('TRUE', '1', 'ON', 'ИСТИНА', 'ДА', 'OK') THEN
+        RETURN TRUE;
+    END IF;
+    IF UPPER(v) IN ('FALSE', '0', 'OFF', 'ЛОЖЬ', 'НЕТ', 'FAIL') THEN
+        RETURN FALSE;
+    END IF;
+    RAISE EXCEPTION 'mi_utils.to_bool: error convert "%" string to bool', v;
+END;
+$$
+
 -- end_Of_Packages
 ;
 
