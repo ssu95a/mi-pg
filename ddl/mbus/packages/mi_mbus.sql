@@ -43,14 +43,14 @@ DECLARE
    c_err_Command_Unexpected        CONSTANT varchar(200) := 'MI_MBUS.SEND_COMMAND#UNEXPECTED';   
 
 
-   /* Коды ошибок при отправке ответа на запрос MI_mbus.send_response errors */
+   /* РљРѕРґС‹ РѕС€РёР±РѕРє РїСЂРё РѕС‚РїСЂР°РІРєРµ РѕС‚РІРµС‚Р° РЅР° Р·Р°РїСЂРѕСЃ MI_mbus.send_response errors */
    c_err_Rsp_Not_Found       CONSTANT varchar(200) := 'MI_MBUS.SEND_RESPONSE#RESPONSE_NOT_FOUND';
    c_err_Rsp_Bad_Status      CONSTANT varchar(200) := 'MI_MBUS.SEND_RESPONSE#BAD_STATUS';
    c_err_Rsp_Bus_Return      CONSTANT varchar(200) := 'MI_MBUS.SEND_RESPONSE#X_TO_XXL_TRANSPORT_ERROR';
    c_err_Rsp_Empty_Response  CONSTANT varchar(200) := 'MI_MBUS.SEND_RESPONSE#XXL_RESPONSE_EMPTY';
    c_err_Rsp_Response_Parse  CONSTANT varchar(200) := 'MI_MBUS.SEND_RESPONSE#XXL_RESPONSE_PARSE_ERROR';
    c_err_Rsp_Unexpected      CONSTANT varchar(200) := 'MI_MBUS.SEND_RESPONSE#UNEXPECTED';
-   /* Допустимые статусы ответов */
+   /* Р”РѕРїСѓСЃС‚РёРјС‹Рµ СЃС‚Р°С‚СѓСЃС‹ РѕС‚РІРµС‚РѕРІ */
    cRsp_Status_New    CONSTANT numeric := 0;
    cRsp_Status_Ready  CONSTANT numeric := 1;
    cRsp_Status_Sent   CONSTANT numeric := 2;
@@ -62,7 +62,7 @@ END;
 $init$
 
 
-/* Версия */
+/* Р’РµСЂСЃРёСЏ */
 CREATE FUNCTION get_Version()
    RETURNS varchar
 AS
@@ -74,7 +74,7 @@ END;
 $function$
 
 
-/* Отправка одного контейнера mi_req в XXL */
+/* РћС‚РїСЂР°РІРєР° РѕРґРЅРѕРіРѕ РєРѕРЅС‚РµР№РЅРµСЂР° mi_req РІ XXL */
 CREATE PROCEDURE send_request (
    IN  p_req_id  numeric,
    OUT p_result  MI_resultCtx.exec_Result
@@ -104,7 +104,7 @@ DECLARE
 BEGIN
 
    CALL MI_logger.enter_f( 
-      p_logger_name   => cLogger, p_function_name => cAction_Name, p_message_text  => 'Отправка запроса в ' || cMultiBus_Gate, 
+      p_logger_name   => cLogger, p_function_name => cAction_Name, p_message_text  => 'РћС‚РїСЂР°РІРєР° Р·Р°РїСЂРѕСЃР° РІ ' || cMultiBus_Gate, 
       p_parameters    => jsonb_build_object('req_id', p_req_id, 'call_uuid', l_call_uuid )::text,
       p_req_id        => p_req_id
    );
@@ -114,7 +114,7 @@ BEGIN
                                     p_parameters  => jsonb_build_object( 'req_id', p_req_id,'call_uuid', l_call_uuid ) );
    END IF;
 
-   -- Загружаем параметры запроса
+   -- Р—Р°РіСЂСѓР¶Р°РµРј РїР°СЂР°РјРµС‚СЂС‹ Р·Р°РїСЂРѕСЃР°
    BEGIN
 
       SELECT e.inf_id,
@@ -144,7 +144,7 @@ BEGIN
                                            p_parameters  => jsonb_build_object( 'req_id', p_req_id,'call_uuid', l_call_uuid ));
    END;
 
-   -- Повторный send не ошибка, если контейнер уже в маршруте.
+   -- РџРѕРІС‚РѕСЂРЅС‹Р№ send РЅРµ РѕС€РёР±РєР°, РµСЃР»Рё РєРѕРЅС‚РµР№РЅРµСЂ СѓР¶Рµ РІ РјР°СЂС€СЂСѓС‚Рµ.
    IF r_request.status_cd = 2 THEN
 
       p_result := MI_resultCtx.OK (
@@ -198,7 +198,7 @@ BEGIN
    END IF;
 
    /*
-      Настройки транспорта.
+      РќР°СЃС‚СЂРѕР№РєРё С‚СЂР°РЅСЃРїРѕСЂС‚Р°.
    */
    IF r_request.gate_alias IS NULL THEN
       r_request.gate_alias :=
@@ -242,10 +242,10 @@ BEGIN
    );
 
    /*
-      Вызов XXL через MBUS.
-      Важно:
-      если query_Bus_Text вернул ошибку, НЕ вызываем to_Error.
-      XXI не знает, получил XXL команду или нет.
+      Р’С‹Р·РѕРІ XXL С‡РµСЂРµР· MBUS.
+      Р’Р°Р¶РЅРѕ:
+      РµСЃР»Рё query_Bus_Text РІРµСЂРЅСѓР» РѕС€РёР±РєСѓ, РќР• РІС‹Р·С‹РІР°РµРј to_Error.
+      XXI РЅРµ Р·РЅР°РµС‚, РїРѕР»СѓС‡РёР» XXL РєРѕРјР°РЅРґСѓ РёР»Рё РЅРµС‚.
    */
    CALL cbs_Bus_X.query_Bus_Text(
 
@@ -269,12 +269,12 @@ BEGIN
       p_logger_name=> cLogger, p_variable_name => 'query_Bus_Text.SOUT', p_value_text => l_result_x, p_inf_id => r_request.inf_id, p_req_id => p_req_id 
    );
 
-   -- mbus вернул не успех
+   -- mbus РІРµСЂРЅСѓР» РЅРµ СѓСЃРїРµС…
    IF coalesce(l_result_code, -1) <> 0 THEN
 
       CALL MI_resultCtx.raise_fail(
          p_result_code => c_err_Bus_Return,
-         p_result_info => 'Ошибка вызова cbs_Bus_X.query_Bus_Text',
+         p_result_info => 'РћС€РёР±РєР° РІС‹Р·РѕРІР° cbs_Bus_X.query_Bus_Text',
          p_cause_code  => 'MBUS_ERROR',
          p_cause_info  => l_result_info,
          p_parameters  => jsonb_build_object (
@@ -295,7 +295,7 @@ BEGIN
    END IF;
 
    /*
-      Транспортный вызов прошёл, смотрим что вернул XXLResponse.
+      РўСЂР°РЅСЃРїРѕСЂС‚РЅС‹Р№ РІС‹Р·РѕРІ РїСЂРѕС€С‘Р», СЃРјРѕС‚СЂРёРј С‡С‚Рѕ РІРµСЂРЅСѓР» XXLResponse.
    */
    IF nullif(btrim(l_result_x), '') IS NULL THEN
       
@@ -308,8 +308,8 @@ BEGIN
    END IF;
 
    /*
-      Разбор XML ответа XXL.
-      Ошибка разбора —  превращается в structured failure через raise_fail.
+      Р Р°Р·Р±РѕСЂ XML РѕС‚РІРµС‚Р° XXL.
+      РћС€РёР±РєР° СЂР°Р·Р±РѕСЂР° вЂ”  РїСЂРµРІСЂР°С‰Р°РµС‚СЃСЏ РІ structured failure С‡РµСЂРµР· raise_fail.
    */
    BEGIN
       p_result := MI_resultCtx.result_from_xml(l_result_x);
@@ -317,7 +317,7 @@ BEGIN
       WHEN OTHERS THEN
          CALL MI_resultCtx.raise_fail(
             p_result_code => c_err_Response_Parse,
-            p_result_info => 'Ошибка разбора XXLResponse',
+            p_result_info => 'РћС€РёР±РєР° СЂР°Р·Р±РѕСЂР° XXLResponse',
             p_cause_code  => SQLSTATE,
             p_cause_info  => SQLERRM,
             p_parameters  => jsonb_build_object( 'req_id', p_req_id, 'inf_id', r_request.inf_id, 'call_uuid', l_call_uuid, 'bus_corr_id', l_result_corr, 'response_xml', l_result_x )
@@ -325,10 +325,10 @@ BEGIN
    END;
 
    /*
-      На этом send_request не двигает статус.
-      Если XXL вернул SEND_PUBLISHED, значит XXL уже сам вызвал to_Sent.
-      Если XXL вернул ошибку после take_For_Proc, значит XXL сам вызвал to_Error,
-      если это container-level failure.
+      РќР° СЌС‚РѕРј send_request РЅРµ РґРІРёРіР°РµС‚ СЃС‚Р°С‚СѓСЃ.
+      Р•СЃР»Рё XXL РІРµСЂРЅСѓР» SEND_PUBLISHED, Р·РЅР°С‡РёС‚ XXL СѓР¶Рµ СЃР°Рј РІС‹Р·РІР°Р» to_Sent.
+      Р•СЃР»Рё XXL РІРµСЂРЅСѓР» РѕС€РёР±РєСѓ РїРѕСЃР»Рµ take_For_Proc, Р·РЅР°С‡РёС‚ XXL СЃР°Рј РІС‹Р·РІР°Р» to_Error,
+      РµСЃР»Рё СЌС‚Рѕ container-level failure.
    */
    CALL MI_logger.log_exec_result(
       p_logger_name   => cLogger,
@@ -368,8 +368,8 @@ EXCEPTION
           l_error_Text := TS.WhenOthersError( cAction_Name, ex);
 
          /*
-            Любая ошибка, ожидаемая или неожиданная,
-            превращается в MI_resultCtx.exec_Result.
+            Р›СЋР±Р°СЏ РѕС€РёР±РєР°, РѕР¶РёРґР°РµРјР°СЏ РёР»Рё РЅРµРѕР¶РёРґР°РЅРЅР°СЏ,
+            РїСЂРµРІСЂР°С‰Р°РµС‚СЃСЏ РІ MI_resultCtx.exec_Result.
          */
          p_result := MI_resultCtx.from_exception (
             p_sqlstate => ex.returned_sqlstate,
@@ -379,8 +379,8 @@ EXCEPTION
          );
 
       /*
-         Если это не наше структурированное MI001-исключение,
-         добавим технический контекст.
+         Р•СЃР»Рё СЌС‚Рѕ РЅРµ РЅР°С€Рµ СЃС‚СЂСѓРєС‚СѓСЂРёСЂРѕРІР°РЅРЅРѕРµ MI001-РёСЃРєР»СЋС‡РµРЅРёРµ,
+         РґРѕР±Р°РІРёРј С‚РµС…РЅРёС‡РµСЃРєРёР№ РєРѕРЅС‚РµРєСЃС‚.
       */
       IF ex.returned_sqlstate IS DISTINCT FROM 'MI001' THEN
 
@@ -394,8 +394,8 @@ EXCEPTION
       END IF;
 
       /*
-         Логируем итоговый exec_result.
-         Наружу exception не пробрасываем.
+         Р›РѕРіРёСЂСѓРµРј РёС‚РѕРіРѕРІС‹Р№ exec_result.
+         РќР°СЂСѓР¶Сѓ exception РЅРµ РїСЂРѕР±СЂР°СЃС‹РІР°РµРј.
       */
       CALL MI_logger.log_exec_result(
          p_logger_name   => cLogger,
@@ -415,20 +415,20 @@ $procedure$
 
 
 /*
- * Отправка команды в XXL.
+ * РћС‚РїСЂР°РІРєР° РєРѕРјР°РЅРґС‹ РІ XXL.
  *
- * Маршрутизация:
+ * РњР°СЂС€СЂСѓС‚РёР·Р°С†РёСЏ:
  *
- *    p_inf_id IS NULL: команда адресована XXL целиком;
- *    p_inf_id > 0    : команда адресована конкретному виду сведений;
- *    p_inf_id <= 0   : ошибка контракта.
+ *    p_inf_id IS NULL: РєРѕРјР°РЅРґР° Р°РґСЂРµСЃРѕРІР°РЅР° XXL С†РµР»РёРєРѕРј;
+ *    p_inf_id > 0    : РєРѕРјР°РЅРґР° Р°РґСЂРµСЃРѕРІР°РЅР° РєРѕРЅРєСЂРµС‚РЅРѕРјСѓ РІРёРґСѓ СЃРІРµРґРµРЅРёР№;
+ *    p_inf_id <= 0   : РѕС€РёР±РєР° РєРѕРЅС‚СЂР°РєС‚Р°.
  *
- * Команда определяется парой: inf_id + action
+ * РљРѕРјР°РЅРґР° РѕРїСЂРµРґРµР»СЏРµС‚СЃСЏ РїР°СЂРѕР№: inf_id + action
  *
- * Для глобальной, для всего XXL, команды:    NULL + action
+ * Р”Р»СЏ РіР»РѕР±Р°Р»СЊРЅРѕР№, РґР»СЏ РІСЃРµРіРѕ XXL, РєРѕРјР°РЅРґС‹:    NULL + action
  *
- * Значения параметров команды не записываются в лог.
- * Пишем только ключи, количество и размер XML.
+ * Р—РЅР°С‡РµРЅРёСЏ РїР°СЂР°РјРµС‚СЂРѕРІ РєРѕРјР°РЅРґС‹ РЅРµ Р·Р°РїРёСЃС‹РІР°СЋС‚СЃСЏ РІ Р»РѕРі.
+ * РџРёС€РµРј С‚РѕР»СЊРєРѕ РєР»СЋС‡Рё, РєРѕР»РёС‡РµСЃС‚РІРѕ Рё СЂР°Р·РјРµСЂ XML.
  */
 CREATE PROCEDURE send_Command (
    OUT p_result     MI_resultCtx.exec_Result,
@@ -447,20 +447,20 @@ DECLARE
 
    cAction_Name CONSTANT varchar(50) := cPkg_Name || '.send_Command';
 
-   /* Нормализованные параметры команды. */
+   /* РќРѕСЂРјР°Р»РёР·РѕРІР°РЅРЅС‹Рµ РїР°СЂР°РјРµС‚СЂС‹ РєРѕРјР°РЅРґС‹. */
    l_action     varchar;
    l_parameters jsonb;
    l_scope      varchar(10);
 
    /*
-    * Для безопасного логирования параметров.
-    * Значения параметров не логируются.
+    * Р”Р»СЏ Р±РµР·РѕРїР°СЃРЅРѕРіРѕ Р»РѕРіРёСЂРѕРІР°РЅРёСЏ РїР°СЂР°РјРµС‚СЂРѕРІ.
+    * Р—РЅР°С‡РµРЅРёСЏ РїР°СЂР°РјРµС‚СЂРѕРІ РЅРµ Р»РѕРіРёСЂСѓСЋС‚СЃСЏ.
     */
    l_parameter_keys  text[] := ARRAY[]::text[];
    l_parameter_count integer := 0;
 
    /*
-    * Настройки транспорта.
+    * РќР°СЃС‚СЂРѕР№РєРё С‚СЂР°РЅСЃРїРѕСЂС‚Р°.
     */
    l_gate_alias      varchar;
    l_request_queue   varchar;
@@ -474,7 +474,7 @@ DECLARE
    l_result_x text;
 
    /*
-    * Результат Multi-Bus.
+    * Р РµР·СѓР»СЊС‚Р°С‚ Multi-Bus.
     */
    l_result_info varchar;
    l_result_code numeric;
@@ -487,7 +487,7 @@ DECLARE
 BEGIN
 
    /*
-    * Нормализация входных значений.
+    * РќРѕСЂРјР°Р»РёР·Р°С†РёСЏ РІС…РѕРґРЅС‹С… Р·РЅР°С‡РµРЅРёР№.
     */
    l_action     := lower( btrim(p_action) );
    l_parameters := coalesce( p_parameters, '{}'::jsonb );
@@ -499,7 +499,7 @@ BEGIN
       END;
       
    /*
-    * Безопасно получаем только список ключей.
+    * Р‘РµР·РѕРїР°СЃРЅРѕ РїРѕР»СѓС‡Р°РµРј С‚РѕР»СЊРєРѕ СЃРїРёСЃРѕРє РєР»СЋС‡РµР№.
     */
    IF jsonb_typeof(l_parameters) = 'object' THEN
 
@@ -531,7 +531,7 @@ BEGIN
    );
 
    /*
-    * NULL означает глобальную команду XXL. Нулевые и отрицательные значения запрещены:
+    * NULL РѕР·РЅР°С‡Р°РµС‚ РіР»РѕР±Р°Р»СЊРЅСѓСЋ РєРѕРјР°РЅРґСѓ XXL. РќСѓР»РµРІС‹Рµ Рё РѕС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ Р·Р°РїСЂРµС‰РµРЅС‹:
     */
    IF p_inf_id IS NOT NULL AND p_inf_id <= 0
    THEN
@@ -544,7 +544,7 @@ BEGIN
    END IF;
 
    /*
-    * Action является обязательной частью ключа маршрутизации.
+    * Action СЏРІР»СЏРµС‚СЃСЏ РѕР±СЏР·Р°С‚РµР»СЊРЅРѕР№ С‡Р°СЃС‚СЊСЋ РєР»СЋС‡Р° РјР°СЂС€СЂСѓС‚РёР·Р°С†РёРё.
     */
    IF nullif( l_action, '' ) IS NULL THEN
 
@@ -556,7 +556,7 @@ BEGIN
    END IF;
 
    /*
-    * Параметры команды должны представлять map.
+    * РџР°СЂР°РјРµС‚СЂС‹ РєРѕРјР°РЅРґС‹ РґРѕР»Р¶РЅС‹ РїСЂРµРґСЃС‚Р°РІР»СЏС‚СЊ map.
     */
    IF jsonb_typeof(l_parameters) <> 'object' THEN
 
@@ -575,7 +575,7 @@ BEGIN
    END IF;
 
    /*
-    * Настройки транспорта для команды конкретного inf_id, берутся из xxi.mi_inf.
+    * РќР°СЃС‚СЂРѕР№РєРё С‚СЂР°РЅСЃРїРѕСЂС‚Р° РґР»СЏ РєРѕРјР°РЅРґС‹ РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ inf_id, Р±РµСЂСѓС‚СЃСЏ РёР· xxi.mi_inf.
     */
    IF p_inf_id IS NOT NULL THEN
 
@@ -608,8 +608,8 @@ BEGIN
       END;
 
    /*
-    * Глобальная команда адресована XXL целиком.
-    * Она не связана с записью xxi.mi_inf, используются общие очереди и системные настройки.
+    * Р“Р»РѕР±Р°Р»СЊРЅР°СЏ РєРѕРјР°РЅРґР° Р°РґСЂРµСЃРѕРІР°РЅР° XXL С†РµР»РёРєРѕРј.
+    * РћРЅР° РЅРµ СЃРІСЏР·Р°РЅР° СЃ Р·Р°РїРёСЃСЊСЋ xxi.mi_inf, РёСЃРїРѕР»СЊР·СѓСЋС‚СЃСЏ РѕР±С‰РёРµ РѕС‡РµСЂРµРґРё Рё СЃРёСЃС‚РµРјРЅС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё.
     */
    ELSE
 
@@ -620,7 +620,7 @@ BEGIN
 
    END IF;
 
-   /* Общие настройки транспорта. */
+   /* РћР±С‰РёРµ РЅР°СЃС‚СЂРѕР№РєРё С‚СЂР°РЅСЃРїРѕСЂС‚Р°. */
    IF l_gate_alias IS NULL THEN
       l_gate_alias := MI_prp.get_sys_property( 'MBUS_GATE', cMultiBus_Gate )::varchar;
    END IF;
@@ -630,7 +630,7 @@ BEGIN
    END IF;
 
    /*
-    * Формируем XXLRequest.
+    * Р¤РѕСЂРјРёСЂСѓРµРј XXLRequest.
     */
    SELECT
       xmlserialize(
@@ -670,8 +670,8 @@ BEGIN
       l_send_x;
 
    /*
-    * Полный XML не логируется, поскольку parameters
-    * могут содержать закрытые значения.
+    * РџРѕР»РЅС‹Р№ XML РЅРµ Р»РѕРіРёСЂСѓРµС‚СЃСЏ, РїРѕСЃРєРѕР»СЊРєСѓ parameters
+    * РјРѕРіСѓС‚ СЃРѕРґРµСЂР¶Р°С‚СЊ Р·Р°РєСЂС‹С‚С‹Рµ Р·РЅР°С‡РµРЅРёСЏ.
     */
    CALL MI_logger.variable_Value(
       p_logger_name   => cLogger,
@@ -692,7 +692,7 @@ BEGIN
    );
 
    /*
-    * Синхронный request/reply транспортного уровня.
+    * РЎРёРЅС…СЂРѕРЅРЅС‹Р№ request/reply С‚СЂР°РЅСЃРїРѕСЂС‚РЅРѕРіРѕ СѓСЂРѕРІРЅСЏ.
     */
    CALL cbs_Bus_X.query_Bus_Text(
       cSqueue_name =>l_request_queue::varchar,
@@ -707,7 +707,7 @@ BEGIN
    );
 
    /*
-    * Полный XXLResponse не пишется в диагностический лог.
+    * РџРѕР»РЅС‹Р№ XXLResponse РЅРµ РїРёС€РµС‚СЃСЏ РІ РґРёР°РіРЅРѕСЃС‚РёС‡РµСЃРєРёР№ Р»РѕРі.
     */
    CALL MI_logger.variable_Value(
       p_logger_name =>
@@ -731,8 +731,8 @@ BEGIN
    );
 
    /*
-    * Обработка ошибки Multi-Bus фиксируется сам факт ошибки,
-    * ничего более не делаем - тк не ясно выполнилась в XXL команда или нет
+    * РћР±СЂР°Р±РѕС‚РєР° РѕС€РёР±РєРё Multi-Bus С„РёРєСЃРёСЂСѓРµС‚СЃСЏ СЃР°Рј С„Р°РєС‚ РѕС€РёР±РєРё,
+    * РЅРёС‡РµРіРѕ Р±РѕР»РµРµ РЅРµ РґРµР»Р°РµРј - С‚Рє РЅРµ СЏСЃРЅРѕ РІС‹РїРѕР»РЅРёР»Р°СЃСЊ РІ XXL РєРѕРјР°РЅРґР° РёР»Рё РЅРµС‚
     */
    IF coalesce( l_result_code, ret_Fail ) <> ret_OK
    THEN
@@ -762,7 +762,7 @@ BEGIN
    END IF;
 
    /*
-    * Транспортный вызов завершился успешно, но тело XXLResponse отсутствует.
+    * РўСЂР°РЅСЃРїРѕСЂС‚РЅС‹Р№ РІС‹Р·РѕРІ Р·Р°РІРµСЂС€РёР»СЃСЏ СѓСЃРїРµС€РЅРѕ, РЅРѕ С‚РµР»Рѕ XXLResponse РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚.
     */
    IF nullif( btrim(l_result_x),'') IS NULL
    THEN
@@ -783,7 +783,7 @@ BEGIN
    END IF;
 
    /*
-    * Разбор XXLResponse
+    * Р Р°Р·Р±РѕСЂ XXLResponse
     */
    BEGIN
       p_result := MI_resultCtx.result_from_xml( l_result_x );
@@ -809,7 +809,7 @@ BEGIN
    END;
 
    /*
-    * Результат XXL сохраняется без изменения:
+    * Р РµР·СѓР»СЊС‚Р°С‚ XXL СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ Р±РµР· РёР·РјРµРЅРµРЅРёСЏ:
     */
    p_result.parameters := coalesce( p_result.parameters, '{}'::jsonb ) || jsonb_build_object (
          'scope',       l_scope,
@@ -821,7 +821,7 @@ BEGIN
       );
 
    /*
-    * Итоговый результат XXL.
+    * РС‚РѕРіРѕРІС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚ XXL.
     */
    CALL MI_logger.log_exec_result(
       p_logger_name => cLogger,
@@ -870,8 +870,8 @@ EXCEPTION
          l_error_Text := TS.WhenOthersError( cAction_Name, ex );
 
       /*
-       * Как и send_request, процедура не пробрасывает исключение наружу.
-       * Любая ошибка преобразуется в exec_Result.
+       * РљР°Рє Рё send_request, РїСЂРѕС†РµРґСѓСЂР° РЅРµ РїСЂРѕР±СЂР°СЃС‹РІР°РµС‚ РёСЃРєР»СЋС‡РµРЅРёРµ РЅР°СЂСѓР¶Сѓ.
+       * Р›СЋР±Р°СЏ РѕС€РёР±РєР° РїСЂРµРѕР±СЂР°Р·СѓРµС‚СЃСЏ РІ exec_Result.
        */
       p_result :=
          MI_resultCtx.from_exception( 
@@ -882,9 +882,9 @@ EXCEPTION
          );
 
       /*
-       * MI001 означает структурированную ошибку, сформированную MI_resultCtx.raise_fail.
+       * MI001 РѕР·РЅР°С‡Р°РµС‚ СЃС‚СЂСѓРєС‚СѓСЂРёСЂРѕРІР°РЅРЅСѓСЋ РѕС€РёР±РєСѓ, СЃС„РѕСЂРјРёСЂРѕРІР°РЅРЅСѓСЋ MI_resultCtx.raise_fail.
        *
-       * Для остальных исключений задаётся локальный result_code процедуры.
+       * Р”Р»СЏ РѕСЃС‚Р°Р»СЊРЅС‹С… РёСЃРєР»СЋС‡РµРЅРёР№ Р·Р°РґР°С‘С‚СЃСЏ Р»РѕРєР°Р»СЊРЅС‹Р№ result_code РїСЂРѕС†РµРґСѓСЂС‹.
        */
       IF ex.returned_sqlstate IS DISTINCT FROM 'MI001' THEN
          p_result.is_success := false;
@@ -894,8 +894,8 @@ EXCEPTION
       END IF;
 
       /*
-       * Добавляем контекст независимо от типа исключения.
-       * Значения p_parameters не включаются.
+       * Р”РѕР±Р°РІР»СЏРµРј РєРѕРЅС‚РµРєСЃС‚ РЅРµР·Р°РІРёСЃРёРјРѕ РѕС‚ С‚РёРїР° РёСЃРєР»СЋС‡РµРЅРёСЏ.
+       * Р—РЅР°С‡РµРЅРёСЏ p_parameters РЅРµ РІРєР»СЋС‡Р°СЋС‚СЃСЏ.
        */
       p_result.parameters := coalesce( p_result.parameters, '{}'::jsonb )
          ||
@@ -929,15 +929,15 @@ $procedure$
 
 
 /*
- * Отправка business response в XXL.
+ * РћС‚РїСЂР°РІРєР° business response РІ XXL.
  *
- * Важно:
- *   READY -> можно передавать в XXL
- *   SENT  -> успех, те уже был отправлен, не считаем ошибкой
- *   остальные статусы -> ошибка
+ * Р’Р°Р¶РЅРѕ:
+ *   READY -> РјРѕР¶РЅРѕ РїРµСЂРµРґР°РІР°С‚СЊ РІ XXL
+ *   SENT  -> СѓСЃРїРµС…, С‚Рµ СѓР¶Рµ Р±С‹Р» РѕС‚РїСЂР°РІР»РµРЅ, РЅРµ СЃС‡РёС‚Р°РµРј РѕС€РёР±РєРѕР№
+ *   РѕСЃС‚Р°Р»СЊРЅС‹Рµ СЃС‚Р°С‚СѓСЃС‹ -> РѕС€РёР±РєР°
  *
- * send_Response сам НЕ вызывает MI_Response_Api.to_Sent().
- * После успешной публикации это делает XXL.
+ * send_Response СЃР°Рј РќР• РІС‹Р·С‹РІР°РµС‚ MI_Response_Api.to_Sent().
+ * РџРѕСЃР»Рµ СѓСЃРїРµС€РЅРѕР№ РїСѓР±Р»РёРєР°С†РёРё СЌС‚Рѕ РґРµР»Р°РµС‚ XXL.
  */
 CREATE PROCEDURE send_response (
    IN  p_rsp_id numeric,
@@ -977,7 +977,7 @@ BEGIN
 
 
    /*
-    * Загружаем response + request + transport context.
+    * Р—Р°РіСЂСѓР¶Р°РµРј response + request + transport context.
     */
    BEGIN
 
@@ -1021,7 +1021,7 @@ BEGIN
 
 
    /*
-    * SENT - успех. был отправлен ранее, не считаем ошибкой
+    * SENT - СѓСЃРїРµС…. Р±С‹Р» РѕС‚РїСЂР°РІР»РµРЅ СЂР°РЅРµРµ, РЅРµ СЃС‡РёС‚Р°РµРј РѕС€РёР±РєРѕР№
     */
    IF r_response.status_cd = cRsp_Status_Sent THEN
 
@@ -1046,7 +1046,7 @@ BEGIN
 
 
    /*
-    * В XXL можно отправлять только со статусом READY.
+    * Р’ XXL РјРѕР¶РЅРѕ РѕС‚РїСЂР°РІР»СЏС‚СЊ С‚РѕР»СЊРєРѕ СЃРѕ СЃС‚Р°С‚СѓСЃРѕРј READY.
     */
    IF r_response.status_cd <> cRsp_Status_Ready THEN
 
@@ -1071,12 +1071,12 @@ BEGIN
 
 
    /*
-    * Команда XXL:
+    * РљРѕРјР°РЅРґР° XXL:
     *
     * action       = send
     * message_type = response
     *
-    * external_uuid для response = mi_rsp.rsp_uuid.
+    * external_uuid РґР»СЏ response = mi_rsp.rsp_uuid.
     */
    SELECT xmlserialize(
       content xmlelement(
@@ -1129,7 +1129,7 @@ BEGIN
 
 
    /*
-    * Полный XML в лог не пишем.
+    * РџРѕР»РЅС‹Р№ XML РІ Р»РѕРі РЅРµ РїРёС€РµРј.
     */
    CALL MI_logger.variable_Value(
       p_logger_name   => cLogger,
@@ -1151,7 +1151,7 @@ BEGIN
 
 
    /*
-    * Вызов XXL.
+    * Р’С‹Р·РѕРІ XXL.
     */
    CALL cbs_Bus_X.query_Bus_Text(
       cSqueue_name => r_response.request_queue::varchar,
@@ -1170,7 +1170,7 @@ BEGIN
 
 
    /*
-      Что отправили в mbus
+      Р§С‚Рѕ РѕС‚РїСЂР°РІРёР»Рё РІ mbus
    */
    CALL MI_logger.variable_Value(
       p_logger_name   => cLogger,
@@ -1192,9 +1192,9 @@ BEGIN
 
 
    /*
-    * MBus вернул ошибку
+    * MBus РІРµСЂРЅСѓР» РѕС€РёР±РєСѓ
     *
-    * Статус mi_rsp здесь не трогаем. Ответ остается READY.
+    * РЎС‚Р°С‚СѓСЃ mi_rsp Р·РґРµСЃСЊ РЅРµ С‚СЂРѕРіР°РµРј. РћС‚РІРµС‚ РѕСЃС‚Р°РµС‚СЃСЏ READY.
     */
    IF coalesce(l_result_code, ret_Fail) <> ret_OK THEN
 
@@ -1223,7 +1223,7 @@ BEGIN
    END IF;
 
 
-   -- тело ответа пустое, в конверете ответа из XXL
+   -- С‚РµР»Рѕ РѕС‚РІРµС‚Р° РїСѓСЃС‚РѕРµ, РІ РєРѕРЅРІРµСЂРµС‚Рµ РѕС‚РІРµС‚Р° РёР· XXL
    IF nullif(btrim(l_result_x), '') IS NULL THEN
 
       -- raise -> handle exception
@@ -1242,7 +1242,7 @@ BEGIN
 
    END IF;
 
-   /* Разбираем ответ из XXL */
+   /* Р Р°Р·Р±РёСЂР°РµРј РѕС‚РІРµС‚ РёР· XXL */
    BEGIN
 
       p_result := MI_resultCtx.result_from_xml(l_result_x);
@@ -1269,9 +1269,9 @@ BEGIN
 
 
    /*
-    * to_Sent не делаем!.
+    * to_Sent РЅРµ РґРµР»Р°РµРј!.
     *
-    * Если XXL успешно опубликовал response, он сам вызыет MI_Response_Api.to_Sent(rsp_id).
+    * Р•СЃР»Рё XXL СѓСЃРїРµС€РЅРѕ РѕРїСѓР±Р»РёРєРѕРІР°Р» response, РѕРЅ СЃР°Рј РІС‹Р·С‹РµС‚ MI_Response_Api.to_Sent(rsp_id).
     */
    CALL MI_logger.log_exec_result(
       p_logger_name   => cLogger,
@@ -1296,12 +1296,12 @@ BEGIN
       p_details_text  => jsonb_build_object( 'result_code', p_result.result_code, 'is_success', p_result.is_success, 'call_uuid', l_call_uuid )::text
    );
 
-   -- все обработали, выходим
+   -- РІСЃРµ РѕР±СЂР°Р±РѕС‚Р°Р»Рё, РІС‹С…РѕРґРёРј
 
    RETURN;
 
 EXCEPTION
-   -- если что-то прилетело
+   -- РµСЃР»Рё С‡С‚Рѕ-С‚Рѕ РїСЂРёР»РµС‚РµР»Рѕ
    WHEN OTHERS THEN
    DECLARE
       ex           TS.T_StackedDiagnostics;
@@ -1324,7 +1324,7 @@ EXCEPTION
             p_hint     => ex.pg_exception_hint
          );
 
-      -- наше, "управляемое"
+      -- РЅР°С€Рµ, "СѓРїСЂР°РІР»СЏРµРјРѕРµ"
       IF ex.returned_sqlstate IS DISTINCT FROM 'MI001' THEN
 
          p_result.is_success  := false;
@@ -1334,7 +1334,7 @@ EXCEPTION
 
       END IF;
 
-      -- результат в лог, остальное считаем что XXL сам все разрулит!
+      -- СЂРµР·СѓР»СЊС‚Р°С‚ РІ Р»РѕРі, РѕСЃС‚Р°Р»СЊРЅРѕРµ СЃС‡РёС‚Р°РµРј С‡С‚Рѕ XXL СЃР°Рј РІСЃРµ СЂР°Р·СЂСѓР»РёС‚!
       CALL MI_logger.log_exec_result(
          p_logger_name   => cLogger,
          p_result        => p_result,

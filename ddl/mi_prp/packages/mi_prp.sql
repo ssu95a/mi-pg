@@ -6,7 +6,7 @@ as
 $init$
 declare
    /*
-      Пакет службы свойств
+      РџР°РєРµС‚ СЃР»СѓР¶Р±С‹ СЃРІРѕР№СЃС‚РІ
    */
    cVersion CONSTANT VARCHAR( 100 ) := '$id: {2.0.1} {17.09.2026} Sulimoff$';
 
@@ -35,8 +35,8 @@ $function$
 
 /* */
 create function make_Prpoperty_Name (  
-   in p_objId NUMERIC, -- Id модуля
-   in p_prpId VARCHAR  -- Id свойства    
+   in p_objId NUMERIC, -- Id РјРѕРґСѓР»СЏ
+   in p_prpId VARCHAR  -- Id СЃРІРѕР№СЃС‚РІР°    
 )
    RETURNS
       VARCHAR
@@ -74,10 +74,10 @@ end;
 $function$
 
 
-/* Получение свойства АРМ модуля */
+/* РџРѕР»СѓС‡РµРЅРёРµ СЃРІРѕР№СЃС‚РІР° РђР Рњ РјРѕРґСѓР»СЏ */
 CREATE FUNCTION get_Property (
-  in p_objId    NUMERIC, -- Id модуля
-  in p_prpId    VARCHAR, -- Id свойства    
+  in p_objId    NUMERIC, -- Id РјРѕРґСѓР»СЏ
+  in p_prpId    VARCHAR, -- Id СЃРІРѕР№СЃС‚РІР°    
   in p_defValue VARCHAR DEFAULT NULL::VARCHAR
 )
    RETURNS
@@ -103,11 +103,11 @@ END;
 $function$
 
 
-/* Установка свойства АРМ модуля */
+/* РЈСЃС‚Р°РЅРѕРІРєР° СЃРІРѕР№СЃС‚РІР° РђР Рњ РјРѕРґСѓР»СЏ */
 CREATE PROCEDURE set_Property (
-   in p_objId  NUMERIC, -- Id модуля
-   in p_prpId  VARCHAR, -- Id свойства    
-   in p_value  VARCHAR  -- значение свойства
+   in p_objId  NUMERIC, -- Id РјРѕРґСѓР»СЏ
+   in p_prpId  VARCHAR, -- Id СЃРІРѕР№СЃС‚РІР°    
+   in p_value  VARCHAR  -- Р·РЅР°С‡РµРЅРёРµ СЃРІРѕР№СЃС‚РІР°
 )
 AS
 $procedure$
@@ -119,10 +119,10 @@ END;
 $procedure$
 
 
-/* Получение свойства АРМ модуля */
+/* РџРѕР»СѓС‡РµРЅРёРµ СЃРІРѕР№СЃС‚РІР° РђР Рњ РјРѕРґСѓР»СЏ */
 CREATE FUNCTION get_Wsp_Property (
-  in p_wspId    NUMERIC, -- Id модуля
-  in p_prpId    VARCHAR, -- Id свойства    
+  in p_wspId    NUMERIC, -- Id РјРѕРґСѓР»СЏ
+  in p_prpId    VARCHAR, -- Id СЃРІРѕР№СЃС‚РІР°    
   in p_defValue VARCHAR DEFAULT NULL::VARCHAR
 )
    RETURNS
@@ -138,10 +138,10 @@ END;
 $function$
 
 
-/* Установка свойства АРМ модуля */
+/* РЈСЃС‚Р°РЅРѕРІРєР° СЃРІРѕР№СЃС‚РІР° РђР Рњ РјРѕРґСѓР»СЏ */
 CREATE PROCEDURE set_Wsp_Property (
-  in p_wspId NUMERIC, -- Id модуля
-  in p_prpId VARCHAR, -- Id свойства    
+  in p_wspId NUMERIC, -- Id РјРѕРґСѓР»СЏ
+  in p_prpId VARCHAR, -- Id СЃРІРѕР№СЃС‚РІР°    
   in p_value VARCHAR
 )
 AS
@@ -153,10 +153,10 @@ END;
 $procedure$
 
 
-/* Получение свойства модуля */
+/* РџРѕР»СѓС‡РµРЅРёРµ СЃРІРѕР№СЃС‚РІР° РјРѕРґСѓР»СЏ */
 CREATE FUNCTION get_Inf_Property (
-  in p_infId    NUMERIC, -- Id модуля
-  in p_prpId    VARCHAR, -- Id свойства    
+  in p_infId    NUMERIC, -- Id РјРѕРґСѓР»СЏ
+  in p_prpId    VARCHAR, -- Id СЃРІРѕР№СЃС‚РІР°    
   in p_defValue VARCHAR DEFAULT NULL::VARCHAR
 )
    RETURNS
@@ -174,10 +174,10 @@ END;
 $function$
 
 
-/* Установка свойства модуля */
+/* РЈСЃС‚Р°РЅРѕРІРєР° СЃРІРѕР№СЃС‚РІР° РјРѕРґСѓР»СЏ */
 CREATE PROCEDURE set_Inf_Property (
-  in p_infId NUMERIC, -- Id модуля
-  in p_prpId VARCHAR, -- Id свойства    
+  in p_infId NUMERIC, -- Id РјРѕРґСѓР»СЏ
+  in p_prpId VARCHAR, -- Id СЃРІРѕР№СЃС‚РІР°    
   in p_value VARCHAR
 )
 AS
@@ -189,9 +189,9 @@ END;
 $procedure$
 
 
-/* Получение свойства системы*/
+/* РџРѕР»СѓС‡РµРЅРёРµ СЃРІРѕР№СЃС‚РІР° СЃРёСЃС‚РµРјС‹*/
 CREATE FUNCTION get_Sys_Property (
-  in p_prpId    VARCHAR, -- Id свойства    
+  in p_prpId    VARCHAR, -- Id СЃРІРѕР№СЃС‚РІР°    
   in p_defValue VARCHAR DEFAULT NULL::VARCHAR
 )
    RETURNS
@@ -209,9 +209,9 @@ END;
 $function$
 
 
-/* Установка свойства системы*/
+/* РЈСЃС‚Р°РЅРѕРІРєР° СЃРІРѕР№СЃС‚РІР° СЃРёСЃС‚РµРјС‹*/
 CREATE PROCEDURE set_Sys_Property (
-  in p_prpId VARCHAR, -- Id свойства    
+  in p_prpId VARCHAR, -- Id СЃРІРѕР№СЃС‚РІР°    
   in p_value VARCHAR
 )
 AS

@@ -26,7 +26,7 @@ END;
 $init$
 
 
-/* Версия */
+/* Р’РµСЂСЃРёСЏ */
 CREATE FUNCTION get_Version()
    RETURNS varchar
 AS
@@ -38,7 +38,7 @@ END;
 $function$
 
 
-/* Режимы */
+/* Р РµР¶РёРјС‹ */
 CREATE PROCEDURE enable_Log()
 AS
 $procedure$
@@ -84,7 +84,7 @@ END;
 $procedure$
 
 
-/* rank уровня для сравнения */
+/* rank СѓСЂРѕРІРЅСЏ РґР»СЏ СЃСЂР°РІРЅРµРЅРёСЏ */
 CREATE FUNCTION level_Rank (
    in p_level_cd bpchar
 )
@@ -129,7 +129,7 @@ END;
 $function$
 
 
-/* Получить inf_id по req_id, если p_inf_id не передан */
+/* РџРѕР»СѓС‡РёС‚СЊ inf_id РїРѕ req_id, РµСЃР»Рё p_inf_id РЅРµ РїРµСЂРµРґР°РЅ */
 CREATE PROCEDURE resolve_Id (
    in p_inf_id numeric,
    in p_req_id numeric,
@@ -163,7 +163,7 @@ END;
 $procedure$
 
 
-/* Сформировать строку для RAISE */
+/* РЎС„РѕСЂРјРёСЂРѕРІР°С‚СЊ СЃС‚СЂРѕРєСѓ РґР»СЏ RAISE */
 CREATE FUNCTION build_Message (
    in p_logger_name   varchar,
    in p_level_cd      bpchar,
@@ -203,7 +203,7 @@ END;
 $function$
 
 
-/* Вывод в RAISE */
+/* Р’С‹РІРѕРґ РІ RAISE */
 CREATE PROCEDURE emit_Raise(
    in p_logger_name   varchar,
    in p_level_cd      bpchar,
@@ -257,7 +257,7 @@ END;
 $procedure$
 
 
-/* Автономная вставка в таблицу */
+/* РђРІС‚РѕРЅРѕРјРЅР°СЏ РІСЃС‚Р°РІРєР° РІ С‚Р°Р±Р»РёС†Сѓ */
 CREATE PROCEDURE insert_Row_AT (
    in p_inf_id           numeric,
    in p_wsp_id           numeric,
@@ -398,7 +398,7 @@ BEGIN
       p_logger_name, p_level_cd, p_action_cd, p_message_text, p_context_value, p_req_id, p_itm_Id, p_person_id, p_object_id, p_object_id2, p_details_text 
    );
 
-   -- Если маршрут не определился - в таблицу не пишем, но RAISE уже был
+   -- Р•СЃР»Рё РјР°СЂС€СЂСѓС‚ РЅРµ РѕРїСЂРµРґРµР»РёР»СЃСЏ - РІ С‚Р°Р±Р»РёС†Сѓ РЅРµ РїРёС€РµРј, РЅРѕ RAISE СѓР¶Рµ Р±С‹Р»
    IF l_inf_id IS NULL OR l_wsp_id IS NULL THEN
       RETURN;
    END IF;
@@ -626,9 +626,9 @@ END;
 $procedure$
 
 
-/* сахар */
+/* СЃР°С…Р°СЂ */
 
-/* вход в ф-цию */
+/* РІС…РѕРґ РІ С„-С†РёСЋ */
 CREATE PROCEDURE enter_f (
    in p_logger_name   varchar,
    in p_function_name varchar,
@@ -665,7 +665,7 @@ BEGIN
 END;
 $procedure$
 
-/* выход из ф-ции */
+/* РІС‹С…РѕРґ РёР· С„-С†РёРё */
 CREATE PROCEDURE exit_f(
    in p_logger_name    varchar,
    in p_message_text   varchar default null,
@@ -700,7 +700,7 @@ BEGIN
 END;
 $procedure$
 
-/* метка в коде */
+/* РјРµС‚РєР° РІ РєРѕРґРµ */
 CREATE PROCEDURE label(
    in p_logger_name    varchar,
    in p_message_text   varchar,
@@ -820,8 +820,8 @@ CREATE PROCEDURE log_exec_Result (
    in p_object_id      numeric   default null,
    in p_object_id2     numeric   default null,
 
-   -- Можно переопределить уровень логирования.
-   -- По умолчанию успех = inf, ошибка = err.
+   -- РњРѕР¶РЅРѕ РїРµСЂРµРѕРїСЂРµРґРµР»РёС‚СЊ СѓСЂРѕРІРµРЅСЊ Р»РѕРіРёСЂРѕРІР°РЅРёСЏ.
+   -- РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ СѓСЃРїРµС… = inf, РѕС€РёР±РєР° = err.
    in p_success_level  bpchar    default null,
    in p_error_level    bpchar    default null
 )
@@ -877,8 +877,8 @@ BEGIN
       );
 
    /*
-      context_value короткий varchar(100).
-      По умолчанию кладём result_code.
+      context_value РєРѕСЂРѕС‚РєРёР№ varchar(100).
+      РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РєР»Р°РґС‘Рј result_code.
    */
    l_context_value :=
       left(
@@ -949,9 +949,9 @@ BEGIN
 END;
 $procedure$
 
-/* Чистильщики */
+/* Р§РёСЃС‚РёР»СЊС‰РёРєРё */
 
-/* очищает весь лог */
+/* РѕС‡РёС‰Р°РµС‚ РІРµСЃСЊ Р»РѕРі */
 CREATE PROCEDURE clear_Log()
 AS
 $procedure$

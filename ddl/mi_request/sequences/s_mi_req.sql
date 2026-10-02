@@ -1,4 +1,4 @@
--- Генератор ID для заголовков запроса в СМЭВ
+-- Р“РµРЅРµСЂР°С‚РѕСЂ ID РґР»СЏ Р·Р°РіРѕР»РѕРІРєРѕРІ Р·Р°РїСЂРѕСЃР° РІ РЎРњР­Р’
 -- Sulimoff, 12.03.26
 CREATE SEQUENCE IF NOT EXISTS xxi.s_mi_req START WITH 1 INCREMENT BY 1 MINVALUE 1 CACHE 50 NO CYCLE
 ;

@@ -1,17 +1,17 @@
 CREATE OR REPLACE PACKAGE MI_resultCtx
 
 /*
-Стандарт для ошибок
+РЎС‚Р°РЅРґР°СЂС‚ РґР»СЏ РѕС€РёР±РѕРє
 
-   MVxxx — validation
-   MNxxx — not found
-   MIxxx — integration
-   MXxxx — internal/app error
+   MVxxx вЂ” validation
+   MNxxx вЂ” not found
+   MIxxx вЂ” integration
+   MXxxx вЂ” internal/app error
 
-Принцип:
-   exec_Result содержит только 8 базовых полей.
-   Всё дополнительное: sqlstate, hint, context, app_error_code, version, action —
-   хранится в parameters.
+РџСЂРёРЅС†РёРї:
+   exec_Result СЃРѕРґРµСЂР¶РёС‚ С‚РѕР»СЊРєРѕ 8 Р±Р°Р·РѕРІС‹С… РїРѕР»РµР№.
+   Р’СЃС‘ РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕРµ: sqlstate, hint, context, app_error_code, version, action вЂ”
+   С…СЂР°РЅРёС‚СЃСЏ РІ parameters.
 */
 
 CREATE TYPE MI_resultCtx.exec_Result AS
@@ -30,7 +30,7 @@ CREATE TYPE MI_resultCtx.exec_Result AS
 )
 
 
-/* Инициализация пакета */
+/* РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїР°РєРµС‚Р° */
 CREATE FUNCTION __init__()
     RETURNS void
 AS
@@ -42,8 +42,8 @@ DECLARE
     c_error_code     constant varchar(50)  := 'ERROR';
 
     /*
-      SQLSTATE для структурированных app/integration ошибок,
-      которые потом можно восстановить в exec_Result.
+      SQLSTATE РґР»СЏ СЃС‚СЂСѓРєС‚СѓСЂРёСЂРѕРІР°РЅРЅС‹С… app/integration РѕС€РёР±РѕРє,
+      РєРѕС‚РѕСЂС‹Рµ РїРѕС‚РѕРј РјРѕР¶РЅРѕ РІРѕСЃСЃС‚Р°РЅРѕРІРёС‚СЊ РІ exec_Result.
     */
     c_raise_sqlstate constant varchar(5)   := 'MI001';
 
@@ -53,7 +53,7 @@ END;
 $init$
 
 
-/* Версия */
+/* Р’РµСЂСЃРёСЏ */
 CREATE FUNCTION get_Version()
     RETURNS varchar
 AS
@@ -65,7 +65,7 @@ END;
 $function$
 
 
-/* Нормализация jsonb parameters */
+/* РќРѕСЂРјР°Р»РёР·Р°С†РёСЏ jsonb parameters */
 CREATE FUNCTION normalize_parameters(
     in p_parameters jsonb
 )
@@ -88,10 +88,10 @@ END;
 $function$
 
 
-/* Успешный результат */
+/* РЈСЃРїРµС€РЅС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚ */
 CREATE FUNCTION success(
     in p_code       varchar default null,
-    in p_info       varchar default 'Завершено успешно',
+    in p_info       varchar default 'Р—Р°РІРµСЂС€РµРЅРѕ СѓСЃРїРµС€РЅРѕ',
     in p_details    text    default null,
     in p_parameters jsonb   default null
 )
@@ -103,7 +103,7 @@ BEGIN
     RETURN ROW(
         true,
         left(coalesce(p_code, c_ok_code), 200)::varchar(200),
-        left(coalesce(p_info, 'Завершено успешно'), 1000)::varchar(1000),
+        left(coalesce(p_info, 'Р—Р°РІРµСЂС€РµРЅРѕ СѓСЃРїРµС€РЅРѕ'), 1000)::varchar(1000),
         p_details,
 
         null::varchar(200),
@@ -117,12 +117,12 @@ $function$
 
 
 /*
-  Синоним для success.
-  Удобно, если в коде хочется писать MI_resultCtx.ok(...)
+  РЎРёРЅРѕРЅРёРј РґР»СЏ success.
+  РЈРґРѕР±РЅРѕ, РµСЃР»Рё РІ РєРѕРґРµ С…РѕС‡РµС‚СЃСЏ РїРёСЃР°С‚СЊ MI_resultCtx.ok(...)
 */
 CREATE FUNCTION ok(
     in p_result_code varchar default null,
-    in p_result_info varchar default 'Завершено успешно',
+    in p_result_info varchar default 'Р—Р°РІРµСЂС€РµРЅРѕ СѓСЃРїРµС€РЅРѕ',
     in p_details     text    default null,
     in p_parameters  jsonb   default null
 )
@@ -141,10 +141,10 @@ END;
 $function$
 
 
-/* Неуспешный результат */
+/* РќРµСѓСЃРїРµС€РЅС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚ */
 CREATE FUNCTION failure(
     in p_code          varchar default null,
-    in p_info          varchar default 'Завершено неудачно',
+    in p_info          varchar default 'Р—Р°РІРµСЂС€РµРЅРѕ РЅРµСѓРґР°С‡РЅРѕ',
     in p_details       text    default null,
     in p_parameters    jsonb   default null,
 
@@ -160,7 +160,7 @@ BEGIN
     RETURN ROW(
         false,
         left(coalesce(p_code, c_error_code), 200)::varchar(200),
-        left(coalesce(p_info, 'Завершено неудачно'), 1000)::varchar(1000),
+        left(coalesce(p_info, 'Р—Р°РІРµСЂС€РµРЅРѕ РЅРµСѓРґР°С‡РЅРѕ'), 1000)::varchar(1000),
         p_details,
         left(p_cause_code, 200)::varchar(200),
         left(p_cause_info, 1000)::varchar(1000),
@@ -172,12 +172,12 @@ $function$
 
 
 /*
-  Синоним для failure.
-  Удобно, если в коде хочется писать MI_resultCtx.fail(...)
+  РЎРёРЅРѕРЅРёРј РґР»СЏ failure.
+  РЈРґРѕР±РЅРѕ, РµСЃР»Рё РІ РєРѕРґРµ С…РѕС‡РµС‚СЃСЏ РїРёСЃР°С‚СЊ MI_resultCtx.fail(...)
 */
 CREATE FUNCTION fail(
     in p_result_code   varchar default null,
-    in p_result_info   varchar default 'Завершено неудачно',
+    in p_result_info   varchar default 'Р—Р°РІРµСЂС€РµРЅРѕ РЅРµСѓРґР°С‡РЅРѕ',
     in p_details       text    default null,
     in p_parameters    jsonb   default null,
 
@@ -203,12 +203,12 @@ $function$
 
 
 /*
-  Сформировать exec_Result из текущей ошибки.
-  Вызывать только внутри EXCEPTION-блока.
+  РЎС„РѕСЂРјРёСЂРѕРІР°С‚СЊ exec_Result РёР· С‚РµРєСѓС‰РµР№ РѕС€РёР±РєРё.
+  Р’С‹Р·С‹РІР°С‚СЊ С‚РѕР»СЊРєРѕ РІРЅСѓС‚СЂРё EXCEPTION-Р±Р»РѕРєР°.
 */
 CREATE FUNCTION from_current_error(
     in p_code       varchar default null,
-    in p_info       varchar default 'Операция завершилась ошибкой',
+    in p_info       varchar default 'РћРїРµСЂР°С†РёСЏ Р·Р°РІРµСЂС€РёР»Р°СЃСЊ РѕС€РёР±РєРѕР№',
     in p_details    text    default null,
     in p_parameters jsonb   default null
 )
@@ -334,8 +334,8 @@ $function$
 
 
 /*
-  Достаёт локализованный текст из системы ML2.
-  Пока stub.
+  Р”РѕСЃС‚Р°С‘С‚ Р»РѕРєР°Р»РёР·РѕРІР°РЅРЅС‹Р№ С‚РµРєСЃС‚ РёР· СЃРёСЃС‚РµРјС‹ ML2.
+  РџРѕРєР° stub.
 */
 CREATE PROCEDURE resolve_Error_Text(
     in  p_app_error_code varchar,
@@ -362,9 +362,9 @@ $procedure$
 
 
 /*
-  Бросить структурированную ошибку в формате exec_Result.
+  Р‘СЂРѕСЃРёС‚СЊ СЃС‚СЂСѓРєС‚СѓСЂРёСЂРѕРІР°РЅРЅСѓСЋ РѕС€РёР±РєСѓ РІ С„РѕСЂРјР°С‚Рµ exec_Result.
 
-  Важно:
+  Р’Р°Р¶РЅРѕ:
     MESSAGE = result_code
     DETAIL  = JSON exec_Result
     HINT    = result_info
@@ -372,7 +372,7 @@ $procedure$
 */
 CREATE PROCEDURE raise_failure(
     in p_code          varchar default null,
-    in p_info          varchar default 'Завершено неудачно',
+    in p_info          varchar default 'Р—Р°РІРµСЂС€РµРЅРѕ РЅРµСѓРґР°С‡РЅРѕ',
     in p_details       text    default null,
     in p_parameters    jsonb   default null,
 
@@ -408,12 +408,12 @@ $procedure$
 
 
 /*
-  Alias для raise_failure.
-  Под стиль кода: MI_resultCtx.raise_fail(...)
+  Alias РґР»СЏ raise_failure.
+  РџРѕРґ СЃС‚РёР»СЊ РєРѕРґР°: MI_resultCtx.raise_fail(...)
 */
 CREATE PROCEDURE raise_fail(
     in p_result_code   varchar default null,
-    in p_result_info   varchar default 'Завершено неудачно',
+    in p_result_info   varchar default 'Р—Р°РІРµСЂС€РµРЅРѕ РЅРµСѓРґР°С‡РЅРѕ',
     in p_details       text    default null,
     in p_parameters    jsonb   default null,
 
@@ -442,9 +442,9 @@ $procedure$
 
 
 /*
-  Главный бросатель app-error.
-  Оставлен для совместимости с app-code подходом.
-  Внутри теперь тоже бросает DETAIL в формате exec_Result.
+  Р“Р»Р°РІРЅС‹Р№ Р±СЂРѕСЃР°С‚РµР»СЊ app-error.
+  РћСЃС‚Р°РІР»РµРЅ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё СЃ app-code РїРѕРґС…РѕРґРѕРј.
+  Р’РЅСѓС‚СЂРё С‚РµРїРµСЂСЊ С‚РѕР¶Рµ Р±СЂРѕСЃР°РµС‚ DETAIL РІ С„РѕСЂРјР°С‚Рµ exec_Result.
 */
 CREATE PROCEDURE raise_app_error(
     in p_app_error_code varchar,
@@ -482,7 +482,7 @@ $procedure$
 
 
 /*
-  Бросить ошибку из exec_Result.
+  Р‘СЂРѕСЃРёС‚СЊ РѕС€РёР±РєСѓ РёР· exec_Result.
 */
 CREATE PROCEDURE raise_Error(
     in p_result         MI_resultCtx.exec_Result,
@@ -505,12 +505,12 @@ $procedure$
 
 
 /*
-  Восстановить exec_Result из пойманного exception.
+  Р’РѕСЃСЃС‚Р°РЅРѕРІРёС‚СЊ exec_Result РёР· РїРѕР№РјР°РЅРЅРѕРіРѕ exception.
 
-  Логика:
-    1. Если SQLSTATE = MI001 и DETAIL содержит JSON exec_Result,
-       возвращаем его.
-    2. Иначе собираем failure из диагностик исключения.
+  Р›РѕРіРёРєР°:
+    1. Р•СЃР»Рё SQLSTATE = MI001 Рё DETAIL СЃРѕРґРµСЂР¶РёС‚ JSON exec_Result,
+       РІРѕР·РІСЂР°С‰Р°РµРј РµРіРѕ.
+    2. РРЅР°С‡Рµ СЃРѕР±РёСЂР°РµРј failure РёР· РґРёР°РіРЅРѕСЃС‚РёРє РёСЃРєР»СЋС‡РµРЅРёСЏ.
 */
 CREATE FUNCTION from_exception(
     in p_sqlstate text,
@@ -600,23 +600,23 @@ $function$
 
 
 /*
-  Разбор XXLResponse XML -> exec_Result.
+  Р Р°Р·Р±РѕСЂ XXLResponse XML -> exec_Result.
 
-  Ожидаемый XML:
+  РћР¶РёРґР°РµРјС‹Р№ XML:
 
   <XXLResponse
       version="1.0"
       action="send"
       is_success="true"
       result_code="SEND_PUBLISHED"
-      result_info="Контейнер опубликован">
+      result_info="РљРѕРЅС‚РµР№РЅРµСЂ РѕРїСѓР±Р»РёРєРѕРІР°РЅ">
       <details>...</details>
       <cause_details>...</cause_details>
       <parameters><![CDATA[{...}]]></parameters>
   </XXLResponse>
 
-  version/action не входят в exec_Result напрямую.
-  Они добавляются в parameters.
+  version/action РЅРµ РІС…РѕРґСЏС‚ РІ exec_Result РЅР°РїСЂСЏРјСѓСЋ.
+  РћРЅРё РґРѕР±Р°РІР»СЏСЋС‚СЃСЏ РІ parameters.
 */
 CREATE FUNCTION result_From_Xml(
    in p_xml text
@@ -675,9 +675,9 @@ BEGIN
    l_action  := nullif(btrim(l_row.action_txt), '');
 
    /*
-      Если version есть — проверяем.
-      Если version отсутствует — не падаем, чтобы не ломать старые ответы,
-      но кладём это в parameters.
+      Р•СЃР»Рё version РµСЃС‚СЊ вЂ” РїСЂРѕРІРµСЂСЏРµРј.
+      Р•СЃР»Рё version РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚ вЂ” РЅРµ РїР°РґР°РµРј, С‡С‚РѕР±С‹ РЅРµ Р»РѕРјР°С‚СЊ СЃС‚Р°СЂС‹Рµ РѕС‚РІРµС‚С‹,
+      РЅРѕ РєР»Р°РґС‘Рј СЌС‚Рѕ РІ parameters.
    */
    IF l_version IS NOT NULL AND l_version IS DISTINCT FROM '1.0' THEN
       RAISE EXCEPTION 'Unsupported XXLResponse version "%"', l_version;

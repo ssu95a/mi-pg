@@ -7,9 +7,9 @@ CREATE TABLE xxi.mi_p2i
 )
 TABLESPACE users
 ;
-COMMENT ON TABLE xxi.mi_p2i IS 'Связь person и видами сведений'
+COMMENT ON TABLE xxi.mi_p2i IS 'РЎРІСЏР·СЊ person Рё РІРёРґР°РјРё СЃРІРµРґРµРЅРёР№'
 ;
-COMMENT ON COLUMN xxi.mi_p2i.linked_at IS 'Когда была сформирована связь'
+COMMENT ON COLUMN xxi.mi_p2i.linked_at IS 'РљРѕРіРґР° Р±С‹Р»Р° СЃС„РѕСЂРјРёСЂРѕРІР°РЅР° СЃРІСЏР·СЊ'
 ;
 ALTER TABLE xxi.mi_p2i OWNER TO "XXI"
 ;

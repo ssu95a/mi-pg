@@ -23,7 +23,7 @@ END;
 $init$
 
 
-/* Версия */
+/* Р’РµСЂСЃРёСЏ */
 CREATE FUNCTION get_Version()
    RETURNS 
       varchar
@@ -39,8 +39,8 @@ $function$
 
 
 /*
-   Создать request для 0001.
-   Wrap поверх ф-ции из mi_request_Api
+   РЎРѕР·РґР°С‚СЊ request РґР»СЏ 0001.
+   Wrap РїРѕРІРµСЂС… С„-С†РёРё РёР· mi_request_Api
 */
 CREATE FUNCTION create_Request ( 
    in p_inf_Id NUMERIC DEFAULT 12::NUMERIC 
@@ -58,7 +58,7 @@ $function$
 
 
 /*
-   Создать item 0001
+   РЎРѕР·РґР°С‚СЊ item 0001
 */
 CREATE FUNCTION create_Item (
    in p_req_id    numeric,
@@ -107,7 +107,7 @@ $function$
 
 
 /*
-   Вывод в лог инфы о подготовке данных о клиентах
+   Р’С‹РІРѕРґ РІ Р»РѕРі РёРЅС„С‹ Рѕ РїРѕРґРіРѕС‚РѕРІРєРµ РґР°РЅРЅС‹С… Рѕ РєР»РёРµРЅС‚Р°С…
 */
 create procedure log_Auto (
    in p_message   varchar,
@@ -132,7 +132,7 @@ $procedure$
 
 
 /* 
-   Построить json-person из параметров
+   РџРѕСЃС‚СЂРѕРёС‚СЊ json-person РёР· РїР°СЂР°РјРµС‚СЂРѕРІ
 */
 CREATE FUNCTION build_Json_Person (
    in p_cus xxi.v_mi_0001_ca
@@ -169,7 +169,7 @@ $function$
 
 
 /*
-   Проверка данных клиента для массовой отправки
+   РџСЂРѕРІРµСЂРєР° РґР°РЅРЅС‹С… РєР»РёРµРЅС‚Р° РґР»СЏ РјР°СЃСЃРѕРІРѕР№ РѕС‚РїСЂР°РІРєРё
 */
 create procedure check_4_Prepare (
     in p_cus              xxi.v_mi_0001_ca,
@@ -218,30 +218,30 @@ begin
       l_nCount := l_nCount + 1;
 
       IF r.status_Cd = 0 then
-         -- уже есть подготовленный запрос по данному клиенту, но еще не принят в обработку службой отправки
+         -- СѓР¶Рµ РµСЃС‚СЊ РїРѕРґРіРѕС‚РѕРІР»РµРЅРЅС‹Р№ Р·Р°РїСЂРѕСЃ РїРѕ РґР°РЅРЅРѕРјСѓ РєР»РёРµРЅС‚Сѓ, РЅРѕ РµС‰Рµ РЅРµ РїСЂРёРЅСЏС‚ РІ РѕР±СЂР°Р±РѕС‚РєСѓ СЃР»СѓР¶Р±РѕР№ РѕС‚РїСЂР°РІРєРё
          l_doCreate    := FALSE;
-         p_result_Info := 'Для клиента ' || p_cus.icusnum || ' уже есть подготовленный запрос по данному клиенту, но еще не принят в обработку службой отправки';   
+         p_result_Info := 'Р”Р»СЏ РєР»РёРµРЅС‚Р° ' || p_cus.icusnum || ' СѓР¶Рµ РµСЃС‚СЊ РїРѕРґРіРѕС‚РѕРІР»РµРЅРЅС‹Р№ Р·Р°РїСЂРѕСЃ РїРѕ РґР°РЅРЅРѕРјСѓ РєР»РёРµРЅС‚Сѓ, РЅРѕ РµС‰Рµ РЅРµ РїСЂРёРЅСЏС‚ РІ РѕР±СЂР°Р±РѕС‚РєСѓ СЃР»СѓР¶Р±РѕР№ РѕС‚РїСЂР°РІРєРё';   
 
       elsif r.status_Cd = 1 AND r.iRes_Code IS NULL then
-         -- есть успешно выполненный запрос, но не перенесен в ИНН в каталог клиентов
+         -- РµСЃС‚СЊ СѓСЃРїРµС€РЅРѕ РІС‹РїРѕР»РЅРµРЅРЅС‹Р№ Р·Р°РїСЂРѕСЃ, РЅРѕ РЅРµ РїРµСЂРµРЅРµСЃРµРЅ РІ РРќРќ РІ РєР°С‚Р°Р»РѕРі РєР»РёРµРЅС‚РѕРІ
          l_doCreate    := FALSE;
-         p_result_Info := 'Для клиента ' || p_cus.icusnum || ' есть успешно выполненный запрос, но не перенесен в ИНН в каталог клиентов';
+         p_result_Info := 'Р”Р»СЏ РєР»РёРµРЅС‚Р° ' || p_cus.icusnum || ' РµСЃС‚СЊ СѓСЃРїРµС€РЅРѕ РІС‹РїРѕР»РЅРµРЅРЅС‹Р№ Р·Р°РїСЂРѕСЃ, РЅРѕ РЅРµ РїРµСЂРµРЅРµСЃРµРЅ РІ РРќРќ РІ РєР°С‚Р°Р»РѕРі РєР»РёРµРЅС‚РѕРІ';
 
       elsif r.status_Cd = 1 AND r.ires_code = 1 then
          
          if not p_handle_Not_Found then
 
             l_doCreate    := FALSE;
-            p_result_Info := 'Для клиента ' || p_cus.icusnum || ' есть запрос со статусом "Сведения не найдены"';
+            p_result_Info := 'Р”Р»СЏ РєР»РёРµРЅС‚Р° ' || p_cus.icusnum || ' РµСЃС‚СЊ Р·Р°РїСЂРѕСЃ СЃРѕ СЃС‚Р°С‚СѓСЃРѕРј "РЎРІРµРґРµРЅРёСЏ РЅРµ РЅР°Р№РґРµРЅС‹"';
 
          end if;      
             
       elsif r.status_Cd IN ( 2, 3 ) then
-         -- есть запрос в обработке, но если он долго висит, то формируем новый
+         -- РµСЃС‚СЊ Р·Р°РїСЂРѕСЃ РІ РѕР±СЂР°Р±РѕС‚РєРµ, РЅРѕ РµСЃР»Рё РѕРЅ РґРѕР»РіРѕ РІРёСЃРёС‚, С‚Рѕ С„РѕСЂРјРёСЂСѓРµРј РЅРѕРІС‹Р№
          if ( round( current_timestamp - r.created_At, 0 ) * 24 ) > p_wait_Hour_Range then
 
             call MI_0001_Api.log_Auto (  
-               'Для клиента ' || p_cus.icusnum || ' удаляем подвисший запрос', r.person_Id, p_cus.icusnum
+               'Р”Р»СЏ РєР»РёРµРЅС‚Р° ' || p_cus.icusnum || ' СѓРґР°Р»СЏРµРј РїРѕРґРІРёСЃС€РёР№ Р·Р°РїСЂРѕСЃ', r.person_Id, p_cus.icusnum
             );
 
             p_ids4Remove := array_append(p_ids4Remove, r.itm_Id );
@@ -253,7 +253,7 @@ begin
       elsif r.status_Cd = -1 then
             
             call MI_0001_Api.log_Auto (  
-               'Для клиента ' || p_cus.icusnum || ' удаляем ошибочный запрос', r.person_Id, p_cus.icusnum
+               'Р”Р»СЏ РєР»РёРµРЅС‚Р° ' || p_cus.icusnum || ' СѓРґР°Р»СЏРµРј РѕС€РёР±РѕС‡РЅС‹Р№ Р·Р°РїСЂРѕСЃ', r.person_Id, p_cus.icusnum
             );
 
             p_ids4Remove := array_append( p_ids4Remove, r.itm_Id );
@@ -273,26 +273,26 @@ begin
    IF l_ncount > 0 THEN
 
       call MI_0001_Api.log_Auto (  
-         'Для клиента ' || p_cus.icusnum || ' было ' || l_ncount || ' записей запросов', null::numeric, p_cus.icusnum
+         'Р”Р»СЏ РєР»РёРµРЅС‚Р° ' || p_cus.icusnum || ' Р±С‹Р»Рѕ ' || l_ncount || ' Р·Р°РїРёСЃРµР№ Р·Р°РїСЂРѕСЃРѕРІ', null::numeric, p_cus.icusnum
       );
 
    END IF;
 
    IF l_doCreate THEN
-      -- если не корректные Имя или Фамилия
-      -- пишем в лог и не обрабатываем
+      -- РµСЃР»Рё РЅРµ РєРѕСЂСЂРµРєС‚РЅС‹Рµ РРјСЏ РёР»Рё Р¤Р°РјРёР»РёСЏ
+      -- РїРёС€РµРј РІ Р»РѕРі Рё РЅРµ РѕР±СЂР°Р±Р°С‚С‹РІР°РµРј
       IF p_cus.last_name IS NULL OR p_cus.first_name IS NULL THEN
-         p_result_Info := 'У клиента ' || p_cus.icusnum || ' не заполнены Фамилия или Имя';
+         p_result_Info := 'РЈ РєР»РёРµРЅС‚Р° ' || p_cus.icusnum || ' РЅРµ Р·Р°РїРѕР»РЅРµРЅС‹ Р¤Р°РјРёР»РёСЏ РёР»Рё РРјСЏ';
          l_doCreate    := FALSE;
       END IF;
 
       IF p_cus.birth_date IS NULL THEN
-         p_result_Info :=  'У клиента ' || p_cus.icusnum || ' не заполнена Дата рождения';
+         p_result_Info :=  'РЈ РєР»РёРµРЅС‚Р° ' || p_cus.icusnum || ' РЅРµ Р·Р°РїРѕР»РЅРµРЅР° Р”Р°С‚Р° СЂРѕР¶РґРµРЅРёСЏ';
          l_doCreate    := FALSE;
       END IF;
 
       IF p_cus.doc_type_code IS NULL OR p_cus.DOC_NUM IS NULL THEN
-         p_result_Info := 'У клиента ' || p_cus.icusnum || ' не заполнен Вид документа или Номер документа';
+         p_result_Info := 'РЈ РєР»РёРµРЅС‚Р° ' || p_cus.icusnum || ' РЅРµ Р·Р°РїРѕР»РЅРµРЅ Р’РёРґ РґРѕРєСѓРјРµРЅС‚Р° РёР»Рё РќРѕРјРµСЂ РґРѕРєСѓРјРµРЅС‚Р°';
          l_doCreate    := FALSE;
       END IF;
 
@@ -317,7 +317,7 @@ $procedure$
 
 
 /* 
-   Запись в запрос
+   Р—Р°РїРёСЃСЊ РІ Р·Р°РїСЂРѕСЃ
 */
 create function create_Item (
    in p_inf_Id numeric,
@@ -360,7 +360,7 @@ BEGIN
 
       call MI_logger.info ( 
          p_logger_name  => cLogger_Auto, 
-         p_message_text => 'Для клиента удалено ' || array_length( p_ids4Remove, 1) || ' старых записей', 
+         p_message_text => 'Р”Р»СЏ РєР»РёРµРЅС‚Р° СѓРґР°Р»РµРЅРѕ ' || array_length( p_ids4Remove, 1) || ' СЃС‚Р°СЂС‹С… Р·Р°РїРёСЃРµР№', 
          p_details_text => 'mi_0001.itm_id: ' || p_ids4Remove,
          p_inf_id       => p_inf_Id, 
          p_action_cd    => 'create_Item', 
@@ -376,7 +376,7 @@ $function$
 
 
 /*
-   Автоматический сбор и подготовка клиентов без ИНН для отправки
+   РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРёР№ СЃР±РѕСЂ Рё РїРѕРґРіРѕС‚РѕРІРєР° РєР»РёРµРЅС‚РѕРІ Р±РµР· РРќРќ РґР»СЏ РѕС‚РїСЂР°РІРєРё
 */
 create procedure auto_Prepare ( 
    in p_publish_Mbus boolean DEFAULT false
@@ -406,7 +406,7 @@ declare
 
 begin
 
-   -- блокирование
+   -- Р±Р»РѕРєРёСЂРѕРІР°РЅРёРµ
    declare
       l_lock_Code int4;
       l_lock_Info varchar;
@@ -497,7 +497,7 @@ END;
 $procedure$
 
 
-/* Создает персональный запрос для получения ИНН для физ лица */
+/* РЎРѕР·РґР°РµС‚ РїРµСЂСЃРѕРЅР°Р»СЊРЅС‹Р№ Р·Р°РїСЂРѕСЃ РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ РРќРќ РґР»СЏ С„РёР· Р»РёС†Р° */
 create procedure create_Personal_Request (
    in p_cus    xxi.v_mi_0001_ca,
   out p_req_Id numeric,
@@ -556,7 +556,7 @@ end;
 $procedure$ 
 
 
-/* Раскладка payLoad по таблицам */
+/* Р Р°СЃРєР»Р°РґРєР° payLoad РїРѕ С‚Р°Р±Р»РёС†Р°Рј */
 CREATE FUNCTION map_Item_Result (
    in p_itm_Id  numeric(12),
    in p_payload jsonb
@@ -577,7 +577,7 @@ begin
    l_valInn := l_payload ->> 'innPhP';
 
    if l_valInn is null then
-      l_result.cRes_info := 'Данные не найдены';
+      l_result.cRes_info := 'Р”Р°РЅРЅС‹Рµ РЅРµ РЅР°Р№РґРµРЅС‹';
       l_result.iRes_Code := 1; -- 'NO_DATA_FOUND';
    end if;
 

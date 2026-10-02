@@ -6,7 +6,7 @@ CREATE TYPE Item_Result AS (
 )
 
 
-/* Инициализация пакета */
+/* РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїР°РєРµС‚Р° */
 CREATE FUNCTION __init__()
     RETURNS void
 AS
@@ -27,7 +27,7 @@ END;
 $init$
 
 
-/* Версия */
+/* Р’РµСЂСЃРёСЏ */
 CREATE FUNCTION get_Version()
     RETURNS varchar
 AS
@@ -71,7 +71,7 @@ END;
 $procedure$
 
 
-/* Закрывает запрос если все итемы закрыты */
+/* Р—Р°РєСЂС‹РІР°РµС‚ Р·Р°РїСЂРѕСЃ РµСЃР»Рё РІСЃРµ РёС‚РµРјС‹ Р·Р°РєСЂС‹С‚С‹ */
 CREATE PROCEDURE try_Complete_Request (
    in  p_item_table regclass,
    in  p_req_id     numeric,
@@ -212,7 +212,7 @@ BEGIN
    IF l_current_message_uuid IS NOT NULL 
    THEN
 
-      -- пытаемся завершить весь запрос, если вдруг не 
+      -- РїС‹С‚Р°РµРјСЃСЏ Р·Р°РІРµСЂС€РёС‚СЊ РІРµСЃСЊ Р·Р°РїСЂРѕСЃ, РµСЃР»Рё РІРґСЂСѓРі РЅРµ 
       call MI_Item_Result_Api.try_Complete_Request( p_item_Table, l_req_Id, l_row_Count );
 
       IF l_current_message_uuid = p_message_uuid THEN
@@ -237,7 +237,7 @@ BEGIN
          RETURN;
       END IF;
 
-      -- разбор PayLoad
+      -- СЂР°Р·Р±РѕСЂ PayLoad
       call MI_Item_Result_Api.parse_Json_Payload( p_payload_text, l_payload, p_ret_code, p_ret_info );
       
       if p_ret_code <> ret_OK then
@@ -245,7 +245,7 @@ BEGIN
       end if;
 
 
-      -- мапинг pyload 
+      -- РјР°РїРёРЅРі pyload 
       BEGIN
 
          EXECUTE format( 'SELECT * FROM %s($1,$2)', p_payload_Mapper )
@@ -312,7 +312,7 @@ BEGIN
       RETURN;
    END IF;
 
-   -- пытаемся завершить весь запрос 
+   -- РїС‹С‚Р°РµРјСЃСЏ Р·Р°РІРµСЂС€РёС‚СЊ РІРµСЃСЊ Р·Р°РїСЂРѕСЃ 
    call MI_Item_Result_Api.try_Complete_Request( p_item_Table, l_req_Id, l_row_Count );
 
    if l_row_Count = 1 then

@@ -7,7 +7,7 @@ $init$
    #import MI_logger
 DECLARE
    /*
-      Общая логика response для mi_rsp/mi_req
+      РћР±С‰Р°СЏ Р»РѕРіРёРєР° response РґР»СЏ mi_rsp/mi_req
    */
    cVersion       CONSTANT varchar(100) := '$id: {0.0.1} {16.08.2026}$';
    cLogger        CONSTANT varchar(20 ) := 'mi.rsp'; 
@@ -27,7 +27,7 @@ END;
 $init$
 
 
-/* Версия */
+/* Р’РµСЂСЃРёСЏ */
 CREATE FUNCTION get_Version()
    RETURNS 
       VARCHAR
@@ -42,7 +42,7 @@ END;
 $function$
 
 
-/* Id для ответа */
+/* Id РґР»СЏ РѕС‚РІРµС‚Р° */
 CREATE FUNCTION next_Rsp_Id()
    RETURNS numeric
 AS
@@ -54,7 +54,7 @@ END;
 $function$
 
 
-/* Создает ответ на запрос */
+/* РЎРѕР·РґР°РµС‚ РѕС‚РІРµС‚ РЅР° Р·Р°РїСЂРѕСЃ */
 CREATE FUNCTION create_Response (
    
    IN p_req_id        numeric,
@@ -100,7 +100,7 @@ BEGIN
 
    CALL MI_logger.info(
       p_logger_name   => cLogger,
-      p_message_text  => 'Сформирован ответ на позицию запроса',
+      p_message_text  => 'РЎС„РѕСЂРјРёСЂРѕРІР°РЅ РѕС‚РІРµС‚ РЅР° РїРѕР·РёС†РёСЋ Р·Р°РїСЂРѕСЃР°',
       p_inf_id        => NULL::numeric,
       p_req_id        => p_req_id,
       p_itm_id        => p_itm_id,
@@ -115,7 +115,7 @@ END;
 $function$
 
 
-/* Изменить статус ответа на готов к отправке */
+/* РР·РјРµРЅРёС‚СЊ СЃС‚Р°С‚СѓСЃ РѕС‚РІРµС‚Р° РЅР° РіРѕС‚РѕРІ Рє РѕС‚РїСЂР°РІРєРµ */
 CREATE PROCEDURE to_Ready (
    in  p_rsp_id   numeric,
    out p_res_Code int4,
@@ -151,7 +151,7 @@ BEGIN
 
       CALL MI_logger.info (
          p_logger_name   => cLogger,
-         p_message_text  => 'Ответ готов к отправке',
+         p_message_text  => 'РћС‚РІРµС‚ РіРѕС‚РѕРІ Рє РѕС‚РїСЂР°РІРєРµ',
          p_inf_id        => NULL::numeric,
          p_req_id        => l_req_id,
          p_itm_id        => l_itm_id,
@@ -175,18 +175,18 @@ BEGIN
     WHERE r.rsp_id = p_rsp_id;
 
    IF NOT FOUND THEN
-      p_res_Info := 'Не найден ответ с rsp_id = ' || p_rsp_id;
+      p_res_Info := 'РќРµ РЅР°Р№РґРµРЅ РѕС‚РІРµС‚ СЃ rsp_id = ' || p_rsp_id;
 
    ELSIF l_prev_status_cd = cStatus_Ready THEN
-         p_res_Info := 'Невозможно перевести ответ в статус "Готов". Ответ уже находится в статусе "Готов".';
+         p_res_Info := 'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё РѕС‚РІРµС‚ РІ СЃС‚Р°С‚СѓСЃ "Р“РѕС‚РѕРІ". РћС‚РІРµС‚ СѓР¶Рµ РЅР°С…РѕРґРёС‚СЃСЏ РІ СЃС‚Р°С‚СѓСЃРµ "Р“РѕС‚РѕРІ".';
 
    ELSIF l_prev_status_cd = cStatus_Sent THEN
-         p_res_Info := 'Невозможно перевести ответ в статус "Готов". Ответ уже успешно отправлен.';
+         p_res_Info := 'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё РѕС‚РІРµС‚ РІ СЃС‚Р°С‚СѓСЃ "Р“РѕС‚РѕРІ". РћС‚РІРµС‚ СѓР¶Рµ СѓСЃРїРµС€РЅРѕ РѕС‚РїСЂР°РІР»РµРЅ.';
 
    ELSIF l_prev_status_cd = cStatus_Error THEN
-         p_res_Info := 'Невозможно перевести ответ в статус "Готов". Ответ находится в ошибочном статусе.';
+         p_res_Info := 'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё РѕС‚РІРµС‚ РІ СЃС‚Р°С‚СѓСЃ "Р“РѕС‚РѕРІ". РћС‚РІРµС‚ РЅР°С…РѕРґРёС‚СЃСЏ РІ РѕС€РёР±РѕС‡РЅРѕРј СЃС‚Р°С‚СѓСЃРµ.';
    ELSE
-         p_res_Info := 'Невозможно перевести ответ в статус "Готов". Текущий статус: ' || coalesce(l_prev_status_cd::varchar, '<NULL>');
+         p_res_Info := 'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё РѕС‚РІРµС‚ РІ СЃС‚Р°С‚СѓСЃ "Р“РѕС‚РѕРІ". РўРµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ: ' || coalesce(l_prev_status_cd::varchar, '<NULL>');
 
    END IF;
 
@@ -206,7 +206,7 @@ END;
 $procedure$
 
 
-/* Изменить статус ответа на "Отправлен" */
+/* РР·РјРµРЅРёС‚СЊ СЃС‚Р°С‚СѓСЃ РѕС‚РІРµС‚Р° РЅР° "РћС‚РїСЂР°РІР»РµРЅ" */
 CREATE PROCEDURE to_Sent (
    in p_rsp_id   numeric,
   out p_res_Code int4,
@@ -243,7 +243,7 @@ BEGIN
 
       CALL MI_logger.info (
          p_logger_name   => cLogger,
-         p_message_text  => 'Ответ успешно отправлен',
+         p_message_text  => 'РћС‚РІРµС‚ СѓСЃРїРµС€РЅРѕ РѕС‚РїСЂР°РІР»РµРЅ',
          p_inf_id        => NULL::numeric,
          p_req_id        => l_req_id,
          p_itm_id        => l_itm_id,
@@ -269,19 +269,19 @@ BEGIN
 
 
    IF NOT FOUND THEN
-      p_res_Info := 'Не найден ответ с rsp_id = ' || p_rsp_id;
+      p_res_Info := 'РќРµ РЅР°Р№РґРµРЅ РѕС‚РІРµС‚ СЃ rsp_id = ' || p_rsp_id;
 
    ELSIF l_prev_status_cd = cStatus_New THEN
-      p_res_Info := 'Невозможно перевести ответ в статус "Отправлен". Ответ еще не готов к отправке.';
+      p_res_Info := 'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё РѕС‚РІРµС‚ РІ СЃС‚Р°С‚СѓСЃ "РћС‚РїСЂР°РІР»РµРЅ". РћС‚РІРµС‚ РµС‰Рµ РЅРµ РіРѕС‚РѕРІ Рє РѕС‚РїСЂР°РІРєРµ.';
 
    ELSIF l_prev_status_cd = cStatus_Sent THEN
-      p_res_Info := 'Невозможно перевести ответ в статус "Отправлен". Ответ уже успешно отправлен.';
+      p_res_Info := 'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё РѕС‚РІРµС‚ РІ СЃС‚Р°С‚СѓСЃ "РћС‚РїСЂР°РІР»РµРЅ". РћС‚РІРµС‚ СѓР¶Рµ СѓСЃРїРµС€РЅРѕ РѕС‚РїСЂР°РІР»РµРЅ.';
 
    ELSIF l_prev_status_cd = cStatus_Error THEN
-      p_res_Info := 'Невозможно перевести ответ в статус "Отправлен". Ответ находится в ошибочном статусе.';
+      p_res_Info := 'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё РѕС‚РІРµС‚ РІ СЃС‚Р°С‚СѓСЃ "РћС‚РїСЂР°РІР»РµРЅ". РћС‚РІРµС‚ РЅР°С…РѕРґРёС‚СЃСЏ РІ РѕС€РёР±РѕС‡РЅРѕРј СЃС‚Р°С‚СѓСЃРµ.';
 
    ELSE
-      p_res_Info := 'Невозможно перевести ответ в статус "Отправлен". Текущий статус: ' || coalesce(l_prev_status_cd::varchar, '<NULL>');
+      p_res_Info := 'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё РѕС‚РІРµС‚ РІ СЃС‚Р°С‚СѓСЃ "РћС‚РїСЂР°РІР»РµРЅ". РўРµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ: ' || coalesce(l_prev_status_cd::varchar, '<NULL>');
 
    END IF;
 

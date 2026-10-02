@@ -11,7 +11,7 @@ WITH q AS (
    FROM xxi."CUS" x
    WHERE x.ccusnumnal IS NULL
      AND x.ccusflag IN ('1', '4')
-     AND EXISTS ( SELECT 1 FROM xxi."ACC" a WHERE a.iacccus = x.icusnum AND a.caccprizn = 'О' )
+     AND EXISTS ( SELECT 1 FROM xxi."ACC" a WHERE a.iacccus = x.icusnum AND a.caccprizn = 'Рћ' )
 )
 SELECT
     x.icusnum,
@@ -55,7 +55,7 @@ JOIN xxi.pud
 ;
 -- Comments
 COMMENT ON VIEW xxi.v_mi_0001_ca is 
-   'СМЭВ 3. Список клиентов без ИНН, по которым не было запросов в СМЭВ $id: {3.0.0} {29.05.2026} Sulimoff$'
+   'РЎРњР­Р’ 3. РЎРїРёСЃРѕРє РєР»РёРµРЅС‚РѕРІ Р±РµР· РРќРќ, РїРѕ РєРѕС‚РѕСЂС‹Рј РЅРµ Р±С‹Р»Рѕ Р·Р°РїСЂРѕСЃРѕРІ РІ РЎРњР­Р’ $id: {3.0.0} {29.05.2026} Sulimoff$'
 ;
 -- Grants
 grant select on xxi.v_mi_0001_ca to odb

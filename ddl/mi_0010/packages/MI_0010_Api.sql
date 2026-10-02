@@ -6,7 +6,7 @@ AS
 $init$
 DECLARE
 	/*
-		Entry point логики вида сведений 0010
+		Entry point Р»РѕРіРёРєРё РІРёРґР° СЃРІРµРґРµРЅРёР№ 0010
 	*/
 	cVersion  CONSTANT varchar(100) := '$id: {1.0.0} {16.07.2026}$';
 
@@ -24,7 +24,7 @@ END;
 $init$
 
 
-/* Версия */
+/* Р’РµСЂСЃРёСЏ */
 CREATE FUNCTION get_Version()
 	RETURNS 
 		varchar
@@ -38,7 +38,7 @@ $function$
 
 
 /* 
-   Построить json-person из параметров
+   РџРѕСЃС‚СЂРѕРёС‚СЊ json-person РёР· РїР°СЂР°РјРµС‚СЂРѕРІ
 */
 CREATE FUNCTION build_Json_Person (
 
@@ -86,9 +86,9 @@ $function$
 
 
 /*
-	Сохранить доп атрибуты для клиента
-	по настройке сохраняем также 
-	для связанных по 17 связи клиентов
+	РЎРѕС…СЂР°РЅРёС‚СЊ РґРѕРї Р°С‚СЂРёР±СѓС‚С‹ РґР»СЏ РєР»РёРµРЅС‚Р°
+	РїРѕ РЅР°СЃС‚СЂРѕР№РєРµ СЃРѕС…СЂР°РЅСЏРµРј С‚Р°РєР¶Рµ 
+	РґР»СЏ СЃРІСЏР·Р°РЅРЅС‹С… РїРѕ 17 СЃРІСЏР·Рё РєР»РёРµРЅС‚РѕРІ
 */
 create procedure save_Cus_Attrs (
 	p_itm_Id   IN  numeric,
@@ -199,7 +199,7 @@ declare
    l_itm_Id numeric(12);
    l_rsp_Id numeric(12);
 
-   l_original_request_uuid uuid; -- для проверки дубликатов
+   l_original_request_uuid uuid; -- РґР»СЏ РїСЂРѕРІРµСЂРєРё РґСѓР±Р»РёРєР°С‚РѕРІ
 
 
    l_person_Id   numeric(12);
@@ -228,7 +228,7 @@ begin
    p_ret_info := NULL;
 
    /*
-    * Регистрация item + request на ответ
+    * Р РµРіРёСЃС‚СЂР°С†РёСЏ item + request РЅР° РѕС‚РІРµС‚
     */
    <<registration>>
    BEGIN AUTONOMOUS
@@ -237,7 +237,7 @@ begin
       BEGIN
 
          /*
-          * Валидация входных параметров.
+          * Р’Р°Р»РёРґР°С†РёСЏ РІС…РѕРґРЅС‹С… РїР°СЂР°РјРµС‚СЂРѕРІ.
           */
          IF p_message_uuid IS NULL THEN
             p_ret_info := 'p_message_uuid is null';
@@ -285,8 +285,8 @@ begin
 
 
          /*
-          * Запрос уже мог быть зарегистрирован раньше.
-          * Также поднимаем и req_id, и itm_id.
+          * Р—Р°РїСЂРѕСЃ СѓР¶Рµ РјРѕРі Р±С‹С‚СЊ Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅ СЂР°РЅСЊС€Рµ.
+          * РўР°РєР¶Рµ РїРѕРґРЅРёРјР°РµРј Рё req_id, Рё itm_id.
           */
          SELECT
             r.req_id,
@@ -319,7 +319,7 @@ begin
                l_parent_req_id numeric(12) := l_req_id;
             begin
 
-               -- дубликат по бизнес Id, делаем новую запись, со ссылкой на предыдущую
+               -- РґСѓР±Р»РёРєР°С‚ РїРѕ Р±РёР·РЅРµСЃ Id, РґРµР»Р°РµРј РЅРѕРІСѓСЋ Р·Р°РїРёСЃСЊ, СЃРѕ СЃСЃС‹Р»РєРѕР№ РЅР° РїСЂРµРґС‹РґСѓС‰СѓСЋ
                 l_req_id := MI_Request_Api.create_Request (
                    p_inf_id                => 10,
                    p_correlation_id        => p_correlation_id,
@@ -340,7 +340,7 @@ begin
          END IF;
 
          /*
-          * Тип документа.
+          * РўРёРї РґРѕРєСѓРјРµРЅС‚Р°.
           */
          l_doc_Typ_Cod := replace( l_payLoad -> 'identityDocument' ->> 'docType', ' ', '' );
 
@@ -352,14 +352,14 @@ begin
 
          IF l_doc_Typ_Num IS NULL THEN
 
-            p_ret_Info := 'Не удается по коду "' || l_doc_Typ_Cod || '" определить тип ДУЛа в таблице pud';
+            p_ret_Info := 'РќРµ СѓРґР°РµС‚СЃСЏ РїРѕ РєРѕРґСѓ "' || l_doc_Typ_Cod || '" РѕРїСЂРµРґРµР»РёС‚СЊ С‚РёРї Р”РЈР›Р° РІ С‚Р°Р±Р»РёС†Рµ pud';
             EXIT main;
 
          END IF;
 
 
          /*
-          * Серия/номер документа.
+          * РЎРµСЂРёСЏ/РЅРѕРјРµСЂ РґРѕРєСѓРјРµРЅС‚Р°.
           */
          IF l_doc_Typ_Cod = '21' THEN
 
@@ -409,7 +409,7 @@ begin
          l_person_id := mi_person_Api.get_Or_Create( cInf_id, l_person_J );
 
          /*
-          * Заголовок запроса.
+          * Р—Р°РіРѕР»РѕРІРѕРє Р·Р°РїСЂРѕСЃР°.
           */
          l_req_Id :=
             MI_Request_Api.create_Request(
@@ -422,7 +422,7 @@ begin
             );
 
          /*
-          * Item запроса.
+          * Item Р·Р°РїСЂРѕСЃР°.
           */
          INSERT INTO xxi.mi_0010 (
             req_id,
@@ -460,8 +460,8 @@ begin
 
 
       /*
-       * Если request/item зарегистрирован,
-       * в той же AT создаём response.
+       * Р•СЃР»Рё request/item Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅ,
+       * РІ С‚РѕР№ Р¶Рµ AT СЃРѕР·РґР°С‘Рј response.
        */
       IF p_ret_code = ret_OK THEN
 
@@ -484,11 +484,11 @@ begin
          );
 
          /*
-          * Не частичный NEW response.
-          * Ошибка откатывает всю AT.
+          * РќРµ С‡Р°СЃС‚РёС‡РЅС‹Р№ NEW response.
+          * РћС€РёР±РєР° РѕС‚РєР°С‚С‹РІР°РµС‚ РІСЃСЋ AT.
           */
          IF l_res_code <> ret_OK THEN
-            RAISE EXCEPTION 'Ошибка перевода business response в READY: %', coalesce( l_res_info, 'unknown error' );
+            RAISE EXCEPTION 'РћС€РёР±РєР° РїРµСЂРµРІРѕРґР° business response РІ READY: %', coalesce( l_res_info, 'unknown error' );
          END IF;
 
       END IF;
@@ -497,14 +497,14 @@ begin
       WHEN OTHERS THEN
 
          /*
-          * Exception все откатит
+          * Exception РІСЃРµ РѕС‚РєР°С‚РёС‚
           */
          p_ret_code := ret_Fail;
          p_ret_info := SQLERRM;
 
          CALL mi_logger.error(
          	p_logger_name  => cPkg_Name,
-            p_message_text => 'Ошибка регистрации request/item/response. ' || cFunc,
+            p_message_text => 'РћС€РёР±РєР° СЂРµРіРёСЃС‚СЂР°С†РёРё request/item/response. ' || cFunc,
             p_details_text => SQLERRM,
 
             p_inf_id       => cInf_id,
@@ -517,7 +517,7 @@ begin
 
 
    /*
-    * Transaction уже завершена. req/item/rsp READY зафиксированы.
+    * Transaction СѓР¶Рµ Р·Р°РІРµСЂС€РµРЅР°. req/item/rsp READY Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅС‹.
     */
    IF p_ret_code = ret_OK AND l_rsp_id IS NOT NULL
    THEN
@@ -530,8 +530,8 @@ begin
 
             CALL mi_logger.error(
                p_logger_name  => cPkg_Name,
-               p_message_text => 'Business response оставлен READY: ошибка отправки в XXL. ' || cFunc,
-               p_details_text => coalesce( l_send_result.result_info, 'неизвестная ошибка' ),
+               p_message_text => 'Business response РѕСЃС‚Р°РІР»РµРЅ READY: РѕС€РёР±РєР° РѕС‚РїСЂР°РІРєРё РІ XXL. ' || cFunc,
+               p_details_text => coalesce( l_send_result.result_info, 'РЅРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР°' ),
 
                p_inf_id => cInf_id,
                p_req_id => l_req_id,
@@ -545,7 +545,7 @@ begin
       EXCEPTION
          WHEN OTHERS THEN
 
-            CALL mi_logger.error( p_logger_name  => cPkg_Name, p_message_text => 'Business response оставлен READY: ошибка отправки в XXL. ' || cFunc, p_details_text => SQLERRM,
+            CALL mi_logger.error( p_logger_name  => cPkg_Name, p_message_text => 'Business response РѕСЃС‚Р°РІР»РµРЅ READY: РѕС€РёР±РєР° РѕС‚РїСЂР°РІРєРё РІ XXL. ' || cFunc, p_details_text => SQLERRM,
                p_inf_id => cInf_id,
                p_req_id => l_req_id,
                p_itm_id => l_itm_id,

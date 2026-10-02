@@ -1,7 +1,7 @@
 --
--- Таблица    : xxi.mi_log
--- Назначение : Техническая debug-трасса MI для разработчиков
--- Описание   : Не аудит. Может чиститься, отключаться, теряться при crash.
+-- РўР°Р±Р»РёС†Р°    : xxi.mi_log
+-- РќР°Р·РЅР°С‡РµРЅРёРµ : РўРµС…РЅРёС‡РµСЃРєР°СЏ debug-С‚СЂР°СЃСЃР° MI РґР»СЏ СЂР°Р·СЂР°Р±РѕС‚С‡РёРєРѕРІ
+-- РћРїРёСЃР°РЅРёРµ   : РќРµ Р°СѓРґРёС‚. РњРѕР¶РµС‚ С‡РёСЃС‚РёС‚СЊСЃСЏ, РѕС‚РєР»СЋС‡Р°С‚СЊСЃСЏ, С‚РµСЂСЏС‚СЊСЃСЏ РїСЂРё crash.
 --
 CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log
 (
@@ -15,7 +15,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log
 
         logged_at     timestamptz   NOT NULL   DEFAULT clock_timestamp(),
 
-        -- Ссылка на сессию системного аудита
+        -- РЎСЃС‹Р»РєР° РЅР° СЃРµСЃСЃРёСЋ СЃРёСЃС‚РµРјРЅРѕРіРѕ Р°СѓРґРёС‚Р°
         au_session_id numeric(38)   NOT NULL,
 
         level_cd      bpchar(3)     NOT NULL,
@@ -25,8 +25,8 @@ CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log
         action_cd     varchar(50),
         object_name   varchar(100),
 
-        -- Смысловой контекст события:
-        -- sqlstate, exception name, correlation_id, бизнес-ключ, номер счёта и т.п.
+        -- РЎРјС‹СЃР»РѕРІРѕР№ РєРѕРЅС‚РµРєСЃС‚ СЃРѕР±С‹С‚РёСЏ:
+        -- sqlstate, exception name, correlation_id, Р±РёР·РЅРµСЃ-РєР»СЋС‡, РЅРѕРјРµСЂ СЃС‡С‘С‚Р° Рё С‚.Рї.
         context_value varchar(100),
 
         message_text  varchar(2000),
@@ -42,7 +42,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log
         object_id     numeric(12),
         object_id2    numeric(12),
 
-        -- Ссылка на родительскую запись лога
+        -- РЎСЃС‹Р»РєР° РЅР° СЂРѕРґРёС‚РµР»СЊСЃРєСѓСЋ Р·Р°РїРёСЃСЊ Р»РѕРіР°
         parent_id     numeric(38)
 )
 PARTITION BY LIST (wsp_id)
@@ -69,7 +69,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log_23
       FOR VALUES IN (23)
          TABLESPACE USERS
 ;
--- Партиция по умолчанию
+-- РџР°СЂС‚РёС†РёСЏ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
 CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log_0
     PARTITION OF xxi.mi_log
         DEFAULT
@@ -77,7 +77,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log_0
 ;
 
 -- Indexes
--- Индексы на parent создадут соответствующие индексы на partitions
+-- РРЅРґРµРєСЃС‹ РЅР° parent СЃРѕР·РґР°РґСѓС‚ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёРµ РёРЅРґРµРєСЃС‹ РЅР° partitions
 CREATE INDEX IF NOT EXISTS ix_mi_log__log_id ON xxi.mi_log (log_id) TABLESPACE INDEXES
 ;
 CREATE INDEX IF NOT EXISTS ix_mi_log__logged_at ON xxi.mi_log (logged_at) TABLESPACE INDEXES
@@ -95,66 +95,66 @@ CREATE INDEX IF NOT EXISTS ix_mi_log__parent_id ON xxi.mi_log (parent_id) TABLES
 
 -- Comments
 COMMENT ON TABLE xxi.mi_log IS
-   'Техническая debug-трасса MI для разработчиков. Не является аудитом. Может очищаться и отключаться.'
+   'РўРµС…РЅРёС‡РµСЃРєР°СЏ debug-С‚СЂР°СЃСЃР° MI РґР»СЏ СЂР°Р·СЂР°Р±РѕС‚С‡РёРєРѕРІ. РќРµ СЏРІР»СЏРµС‚СЃСЏ Р°СѓРґРёС‚РѕРј. РњРѕР¶РµС‚ РѕС‡РёС‰Р°С‚СЊСЃСЏ Рё РѕС‚РєР»СЋС‡Р°С‚СЊСЃСЏ.'
 ;
 
 COMMENT ON COLUMN xxi.mi_log.log_id IS
-   'Идентификатор записи debug-лога'
+   'РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ Р·Р°РїРёСЃРё debug-Р»РѕРіР°'
 ;
 COMMENT ON COLUMN xxi.mi_log.inf_id IS
-   'Идентификатор вида сведений'
+   'РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ РІРёРґР° СЃРІРµРґРµРЅРёР№'
 ;
 COMMENT ON COLUMN xxi.mi_log.wsp_id IS
-   'Идентификатор АРМ/контейнера'
+   'РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ РђР Рњ/РєРѕРЅС‚РµР№РЅРµСЂР°'
 ;
 COMMENT ON COLUMN xxi.mi_log.logged_at IS
-   'Дата и время события'
+   'Р”Р°С‚Р° Рё РІСЂРµРјСЏ СЃРѕР±С‹С‚РёСЏ'
 ;
 COMMENT ON COLUMN xxi.mi_log.au_session_id IS
-   'Идентификатор сессии системного аудита'
+   'РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ СЃРµСЃСЃРёРё СЃРёСЃС‚РµРјРЅРѕРіРѕ Р°СѓРґРёС‚Р°'
 ;
 COMMENT ON COLUMN xxi.mi_log.level_cd IS
-    'Уровень логирования: trc, dbg, inf, wrn, err'
+    'РЈСЂРѕРІРµРЅСЊ Р»РѕРіРёСЂРѕРІР°РЅРёСЏ: trc, dbg, inf, wrn, err'
 ;
 COMMENT ON COLUMN xxi.mi_log.logger_name IS
-    'Имя логгера / пакета / компонента'
+    'РРјСЏ Р»РѕРіРіРµСЂР° / РїР°РєРµС‚Р° / РєРѕРјРїРѕРЅРµРЅС‚Р°'
 ;
 COMMENT ON COLUMN xxi.mi_log.context_value IS
-    'Смысловой контекст события: sqlstate, exception name, correlation_id, бизнес-ключ и т.п.'
+    'РЎРјС‹СЃР»РѕРІРѕР№ РєРѕРЅС‚РµРєСЃС‚ СЃРѕР±С‹С‚РёСЏ: sqlstate, exception name, correlation_id, Р±РёР·РЅРµСЃ-РєР»СЋС‡ Рё С‚.Рї.'
 ;
 COMMENT ON COLUMN xxi.mi_log.object_name IS
-    'Объект, связанный с событием'
+    'РћР±СЉРµРєС‚, СЃРІСЏР·Р°РЅРЅС‹Р№ СЃ СЃРѕР±С‹С‚РёРµРј'
 ;
 COMMENT ON COLUMN xxi.mi_log.action_cd IS
-    'Действие, связанное с событием'
+    'Р”РµР№СЃС‚РІРёРµ, СЃРІСЏР·Р°РЅРЅРѕРµ СЃ СЃРѕР±С‹С‚РёРµРј'
 ;
 COMMENT ON COLUMN xxi.mi_log.message_text IS
-    'Краткий текст события'
+    'РљСЂР°С‚РєРёР№ С‚РµРєСЃС‚ СЃРѕР±С‹С‚РёСЏ'
 ;
 COMMENT ON COLUMN xxi.mi_log.details_text IS
-    'Детали события'
+    'Р”РµС‚Р°Р»Рё СЃРѕР±С‹С‚РёСЏ'
 ;
 COMMENT ON COLUMN xxi.mi_log.req_id IS
-    'Идентификатор запроса'
+    'РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ Р·Р°РїСЂРѕСЃР°'
 ;
 COMMENT ON COLUMN xxi.mi_log.itm_id IS
-   'Идентификатор элемента запроса'
+   'РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ СЌР»РµРјРµРЅС‚Р° Р·Р°РїСЂРѕСЃР°'
 ;
 COMMENT ON COLUMN xxi.mi_log.rsp_id IS
-   'Id ответа на запрос'
+   'Id РѕС‚РІРµС‚Р° РЅР° Р·Р°РїСЂРѕСЃ'
 ;
 COMMENT ON COLUMN xxi.mi_log.person_id IS
-    'Идентификатор физлица'
+    'РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ С„РёР·Р»РёС†Р°'
 ;
 COMMENT ON COLUMN xxi.mi_log.icusnum IS
-    'Идентификатор клиента CRM'
+    'РРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ РєР»РёРµРЅС‚Р° CRM'
 ;
 COMMENT ON COLUMN xxi.mi_log.object_id IS
-    'Технический идентификатор объекта'
+    'РўРµС…РЅРёС‡РµСЃРєРёР№ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ РѕР±СЉРµРєС‚Р°'
 ;
 COMMENT ON COLUMN xxi.mi_log.object_id2 IS
-    'Технический идентификатор объекта 2'
+    'РўРµС…РЅРёС‡РµСЃРєРёР№ РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ РѕР±СЉРµРєС‚Р° 2'
 ;
 COMMENT ON COLUMN xxi.mi_log.parent_id IS
-    'Ссылка на родительскую запись debug-лога'
+    'РЎСЃС‹Р»РєР° РЅР° СЂРѕРґРёС‚РµР»СЊСЃРєСѓСЋ Р·Р°РїРёСЃСЊ debug-Р»РѕРіР°'
 ;

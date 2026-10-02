@@ -6,8 +6,8 @@ AS
 $init$
 DECLARE
    /*
-      Entry point логики вида сведений 0007
-      Работает поверх:
+      Entry point Р»РѕРіРёРєРё РІРёРґР° СЃРІРµРґРµРЅРёР№ 0007
+      Р Р°Р±РѕС‚Р°РµС‚ РїРѕРІРµСЂС…:
          - mi_req
          - xxi.mi_0007
          - xxi.v_mi_0007_req
@@ -32,7 +32,7 @@ END;
 $init$
 
 
-/* Версия */
+/* Р’РµСЂСЃРёСЏ */
 CREATE FUNCTION get_Version()
    RETURNS 
       varchar
@@ -45,7 +45,7 @@ END;
 $function$
 
 
-/* Код типа ДУЛ паспорт РФ */
+/* РљРѕРґ С‚РёРїР° Р”РЈР› РїР°СЃРїРѕСЂС‚ Р Р¤ */
 CREATE FUNCTION get_PassportRF_Id()
    RETURNS
       NUMERIC
@@ -66,15 +66,15 @@ BEGIN
 
    IF NOT FOUND THEN
 
-      CALL mi_logger.error( cLogger, 'Не задан ID типа документа для паспорта РФ. Не установлено поле IPUDINT_CODE в 1 в таблице PUD.', 
+      CALL mi_logger.error( cLogger, 'РќРµ Р·Р°РґР°РЅ ID С‚РёРїР° РґРѕРєСѓРјРµРЅС‚Р° РґР»СЏ РїР°СЃРїРѕСЂС‚Р° Р Р¤. РќРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅРѕ РїРѕР»Рµ IPUDINT_CODE РІ 1 РІ С‚Р°Р±Р»РёС†Рµ PUD.', 
                             NULL::numeric, NULL::numeric, NULL::varchar, 'get_PassportRF_Id', NULL::varchar, cPkg_Name, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric );
 
       RAISE EXCEPTION USING
             ERRCODE = 'MI',
-            MESSAGE = 'Не задан ID типа документа для "Паспорт гражданина РФ". Не установлено поле IPUDINT_CODE в 1 в таблице PUD.';
+            MESSAGE = 'РќРµ Р·Р°РґР°РЅ ID С‚РёРїР° РґРѕРєСѓРјРµРЅС‚Р° РґР»СЏ "РџР°СЃРїРѕСЂС‚ РіСЂР°Р¶РґР°РЅРёРЅР° Р Р¤". РќРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅРѕ РїРѕР»Рµ IPUDINT_CODE РІ 1 РІ С‚Р°Р±Р»РёС†Рµ PUD.';
    END IF;
 
-   CALL MI_logger.info( cLogger, 'ID типа документа для паспорта РФ: ' || g_PsrtRf_Id, 
+   CALL MI_logger.info( cLogger, 'ID С‚РёРїР° РґРѕРєСѓРјРµРЅС‚Р° РґР»СЏ РїР°СЃРїРѕСЂС‚Р° Р Р¤: ' || g_PsrtRf_Id, 
                         NULL::numeric, NULL::numeric, NULL::varchar, 'get_PassportRF_Id', NULL::varchar, cPkg_Name, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric );
    
 
@@ -85,7 +85,7 @@ $function$
 
 
 /* 
-   Построить json-person из параметров
+   РџРѕСЃС‚СЂРѕРёС‚СЊ json-person РёР· РїР°СЂР°РјРµС‚СЂРѕРІ
 */
 CREATE FUNCTION build_Json_Person (
    in p_icusnum     NUMERIC,
@@ -130,7 +130,7 @@ $function$
 
 
 /*
-   Создать item 0007
+   РЎРѕР·РґР°С‚СЊ item 0007
 */
 CREATE FUNCTION create_Item (
    in p_req_id    NUMERIC,
@@ -170,7 +170,7 @@ $function$
 
 
 /*
-   Создать request для 0007
+   РЎРѕР·РґР°С‚СЊ request РґР»СЏ 0007
 */
 CREATE FUNCTION create_Request ( 
    in p_inf_Id NUMERIC DEFAULT 74::NUMERIC 
@@ -190,7 +190,7 @@ $function$
 
 
 /*
-   Главная функция создания request 0007
+   Р“Р»Р°РІРЅР°СЏ С„СѓРЅРєС†РёСЏ СЃРѕР·РґР°РЅРёСЏ request 0007
 */
 CREATE FUNCTION create_Person_Item (
    in p_json_person jsonb
@@ -227,8 +227,8 @@ $function$
 
 
 /*
-   Перегрузка:
-   icusnum приходит отдельно от json payload
+   РџРµСЂРµРіСЂСѓР·РєР°:
+   icusnum РїСЂРёС…РѕРґРёС‚ РѕС‚РґРµР»СЊРЅРѕ РѕС‚ json payload
 */
 CREATE FUNCTION create_Person_Item (
    in p_icusnum     NUMERIC,
@@ -267,7 +267,7 @@ END;
 $function$
 
 
-/* Проверка атрибутов клиента, для создания записи запроса по паспортам */
+/* РџСЂРѕРІРµСЂРєР° Р°С‚СЂРёР±СѓС‚РѕРІ РєР»РёРµРЅС‚Р°, РґР»СЏ СЃРѕР·РґР°РЅРёСЏ Р·Р°РїРёСЃРё Р·Р°РїСЂРѕСЃР° РїРѕ РїР°СЃРїРѕСЂС‚Р°Рј */
 CREATE FUNCTION check_Attrs (
    in p_last_name    varchar,
    in p_first_name   varchar,
@@ -285,50 +285,50 @@ DECLARE
    l_msg varchar;
 BEGIN
    IF p_last_name IS NULL THEN
-      l_msg := ', Фамилия';
+      l_msg := ', Р¤Р°РјРёР»РёСЏ';
    END IF;
 
    IF p_first_name IS NULL THEN
-      l_msg := coalesce(l_msg, '') || ', Имя';
+      l_msg := coalesce(l_msg, '') || ', РРјСЏ';
    END IF;
 
    IF p_doc_ser IS NULL THEN
-      l_msg := coalesce(l_msg, '') || ', Серия паспорта';
+      l_msg := coalesce(l_msg, '') || ', РЎРµСЂРёСЏ РїР°СЃРїРѕСЂС‚Р°';
    END IF;
 
    IF p_doc_num IS NULL THEN
-      l_msg := coalesce(l_msg, '') || ', Номер паспорта';
+      l_msg := coalesce(l_msg, '') || ', РќРѕРјРµСЂ РїР°СЃРїРѕСЂС‚Р°';
    END IF;
 
    IF l_msg IS NOT NULL THEN
-      RETURN 'Создание записи не возможно, не заданы обязательные атрибуты: ' || substr(l_msg, 3);
+      RETURN 'РЎРѕР·РґР°РЅРёРµ Р·Р°РїРёСЃРё РЅРµ РІРѕР·РјРѕР¶РЅРѕ, РЅРµ Р·Р°РґР°РЅС‹ РѕР±СЏР·Р°С‚РµР»СЊРЅС‹Рµ Р°С‚СЂРёР±СѓС‚С‹: ' || substr(l_msg, 3);
    END IF;
 
    IF regexp_replace(coalesce(p_doc_ser, ''), '\s+', '', 'g') !~ '^\d{4}$' THEN
-      RETURN 'Создание записи не возможно: не корректное значение серии паспорта - "' || coalesce(p_doc_ser, '') || '". Требуется 4 цифры.';
+      RETURN 'РЎРѕР·РґР°РЅРёРµ Р·Р°РїРёСЃРё РЅРµ РІРѕР·РјРѕР¶РЅРѕ: РЅРµ РєРѕСЂСЂРµРєС‚РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ СЃРµСЂРёРё РїР°СЃРїРѕСЂС‚Р° - "' || coalesce(p_doc_ser, '') || '". РўСЂРµР±СѓРµС‚СЃСЏ 4 С†РёС„СЂС‹.';
    END IF;
 
    IF regexp_replace(coalesce(p_doc_num, ''), '\s+', '', 'g') !~ '^\d{6}$' THEN
-      RETURN 'Создание записи не возможно: не корректное значение номера паспорта - "'|| coalesce(p_doc_num, '') || '". Требуется 6 цифр.';
+      RETURN 'РЎРѕР·РґР°РЅРёРµ Р·Р°РїРёСЃРё РЅРµ РІРѕР·РјРѕР¶РЅРѕ: РЅРµ РєРѕСЂСЂРµРєС‚РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ РЅРѕРјРµСЂР° РїР°СЃРїРѕСЂС‚Р° - "'|| coalesce(p_doc_num, '') || '". РўСЂРµР±СѓРµС‚СЃСЏ 6 С†РёС„СЂ.';
    END IF;
 
-   IF p_last_name !~ '^[А-Яа-яЁё\-\s,.]{1,100}$' THEN
-      RETURN 'Создание записи не возможно: не корректное значение Фамилии - "'
+   IF p_last_name !~ '^[Рђ-РЇР°-СЏРЃС‘\-\s,.]{1,100}$' THEN
+      RETURN 'РЎРѕР·РґР°РЅРёРµ Р·Р°РїРёСЃРё РЅРµ РІРѕР·РјРѕР¶РЅРѕ: РЅРµ РєРѕСЂСЂРµРєС‚РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ Р¤Р°РјРёР»РёРё - "'
              || p_last_name
-             || '". Русский текст, длиной до 100 символов, тире, цифры не допускаются.';
+             || '". Р СѓСЃСЃРєРёР№ С‚РµРєСЃС‚, РґР»РёРЅРѕР№ РґРѕ 100 СЃРёРјРІРѕР»РѕРІ, С‚РёСЂРµ, С†РёС„СЂС‹ РЅРµ РґРѕРїСѓСЃРєР°СЋС‚СЃСЏ.';
    END IF;
 
-   IF p_first_name !~ '^[А-Яа-яЁё\-\s,.]{1,100}$' THEN
-      RETURN 'Создание записи не возможно: не корректное значение Имени - "'
+   IF p_first_name !~ '^[Рђ-РЇР°-СЏРЃС‘\-\s,.]{1,100}$' THEN
+      RETURN 'РЎРѕР·РґР°РЅРёРµ Р·Р°РїРёСЃРё РЅРµ РІРѕР·РјРѕР¶РЅРѕ: РЅРµ РєРѕСЂСЂРµРєС‚РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ РРјРµРЅРё - "'
              || p_first_name
-             || '". Русский текст, длиной до 100 символов, тире, цифры не допускаются.';
+             || '". Р СѓСЃСЃРєРёР№ С‚РµРєСЃС‚, РґР»РёРЅРѕР№ РґРѕ 100 СЃРёРјРІРѕР»РѕРІ, С‚РёСЂРµ, С†РёС„СЂС‹ РЅРµ РґРѕРїСѓСЃРєР°СЋС‚СЃСЏ.';
    END IF;
 
    IF p_middle_name IS NOT NULL
-      AND p_middle_name !~ '^[А-Яа-яЁё\-\s,.]{1,100}$' THEN
-      RETURN 'Создание записи не возможно: не корректное значение Отчества - "'
+      AND p_middle_name !~ '^[Рђ-РЇР°-СЏРЃС‘\-\s,.]{1,100}$' THEN
+      RETURN 'РЎРѕР·РґР°РЅРёРµ Р·Р°РїРёСЃРё РЅРµ РІРѕР·РјРѕР¶РЅРѕ: РЅРµ РєРѕСЂСЂРµРєС‚РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ РћС‚С‡РµСЃС‚РІР° - "'
              || p_middle_name
-             || '". Русский текст, длиной до 100 символов, тире, цифры не допускаются.';
+             || '". Р СѓСЃСЃРєРёР№ С‚РµРєСЃС‚, РґР»РёРЅРѕР№ РґРѕ 100 СЃРёРјРІРѕР»РѕРІ, С‚РёСЂРµ, С†РёС„СЂС‹ РЅРµ РґРѕРїСѓСЃРєР°СЋС‚СЃСЏ.';
    END IF;
 
    RETURN NULL;
@@ -397,7 +397,7 @@ END;
 $procedure$
 
 
-/* Запрос в таблицу на наличии, записи с ручной установкой валидности */
+/* Р—Р°РїСЂРѕСЃ РІ С‚Р°Р±Р»РёС†Сѓ РЅР° РЅР°Р»РёС‡РёРё, Р·Р°РїРёСЃРё СЃ СЂСѓС‡РЅРѕР№ СѓСЃС‚Р°РЅРѕРІРєРѕР№ РІР°Р»РёРґРЅРѕСЃС‚Рё */
 CREATE PROCEDURE has_Manual_Set (
    in  p_icusnum        numeric,
    in  p_last_name      varchar,
@@ -434,7 +434,7 @@ END;
 $procedure$
 
 
-/* Создает новый запрос, и если надо отправляет в MI */
+/* РЎРѕР·РґР°РµС‚ РЅРѕРІС‹Р№ Р·Р°РїСЂРѕСЃ, Рё РµСЃР»Рё РЅР°РґРѕ РѕС‚РїСЂР°РІР»СЏРµС‚ РІ MI */
 CREATE PROCEDURE create_And_Exec (
    in  p_inf_id          numeric,
 
@@ -668,7 +668,7 @@ END;
 $procedure$
 
 
-/* Создание запроса для конкретного cus атрибуты подтягиваются из справочника */
+/* РЎРѕР·РґР°РЅРёРµ Р·Р°РїСЂРѕСЃР° РґР»СЏ РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ cus Р°С‚СЂРёР±СѓС‚С‹ РїРѕРґС‚СЏРіРёРІР°СЋС‚СЃСЏ РёР· СЃРїСЂР°РІРѕС‡РЅРёРєР° */
 CREATE PROCEDURE create_And_Exec(
    in  p_inf_id       numeric,
    in  p_icusnum      numeric,
@@ -725,13 +725,13 @@ BEGIN
           cus_docum b
     WHERE a.icusnum   = b.icusnum
       AND b.id_doc_tp = cPsrtRf
-      AND a.ccusflag  IN ( '1', '4' ) -- ФЛ и ИП
+      AND a.ccusflag  IN ( '1', '4' ) -- Р¤Р› Рё РРџ
       AND ( b.doc_period IS NULL OR b.doc_period >= now()::date )
       AND a.icusnum   = p_iCusNum;
 
    IF NOT FOUND THEN
       p_res_code    := -1;
-      p_result_info := 'Не найден клиент в справочнике по icusnum = ' || p_icusnum;
+      p_result_info := 'РќРµ РЅР°Р№РґРµРЅ РєР»РёРµРЅС‚ РІ СЃРїСЂР°РІРѕС‡РЅРёРєРµ РїРѕ icusnum = ' || p_icusnum;
 
       CALL mi_logger.info( cLogger, 'create_And_Exec rejected: customer not found', p_inf_id, null::numeric, p_result_info, cAction_Name, 'icusnum=' || p_icusnum::varchar, cPkg_Name, 
                            null::numeric, p_icusnum, null::numeric, null::numeric );
@@ -763,7 +763,7 @@ END;
 $procedure$
 
 
-/* Создает запрос для 75 вида сведений - ручная установка */
+/* РЎРѕР·РґР°РµС‚ Р·Р°РїСЂРѕСЃ РґР»СЏ 75 РІРёРґР° СЃРІРµРґРµРЅРёР№ - СЂСѓС‡РЅР°СЏ СѓСЃС‚Р°РЅРѕРІРєР° */
 CREATE PROCEDURE create_75_Person_Item(
    in  p_icusnum         numeric,
    in  p_last_name       varchar,
@@ -811,7 +811,7 @@ BEGIN
    );
 
    /*
-     Последний request для inf_id = 75, нет - создаём новый СРАЗУ в status = 1
+     РџРѕСЃР»РµРґРЅРёР№ request РґР»СЏ inf_id = 75, РЅРµС‚ - СЃРѕР·РґР°С‘Рј РЅРѕРІС‹Р№ РЎР РђР—РЈ РІ status = 1
    */
    SELECT r.req_id
      INTO l_req_id
@@ -850,7 +850,7 @@ BEGIN
    );
 
    p_res_code := 0;
-   p_res_info := 'Создан item 75. req_id=' || l_req_id || ', itm_id=' || l_itm_id;
+   p_res_info := 'РЎРѕР·РґР°РЅ item 75. req_id=' || l_req_id || ', itm_id=' || l_itm_id;
 
    CALL mi_logger.info( cLogger, 'create_75_Person_Item completed', 75, l_req_id, p_res_info, cAction_Name, NULL::varchar,
                         cPkg_name, l_person_id, p_icusnum, l_itm_id, NULL::numeric );
@@ -882,7 +882,7 @@ END;
 $procedure$
 
 
-/* Создание запроса с позициями на основе маркера в "CUS" */
+/* РЎРѕР·РґР°РЅРёРµ Р·Р°РїСЂРѕСЃР° СЃ РїРѕР·РёС†РёСЏРјРё РЅР° РѕСЃРЅРѕРІРµ РјР°СЂРєРµСЂР° РІ "CUS" */
 CREATE PROCEDURE create_Person_Items_By_Marker (
     in p_marker_id      numeric,
    out p_req_id         numeric,
@@ -911,7 +911,7 @@ BEGIN
    p_res_info      := NULL;
 
    /*
-     Проверка marker. Если пустой - request НЕ создаём.
+     РџСЂРѕРІРµСЂРєР° marker. Р•СЃР»Рё РїСѓСЃС‚РѕР№ - request РќР• СЃРѕР·РґР°С‘Рј.
    */
    SELECT EXISTS (
       SELECT 1
@@ -921,7 +921,7 @@ BEGIN
 
    IF NOT l_has_rows THEN
       p_res_code := 0;
-      p_res_info := 'По marker_id = ' || p_marker_id || ' не найдено помеченных клиентов. Request не создан.';
+      p_res_info := 'РџРѕ marker_id = ' || p_marker_id || ' РЅРµ РЅР°Р№РґРµРЅРѕ РїРѕРјРµС‡РµРЅРЅС‹С… РєР»РёРµРЅС‚РѕРІ. Request РЅРµ СЃРѕР·РґР°РЅ.';
 
       CALL mi_logger.info( cLogger, 'create_Person_Items_By_Marker skipped: marker is empty', cInf_Id, NULL::numeric, p_res_info, cAction_Name, 'marker_id=' || p_marker_id::varchar, cPkg_Name );
 
@@ -930,14 +930,14 @@ BEGIN
    END IF;
 
    /*
-     Новый request для всей batch-операции
+     РќРѕРІС‹Р№ request РґР»СЏ РІСЃРµР№ batch-РѕРїРµСЂР°С†РёРё
    */
    p_req_id := mi_0007_Api.create_Request( );
 
    CALL mi_logger.info( cLogger, 'Batch request created', cInf_Id, p_req_id, 'marker_id=' || p_marker_id::varchar, cAction_Name, NULL::varchar, cPkg_Name );
 
    /*
-     Клиенты из marker
+     РљР»РёРµРЅС‚С‹ РёР· marker
    */
    FOR r IN 
    (
@@ -986,7 +986,7 @@ BEGIN
    END LOOP;
 
    p_res_code := ret_OK;
-   p_res_info := 'Создан request, req_id=' || p_req_id || ', item_count=' || p_created_count::varchar;
+   p_res_info := 'РЎРѕР·РґР°РЅ request, req_id=' || p_req_id || ', item_count=' || p_created_count::varchar;
 
    CALL mi_logger.info( cLogger, 'create_Person_Items_By_Marker completed', cInf_Id, p_req_id, p_res_info, cAction_Name, 'marker_id=' || p_marker_id::varchar, cPkg_Name );
 
@@ -1097,7 +1097,7 @@ $procedure$
 
 /*
    helper:
-   проставить результат item и статус request
+   РїСЂРѕСЃС‚Р°РІРёС‚СЊ СЂРµР·СѓР»СЊС‚Р°С‚ item Рё СЃС‚Р°С‚СѓСЃ request
 CREATE PROCEDURE complete_Request (
    in p_itm_id         NUMERIC,
    in p_req_id         NUMERIC,

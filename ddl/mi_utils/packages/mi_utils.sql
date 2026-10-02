@@ -6,7 +6,7 @@ as
 $init$
 declare
    /**
-      Пакет для поддержки работы со СМЭВ 3
+      РџР°РєРµС‚ РґР»СЏ РїРѕРґРґРµСЂР¶РєРё СЂР°Р±РѕС‚С‹ СЃРѕ РЎРњР­Р’ 3
    */
    cVersion CONSTANT VARCHAR( 100 ) := '$id: {1.0.0} {28.06.2025} Sulimoff$';
 
@@ -53,7 +53,7 @@ $function$
 
 
 /* 
-   Блокировка процесса обработки данных, для других сессий
+   Р‘Р»РѕРєРёСЂРѕРІРєР° РїСЂРѕС†РµСЃСЃР° РѕР±СЂР°Р±РѕС‚РєРё РґР°РЅРЅС‹С…, РґР»СЏ РґСЂСѓРіРёС… СЃРµСЃСЃРёР№
 */
 CREATE PROCEDURE lock_Proc (
    in  lockname          VARCHAR,
@@ -87,7 +87,7 @@ begin
       $4 := RET_OK;
    ELSIF l_lock_status = 1 THEN
       $4 := 1;
-      $5 := 'В данный момент идет обработка из другой сессии.';
+      $5 := 'Р’ РґР°РЅРЅС‹Р№ РјРѕРјРµРЅС‚ РёРґРµС‚ РѕР±СЂР°Р±РѕС‚РєР° РёР· РґСЂСѓРіРѕР№ СЃРµСЃСЃРёРё.';
    ELSE
       $5 := 'Error in call DBMS_LOCK.Request. error num = ' || l_lock_status || ' (' || 
       CASE l_lock_status
@@ -98,7 +98,7 @@ begin
          WHEN 4 THEN 'Already own lock specified by id or lockhandle'
          WHEN 5 THEN 'Illegal lock handle'
          ELSE
-            'неизвестный код возврата dbms_lock.Request. ' || l_lock_status 
+            'РЅРµРёР·РІРµСЃС‚РЅС‹Р№ РєРѕРґ РІРѕР·РІСЂР°С‚Р° dbms_lock.Request. ' || l_lock_status 
          END || ')';
    END IF;
 

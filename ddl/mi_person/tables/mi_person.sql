@@ -1,7 +1,7 @@
 --
--- Таблица    : xxi.mi_person
--- Назначение : Клиенты
--- Описание   : Реестр клиентов Физ лиц, используемых в модуле СМЭВ
+-- РўР°Р±Р»РёС†Р°    : xxi.mi_person
+-- РќР°Р·РЅР°С‡РµРЅРёРµ : РљР»РёРµРЅС‚С‹
+-- РћРїРёСЃР°РЅРёРµ   : Р РµРµСЃС‚СЂ РєР»РёРµРЅС‚РѕРІ Р¤РёР· Р»РёС†, РёСЃРїРѕР»СЊР·СѓРµРјС‹С… РІ РјРѕРґСѓР»Рµ РЎРњР­Р’
 --
 CREATE TABLE IF NOT EXISTS xxi.mi_person
 (
@@ -55,22 +55,22 @@ CREATE TABLE IF NOT EXISTS xxi.mi_person
         PRIMARY KEY (person_id)
             USING INDEX TABLESPACE indexes,
 -- FK
--- FK на CUS.
--- ON DELETE SET NULL оставляет локальную персону жить автономно, если запись в CUS удалена.
+-- FK РЅР° CUS.
+-- ON DELETE SET NULL РѕСЃС‚Р°РІР»СЏРµС‚ Р»РѕРєР°Р»СЊРЅСѓСЋ РїРµСЂСЃРѕРЅСѓ Р¶РёС‚СЊ Р°РІС‚РѕРЅРѕРјРЅРѕ, РµСЃР»Рё Р·Р°РїРёСЃСЊ РІ CUS СѓРґР°Р»РµРЅР°.
     CONSTRAINT fk_mi_person__cus 
         FOREIGN KEY(icusnum) REFERENCES xxi."CUS" (icusnum)
         ON DELETE 
            SET NULL,
 -- Check
-    -- дата смерти больше даты рождения        
+    -- РґР°С‚Р° СЃРјРµСЂС‚Рё Р±РѕР»СЊС€Рµ РґР°С‚С‹ СЂРѕР¶РґРµРЅРёСЏ        
     CONSTRAINT ck_mi_person__death_date
          CHECK( death_date IS NULL OR birth_date IS NULL OR death_date >= birth_date  ),
 
-    -- дата ДУЛ до, больше даты выдачи ДУЛ     
+    -- РґР°С‚Р° Р”РЈР› РґРѕ, Р±РѕР»СЊС€Рµ РґР°С‚С‹ РІС‹РґР°С‡Рё Р”РЈР›     
     CONSTRAINT ck_mi_person__doc_expire_date
          CHECK( doc_expire_date IS NULL OR doc_issue_date IS NULL OR doc_expire_date >= doc_issue_date ),
 
-    -- дата ДУЛ отмены, больше даты выдачи ДУЛ     
+    -- РґР°С‚Р° Р”РЈР› РѕС‚РјРµРЅС‹, Р±РѕР»СЊС€Рµ РґР°С‚С‹ РІС‹РґР°С‡Рё Р”РЈР›     
     CONSTRAINT ck_mi_person__doc_invalid_from
          CHECK( doc_invalid_from IS NULL OR doc_issue_date IS NULL OR doc_invalid_from >= doc_issue_date  )
 )
@@ -85,7 +85,7 @@ ALTER TABLE xxi.mi_person OWNER TO "XXI"
 ALTER SEQUENCE xxi.s_mi_person OWNED BY xxi.mi_person.person_id
 
 -- Indexes
--- Поиск по ФИО + документу, как в оракле
+-- РџРѕРёСЃРє РїРѕ Р¤РРћ + РґРѕРєСѓРјРµРЅС‚Сѓ, РєР°Рє РІ РѕСЂР°РєР»Рµ
 CREATE INDEX IF NOT EXISTS ix_mi_person__doc_fio ON xxi.mi_person USING btree
 (
    doc_type_id,
@@ -96,7 +96,7 @@ CREATE INDEX IF NOT EXISTS ix_mi_person__doc_fio ON xxi.mi_person USING btree
 )
 TABLESPACE indexes;
 
--- Для fk_mi_person__cus
+-- Р”Р»СЏ fk_mi_person__cus
 CREATE INDEX IF NOT EXISTS fx_mi_person__icusnum ON xxi.mi_person USING btree
 (
     icusnum
@@ -105,95 +105,95 @@ TABLESPACE indexes;
 
 -- Comments
 COMMENT ON TABLE xxi.mi_person IS 
-    'СМЭВ-3. Данные физ лиц'
+    'РЎРњР­Р’-3. Р”Р°РЅРЅС‹Рµ С„РёР· Р»РёС†'
 ;
 COMMENT ON COLUMN xxi.mi_person.person_id IS 
-    'ID записи /mi_person/'
+    'ID Р·Р°РїРёСЃРё /mi_person/'
 ;
 COMMENT ON COLUMN xxi.mi_person.icusnum IS 
-    'Обычно заполнен; допускается NULL для локальных персон без привязки к CUS'
+    'РћР±С‹С‡РЅРѕ Р·Р°РїРѕР»РЅРµРЅ; РґРѕРїСѓСЃРєР°РµС‚СЃСЏ NULL РґР»СЏ Р»РѕРєР°Р»СЊРЅС‹С… РїРµСЂСЃРѕРЅ Р±РµР· РїСЂРёРІСЏР·РєРё Рє CUS'
 ;
 COMMENT ON COLUMN xxi.mi_person.created_at IS 
-    'Дата и время создания записи'
+    'Р”Р°С‚Р° Рё РІСЂРµРјСЏ СЃРѕР·РґР°РЅРёСЏ Р·Р°РїРёСЃРё'
 ;
 COMMENT ON COLUMN xxi.mi_person.first_name IS 
-    'Имя'
+    'РРјСЏ'
 ;
 COMMENT ON COLUMN xxi.mi_person.last_name IS 
-    'Фамилия'
+    'Р¤Р°РјРёР»РёСЏ'
 ;
 COMMENT ON COLUMN xxi.mi_person.middle_name IS 
-    'Отчество'
+    'РћС‚С‡РµСЃС‚РІРѕ'
 ;
 COMMENT ON COLUMN xxi.mi_person.first_name_lat IS 
-    'Имя латиницей'
+    'РРјСЏ Р»Р°С‚РёРЅРёС†РµР№'
 ;
 COMMENT ON COLUMN xxi.mi_person.last_name_lat IS 
-    'Фамилия латиницей'
+    'Р¤Р°РјРёР»РёСЏ Р»Р°С‚РёРЅРёС†РµР№'
 ;
 COMMENT ON COLUMN xxi.mi_person.middle_name_lat IS 
-    'Отчество латиницей'
+    'РћС‚С‡РµСЃС‚РІРѕ Р»Р°С‚РёРЅРёС†РµР№'
 ;
 COMMENT ON COLUMN xxi.mi_person.gender_id IS 
-    'Пол человека'
+    'РџРѕР» С‡РµР»РѕРІРµРєР°'
 ;
 COMMENT ON COLUMN xxi.mi_person.ctzn_type_id IS 
-    'Тип гражданства'
+    'РўРёРї РіСЂР°Р¶РґР°РЅСЃС‚РІР°'
 ;
 COMMENT ON COLUMN xxi.mi_person.ctzn_country_code IS 
-    'Страна/код страны гражданства'
+    'РЎС‚СЂР°РЅР°/РєРѕРґ СЃС‚СЂР°РЅС‹ РіСЂР°Р¶РґР°РЅСЃС‚РІР°'
 ;
 COMMENT ON COLUMN xxi.mi_person.inn IS 
-    'ИНН'
+    'РРќРќ'
 ;
 COMMENT ON COLUMN xxi.mi_person.snils IS 
-    'СНИЛС'
+    'РЎРќРР›РЎ'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_type_id IS 
-    'Тип документа, ДУЛ'
+    'РўРёРї РґРѕРєСѓРјРµРЅС‚Р°, Р”РЈР›'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_type_code IS 
-    'Строковый код типа ДУЛ'
+    'РЎС‚СЂРѕРєРѕРІС‹Р№ РєРѕРґ С‚РёРїР° Р”РЈР›'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_ser IS 
-    'Серия ДУЛ'
+    'РЎРµСЂРёСЏ Р”РЈР›'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_num IS 
-    'Номер ДУЛ'
+    'РќРѕРјРµСЂ Р”РЈР›'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_issue_date IS 
-    'Дата выдачи ДУЛ'
+    'Р”Р°С‚Р° РІС‹РґР°С‡Рё Р”РЈР›'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_issuer_code IS 
-    'Код подразделения, выдавшего ДУЛ'
+    'РљРѕРґ РїРѕРґСЂР°Р·РґРµР»РµРЅРёСЏ, РІС‹РґР°РІС€РµРіРѕ Р”РЈР›'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_expire_date IS 
-    'Дата окончания срока действия ДУЛ'
+    'Р”Р°С‚Р° РѕРєРѕРЅС‡Р°РЅРёСЏ СЃСЂРѕРєР° РґРµР№СЃС‚РІРёСЏ Р”РЈР›'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_issuer_name IS 
-    'Наименование органа, выдавшего ДУЛ'
+    'РќР°РёРјРµРЅРѕРІР°РЅРёРµ РѕСЂРіР°РЅР°, РІС‹РґР°РІС€РµРіРѕ Р”РЈР›'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_invalid_from IS 
-    'Дата, с которой ДУЛ недействителен'
+    'Р”Р°С‚Р°, СЃ РєРѕС‚РѕСЂРѕР№ Р”РЈР› РЅРµРґРµР№СЃС‚РІРёС‚РµР»РµРЅ'
 ;
 COMMENT ON COLUMN xxi.mi_person.birth_date IS 
-    'Дата рождения'
+    'Р”Р°С‚Р° СЂРѕР¶РґРµРЅРёСЏ'
 ;
 COMMENT ON COLUMN xxi.mi_person.birth_date_raw IS 
-    'Строковая дата рождения для особых случаев'
+    'РЎС‚СЂРѕРєРѕРІР°СЏ РґР°С‚Р° СЂРѕР¶РґРµРЅРёСЏ РґР»СЏ РѕСЃРѕР±С‹С… СЃР»СѓС‡Р°РµРІ'
 ;
 COMMENT ON COLUMN xxi.mi_person.birth_place IS 
-    'Место рождения'
+    'РњРµСЃС‚Рѕ СЂРѕР¶РґРµРЅРёСЏ'
 ;
 COMMENT ON COLUMN xxi.mi_person.death_date IS 
-    'Дата смерти'
+    'Р”Р°С‚Р° СЃРјРµСЂС‚Рё'
 ;
 COMMENT ON COLUMN xxi.mi_person.phone IS 
-    'Телефон'
+    'РўРµР»РµС„РѕРЅ'
 ;
 COMMENT ON COLUMN xxi.mi_person.email IS 
     'E-mail'
 ;
 COMMENT ON COLUMN xxi.mi_person.region_code IS 
-    'Код региона'
+    'РљРѕРґ СЂРµРіРёРѕРЅР°'
 ;

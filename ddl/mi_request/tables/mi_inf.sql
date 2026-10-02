@@ -1,7 +1,7 @@
 --
--- Таблица    : xxi.mi_inf
--- Назначение : Виды сведений СМЭВ
--- Описание   : Реестр видов сведений, настройки
+-- РўР°Р±Р»РёС†Р°    : xxi.mi_inf
+-- РќР°Р·РЅР°С‡РµРЅРёРµ : Р’РёРґС‹ СЃРІРµРґРµРЅРёР№ РЎРњР­Р’
+-- РћРїРёСЃР°РЅРёРµ   : Р РµРµСЃС‚СЂ РІРёРґРѕРІ СЃРІРµРґРµРЅРёР№, РЅР°СЃС‚СЂРѕР№РєРё
 --
 CREATE TABLE IF NOT EXISTS xxi.mi_inf 
 (
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_inf
 -- FK      
       CONSTRAINT fk_mi_inf__mi_wsp FOREIGN KEY (wsp_id) REFERENCES xxi.mi_wsp(wsp_id) ON DELETE RESTRICT,
 -- Check
--- Имена очередей
+-- РРјРµРЅР° РѕС‡РµСЂРµРґРµР№
       CONSTRAINT ck_queue_names CHECK (
          request_queue is null or ( request_queue  ~ '^[a-zA-Z0-9\._\-:]+$' AND request_queue  !~* '^amq\.' )
          AND
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_inf
          AND
          ( response_ttl_ms IS NULL OR response_ttl_ms > 0 )
       ),      
--- Инициатор
+-- РРЅРёС†РёР°С‚РѕСЂ
    CONSTRAINT ck_mi_req__initiator_cd
         CHECK ( initiator_cd in ( 1, -1) )
 )
@@ -59,30 +59,30 @@ CREATE INDEX IF NOT EXISTS fx_mi_inf__wsp_id ON xxi.mi_inf USING BTREE (wsp_id)
 ALTER TABLE xxi.mi_inf OWNER TO "XXI";
 -- Table comment
 COMMENT ON TABLE xxi.mi_inf is 
-   'СМЭВ-3. Виды сведений $id: {3.1.0} {19.03.2026} Sulimoff$'
+   'РЎРњР­Р’-3. Р’РёРґС‹ СЃРІРµРґРµРЅРёР№ $id: {3.1.0} {19.03.2026} Sulimoff$'
 ;
 -- Columns comments
 COMMENT ON COLUMN xxi.mi_inf.inf_id is 
-   'ID вида сведений'
+   'ID РІРёРґР° СЃРІРµРґРµРЅРёР№'
 ;
 COMMENT ON COLUMN xxi.mi_inf.wsp_id is 
-   'АРМ вида сведений /mi_wsp/'
+   'РђР Рњ РІРёРґР° СЃРІРµРґРµРЅРёР№ /mi_wsp/'
 ;
 COMMENT ON COLUMN xxi.mi_inf.initiator_cd is 
-   'Иницатор запросов -1 АБС, +1 СМЭВ'
+   'РРЅРёС†Р°С‚РѕСЂ Р·Р°РїСЂРѕСЃРѕРІ -1 РђР‘РЎ, +1 РЎРњР­Р’'
 ;
 COMMENT ON COLUMN xxi.mi_inf.name_inf is 
-   'Наименование вида сведений'
+   'РќР°РёРјРµРЅРѕРІР°РЅРёРµ РІРёРґР° СЃРІРµРґРµРЅРёР№'
 ;
 COMMENT ON COLUMN xxi.mi_inf.name_official is 
-   'Наименование вида сведений офиициальное, с сайта СМЭВ'
+   'РќР°РёРјРµРЅРѕРІР°РЅРёРµ РІРёРґР° СЃРІРµРґРµРЅРёР№ РѕС„РёРёС†РёР°Р»СЊРЅРѕРµ, СЃ СЃР°Р№С‚Р° РЎРњР­Р’'
 ;
 COMMENT ON COLUMN xxi.mi_inf.namespace_inf is 
-   'Namespace вида сведений, с сайта СМЭВ'
+   'Namespace РІРёРґР° СЃРІРµРґРµРЅРёР№, СЃ СЃР°Р№С‚Р° РЎРњР­Р’'
 ;
 COMMENT ON COLUMN xxi.mi_inf.url_doc is 
-   'Ссылка на документацию (ЛКУВ)'
+   'РЎСЃС‹Р»РєР° РЅР° РґРѕРєСѓРјРµРЅС‚Р°С†РёСЋ (Р›РљРЈР’)'
 ;
 COMMENT ON COLUMN xxi.mi_inf.note is 
-   'Примечание'
+   'РџСЂРёРјРµС‡Р°РЅРёРµ'
 ;

@@ -7,7 +7,7 @@ $init$
    #import MI_logger
 DECLARE
    /*
-      Общая логика request header для mi_req
+      РћР±С‰Р°СЏ Р»РѕРіРёРєР° request header РґР»СЏ mi_req
    */
    cVersion       CONSTANT varchar(100) := '$id: {1.1.0} {08.09.2026}$';
    cLogger        CONSTANT varchar(20 ) := 'mi.req'; 
@@ -31,7 +31,7 @@ END;
 $init$
 
 
-/* Версия */
+/* Р’РµСЂСЃРёСЏ */
 CREATE FUNCTION get_Version()
    RETURNS 
       VARCHAR
@@ -47,7 +47,7 @@ $function$
 
 
 /*
-   Следующий itm_id, sequence - s_mi_itm.
+   РЎР»РµРґСѓСЋС‰РёР№ itm_id, sequence - s_mi_itm.
 */
 CREATE FUNCTION next_Itm_Id( )
    RETURNS
@@ -63,7 +63,7 @@ END;
 $function$
 
 
-/* Следующий req_id, sequence - s_mi_req. */
+/* РЎР»РµРґСѓСЋС‰РёР№ req_id, sequence - s_mi_req. */
 CREATE FUNCTION next_Req_Id( )
    RETURNS 
       numeric
@@ -78,7 +78,7 @@ END;
 $function$
 
 
-/* Определение wsp_id по inf_id */
+/* РћРїСЂРµРґРµР»РµРЅРёРµ wsp_id РїРѕ inf_id */
 CREATE FUNCTION resolve_Wsp_Id (
    in p_inf_id NUMERIC
 )
@@ -116,7 +116,7 @@ END;
 $function$
 
 
-/* Определение inf_id - вида сведения, по inf_id - Id запроса */
+/* РћРїСЂРµРґРµР»РµРЅРёРµ inf_id - РІРёРґР° СЃРІРµРґРµРЅРёСЏ, РїРѕ inf_id - Id Р·Р°РїСЂРѕСЃР° */
 CREATE FUNCTION resolve_Inf_Id (
    in p_req_Id NUMERIC
 )
@@ -143,7 +143,7 @@ $function$
 
 
 /* 
-   Создать request header
+   РЎРѕР·РґР°С‚СЊ request header
 */
 CREATE FUNCTION create_Request (
    in p_inf_id                numeric,
@@ -212,7 +212,7 @@ BEGIN
 END;
 $function$
 
-/* Существует ли request */
+/* РЎСѓС‰РµСЃС‚РІСѓРµС‚ Р»Рё request */
 CREATE FUNCTION exists_Inf (
    in p_inf_id numeric
 )
@@ -237,7 +237,7 @@ END;
 $function$
 
 
-/* Существует ли request */
+/* РЎСѓС‰РµСЃС‚РІСѓРµС‚ Р»Рё request */
 CREATE FUNCTION exists_Request (
    in p_req_id numeric
 )
@@ -264,7 +264,7 @@ $function$
 
 
 /*
-   Получить статус request
+   РџРѕР»СѓС‡РёС‚СЊ СЃС‚Р°С‚СѓСЃ request
 */
 CREATE FUNCTION get_Status (
    in p_req_id numeric
@@ -291,7 +291,7 @@ $function$
 
 
 /*
-   Взять запрос в обработку:
+   Р’Р·СЏС‚СЊ Р·Р°РїСЂРѕСЃ РІ РѕР±СЂР°Р±РѕС‚РєСѓ:
     0 -> 2
    -1 -> 2
 */
@@ -315,7 +315,7 @@ DECLARE
 
 BEGIN
 
-   CALL MI_logger.enter_f( cLogger, cAction_Name, 'Взятие в обработку запроса'::varchar, 'req_id=' || p_req_id, null::numeric, p_req_id );
+   CALL MI_logger.enter_f( cLogger, cAction_Name, 'Р’Р·СЏС‚РёРµ РІ РѕР±СЂР°Р±РѕС‚РєСѓ Р·Р°РїСЂРѕСЃР°'::varchar, 'req_id=' || p_req_id, null::numeric, p_req_id );
 
    p_res_Code := ret_Fail;
    p_res_Info := null;
@@ -344,7 +344,7 @@ BEGIN
 
       CALL MI_logger.info(
          p_logger_name   => cLogger,
-         p_message_text  => 'Запрос взят в обработку',
+         p_message_text  => 'Р—Р°РїСЂРѕСЃ РІР·СЏС‚ РІ РѕР±СЂР°Р±РѕС‚РєСѓ',
          p_inf_id        => l_inf_id,
          p_req_id        => p_req_id,
          p_itm_id        => NULL::numeric,
@@ -359,11 +359,11 @@ BEGIN
    END IF;
 
    /*
-      Дифференциация причины отказа:
-      - нет запроса
-      - уже обрабатывается
-      - уже успешно завершён
-      - уже отправлен
+      Р”РёС„С„РµСЂРµРЅС†РёР°С†РёСЏ РїСЂРёС‡РёРЅС‹ РѕС‚РєР°Р·Р°:
+      - РЅРµС‚ Р·Р°РїСЂРѕСЃР°
+      - СѓР¶Рµ РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚СЃСЏ
+      - СѓР¶Рµ СѓСЃРїРµС€РЅРѕ Р·Р°РІРµСЂС€С‘РЅ
+      - СѓР¶Рµ РѕС‚РїСЂР°РІР»РµРЅ
    */
    SELECT r.inf_id, r.status_cd, r.note
      INTO l_inf_id, l_prev_status_cd, l_curr_note
@@ -372,20 +372,20 @@ BEGIN
           r.req_id = p_req_id;
 
    IF NOT FOUND THEN
-      p_res_Info := 'Не найден запрос с req_id = ' || p_req_id;
+      p_res_Info := 'РќРµ РЅР°Р№РґРµРЅ Р·Р°РїСЂРѕСЃ СЃ req_id = ' || p_req_id;
    ELSIF 
       l_prev_status_cd = cStatus_busy 
    THEN
-      p_res_Info := 'Не возможно взять запрос в обработку. Т.к. он уже обрабатывается.' || CASE WHEN l_curr_note IS NOT NULL THEN E'\n' || l_curr_note ELSE '' END;
+      p_res_Info := 'РќРµ РІРѕР·РјРѕР¶РЅРѕ РІР·СЏС‚СЊ Р·Р°РїСЂРѕСЃ РІ РѕР±СЂР°Р±РѕС‚РєСѓ. Рў.Рє. РѕРЅ СѓР¶Рµ РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚СЃСЏ.' || CASE WHEN l_curr_note IS NOT NULL THEN E'\n' || l_curr_note ELSE '' END;
 
    ELSIF l_prev_status_cd = cStatus_done THEN
-         p_res_Info := 'Не возможно взять запрос в обработку. Т.к. он уже успешно обработан. Если необходимо, сначала сбросьте состояние запроса.';
+         p_res_Info := 'РќРµ РІРѕР·РјРѕР¶РЅРѕ РІР·СЏС‚СЊ Р·Р°РїСЂРѕСЃ РІ РѕР±СЂР°Р±РѕС‚РєСѓ. Рў.Рє. РѕРЅ СѓР¶Рµ СѓСЃРїРµС€РЅРѕ РѕР±СЂР°Р±РѕС‚Р°РЅ. Р•СЃР»Рё РЅРµРѕР±С…РѕРґРёРјРѕ, СЃРЅР°С‡Р°Р»Р° СЃР±СЂРѕСЃСЊС‚Рµ СЃРѕСЃС‚РѕСЏРЅРёРµ Р·Р°РїСЂРѕСЃР°.';
 
    ELSIF l_prev_status_cd = cStatus_sent THEN
-         p_res_Info := 'Не возможно взять запрос в обработку. Т.к. он уже отправлен во внешний сервис и ожидает завершения обработки.';
+         p_res_Info := 'РќРµ РІРѕР·РјРѕР¶РЅРѕ РІР·СЏС‚СЊ Р·Р°РїСЂРѕСЃ РІ РѕР±СЂР°Р±РѕС‚РєСѓ. Рў.Рє. РѕРЅ СѓР¶Рµ РѕС‚РїСЂР°РІР»РµРЅ РІРѕ РІРЅРµС€РЅРёР№ СЃРµСЂРІРёСЃ Рё РѕР¶РёРґР°РµС‚ Р·Р°РІРµСЂС€РµРЅРёСЏ РѕР±СЂР°Р±РѕС‚РєРё.';
 
    ELSE
-      p_res_Info := 'Не возможно взять запрос в обработку. Текущий статус: ' || coalesce(l_prev_status_cd::varchar, '<NULL>');
+      p_res_Info := 'РќРµ РІРѕР·РјРѕР¶РЅРѕ РІР·СЏС‚СЊ Р·Р°РїСЂРѕСЃ РІ РѕР±СЂР°Р±РѕС‚РєСѓ. РўРµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ: ' || coalesce(l_prev_status_cd::varchar, '<NULL>');
    END IF;
 
    CALL MI_logger.info (
@@ -434,7 +434,7 @@ END;
 $procedure$
 
 
-/* Отправить запрос в СМЭВ */
+/* РћС‚РїСЂР°РІРёС‚СЊ Р·Р°РїСЂРѕСЃ РІ РЎРњР­Р’ */
 CREATE PROCEDURE to_Sent (
    in  p_req_id   numeric,
    out p_res_Code int4,
@@ -493,22 +493,22 @@ RETURNING OLD.inf_id,
     WHERE r.req_id = p_req_id;
 
    IF NOT FOUND THEN
-      p_res_Info := 'Не найден запрос с req_id = ' || p_req_id;
+      p_res_Info := 'РќРµ РЅР°Р№РґРµРЅ Р·Р°РїСЂРѕСЃ СЃ req_id = ' || p_req_id;
 
    ELSIF l_prev_status_cd = cStatus_Sent THEN
-      p_res_Info := 'Не возможно перевести запрос в статус "отправлен". Т.к. он уже находится в статусе "отправлен".';
+      p_res_Info := 'РќРµ РІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "РѕС‚РїСЂР°РІР»РµРЅ". Рў.Рє. РѕРЅ СѓР¶Рµ РЅР°С…РѕРґРёС‚СЃСЏ РІ СЃС‚Р°С‚СѓСЃРµ "РѕС‚РїСЂР°РІР»РµРЅ".';
 
    ELSIF l_prev_status_cd = cStatus_Done THEN
-      p_res_Info := 'Не возможно перевести запрос в статус "отправлен". Т.к. он уже успешно обработан.';
+      p_res_Info := 'РќРµ РІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "РѕС‚РїСЂР°РІР»РµРЅ". Рў.Рє. РѕРЅ СѓР¶Рµ СѓСЃРїРµС€РЅРѕ РѕР±СЂР°Р±РѕС‚Р°РЅ.';
 
    ELSIF l_prev_status_cd = cStatus_Error THEN
-      p_res_Info := 'Не возможно перевести запрос в статус "отправлен". Т.к. он находится в ошибочном статусе. Сначала возьмите его в обработку повторно.';
+      p_res_Info := 'РќРµ РІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "РѕС‚РїСЂР°РІР»РµРЅ". Рў.Рє. РѕРЅ РЅР°С…РѕРґРёС‚СЃСЏ РІ РѕС€РёР±РѕС‡РЅРѕРј СЃС‚Р°С‚СѓСЃРµ. РЎРЅР°С‡Р°Р»Р° РІРѕР·СЊРјРёС‚Рµ РµРіРѕ РІ РѕР±СЂР°Р±РѕС‚РєСѓ РїРѕРІС‚РѕСЂРЅРѕ.';
 
    ELSIF l_prev_status_cd = cStatus_New THEN
-      p_res_Info := 'Не возможно перевести запрос в статус "отправлен". Т.к. он ещё не взят в обработку.';
+      p_res_Info := 'РќРµ РІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "РѕС‚РїСЂР°РІР»РµРЅ". Рў.Рє. РѕРЅ РµС‰С‘ РЅРµ РІР·СЏС‚ РІ РѕР±СЂР°Р±РѕС‚РєСѓ.';
 
    ELSE
-      p_res_Info := 'Не возможно перевести запрос в статус "отправлен". Текущий статус: ' || coalesce(l_prev_status_cd::varchar, '<NULL>');
+      p_res_Info := 'РќРµ РІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "РѕС‚РїСЂР°РІР»РµРЅ". РўРµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ: ' || coalesce(l_prev_status_cd::varchar, '<NULL>');
    END IF;
 
    CALL MI_logger.info (
@@ -555,7 +555,7 @@ END;
 $procedure$
 
 
-/* Перевод в успешный статус */
+/* РџРµСЂРµРІРѕРґ РІ СѓСЃРїРµС€РЅС‹Р№ СЃС‚Р°С‚СѓСЃ */
 CREATE PROCEDURE to_Success(
    in  p_req_id   numeric,
    out p_res_code int4,
@@ -610,33 +610,33 @@ BEGIN
 
    IF NOT FOUND THEN
       p_res_info :=
-         'Не найден запрос с req_id = ' || p_req_id;
+         'РќРµ РЅР°Р№РґРµРЅ Р·Р°РїСЂРѕСЃ СЃ req_id = ' || p_req_id;
 
    ELSIF l_prev_status_cd = cStatus_done THEN
       p_res_info :=
-         'Невозможно перевести запрос в статус "успешно обработан", '
-         || 'так как он уже успешно обработан.';
+         'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "СѓСЃРїРµС€РЅРѕ РѕР±СЂР°Р±РѕС‚Р°РЅ", '
+         || 'С‚Р°Рє РєР°Рє РѕРЅ СѓР¶Рµ СѓСЃРїРµС€РЅРѕ РѕР±СЂР°Р±РѕС‚Р°РЅ.';
 
    ELSIF l_prev_status_cd = cStatus_busy THEN
       p_res_info :=
-         'Невозможно перевести запрос в статус "успешно обработан", '
-         || 'так как запрос ещё находится в обработке '
-         || 'и не зафиксирован как отправленный.';
+         'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "СѓСЃРїРµС€РЅРѕ РѕР±СЂР°Р±РѕС‚Р°РЅ", '
+         || 'С‚Р°Рє РєР°Рє Р·Р°РїСЂРѕСЃ РµС‰С‘ РЅР°С…РѕРґРёС‚СЃСЏ РІ РѕР±СЂР°Р±РѕС‚РєРµ '
+         || 'Рё РЅРµ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅ РєР°Рє РѕС‚РїСЂР°РІР»РµРЅРЅС‹Р№.';
 
    ELSIF l_prev_status_cd = cStatus_new THEN
       p_res_info :=
-         'Невозможно перевести запрос в статус "успешно обработан", '
-         || 'так как он ещё не был взят в обработку и отправлен.';
+         'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "СѓСЃРїРµС€РЅРѕ РѕР±СЂР°Р±РѕС‚Р°РЅ", '
+         || 'С‚Р°Рє РєР°Рє РѕРЅ РµС‰С‘ РЅРµ Р±С‹Р» РІР·СЏС‚ РІ РѕР±СЂР°Р±РѕС‚РєСѓ Рё РѕС‚РїСЂР°РІР»РµРЅ.';
 
    ELSIF l_prev_status_cd = cStatus_error THEN
       p_res_info :=
-         'Невозможно перевести запрос в статус "успешно обработан", '
-         || 'так как он находится в ошибочном статусе.';
+         'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "СѓСЃРїРµС€РЅРѕ РѕР±СЂР°Р±РѕС‚Р°РЅ", '
+         || 'С‚Р°Рє РєР°Рє РѕРЅ РЅР°С…РѕРґРёС‚СЃСЏ РІ РѕС€РёР±РѕС‡РЅРѕРј СЃС‚Р°С‚СѓСЃРµ.';
 
    ELSE
       p_res_info :=
-         'Невозможно перевести запрос в статус "успешно обработан". '
-         || 'Текущий статус: '
+         'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "СѓСЃРїРµС€РЅРѕ РѕР±СЂР°Р±РѕС‚Р°РЅ". '
+         || 'РўРµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ: '
          || coalesce(l_prev_status_cd::varchar, '<NULL>');
    END IF;
 
@@ -684,7 +684,7 @@ END;
 $procedure$
 
 
-/* Перевод в ошибочный статус */
+/* РџРµСЂРµРІРѕРґ РІ РѕС€РёР±РѕС‡РЅС‹Р№ СЃС‚Р°С‚СѓСЃ */
 CREATE PROCEDURE to_Error(
    in  p_req_id   numeric,
    out p_res_code int4,
@@ -743,25 +743,25 @@ BEGIN
     WHERE r.req_id = p_req_id;
 
    IF NOT FOUND THEN
-      p_res_info := 'Не найден запрос с req_id = ' || p_req_id;
+      p_res_info := 'РќРµ РЅР°Р№РґРµРЅ Р·Р°РїСЂРѕСЃ СЃ req_id = ' || p_req_id;
 
    ELSIF l_prev_status_cd = cStatus_error THEN
-      p_res_info := 'Невозможно перевести запрос в статус "ошибка", так как он уже находится в ошибочном статусе.';
+      p_res_info := 'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "РѕС€РёР±РєР°", С‚Р°Рє РєР°Рє РѕРЅ СѓР¶Рµ РЅР°С…РѕРґРёС‚СЃСЏ РІ РѕС€РёР±РѕС‡РЅРѕРј СЃС‚Р°С‚СѓСЃРµ.';
 
    ELSIF l_prev_status_cd = cStatus_done THEN
       p_res_info :=
-         'Невозможно перевести запрос в статус "ошибка", '
-         || 'так как он уже успешно обработан.';
+         'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "РѕС€РёР±РєР°", '
+         || 'С‚Р°Рє РєР°Рє РѕРЅ СѓР¶Рµ СѓСЃРїРµС€РЅРѕ РѕР±СЂР°Р±РѕС‚Р°РЅ.';
 
    ELSIF l_prev_status_cd = cStatus_new THEN
       p_res_info :=
-         'Невозможно перевести запрос в статус "ошибка", '
-         || 'так как он ещё не был взят в обработку.';
+         'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "РѕС€РёР±РєР°", '
+         || 'С‚Р°Рє РєР°Рє РѕРЅ РµС‰С‘ РЅРµ Р±С‹Р» РІР·СЏС‚ РІ РѕР±СЂР°Р±РѕС‚РєСѓ.';
 
    ELSE
       p_res_info :=
-         'Невозможно перевести запрос в статус "ошибка". '
-         || 'Текущий статус: '
+         'РќРµРІРѕР·РјРѕР¶РЅРѕ РїРµСЂРµРІРµСЃС‚Рё Р·Р°РїСЂРѕСЃ РІ СЃС‚Р°С‚СѓСЃ "РѕС€РёР±РєР°". '
+         || 'РўРµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ: '
          || coalesce(l_prev_status_cd::varchar, '<NULL>');
    END IF;
 
@@ -847,9 +847,9 @@ BEGIN
    l_note_text := trim(both from coalesce(p_info, '')) || ' [RESET ' || to_char(clock_timestamp(), 'YYYY-MM-DD HH24:MI:SS.MS') || ']';
 
    /*
-      Аварийный сброс в начальное состояние:
-      любое состояние -> 0
-      если уже 0, отдельно сообщаем
+      РђРІР°СЂРёР№РЅС‹Р№ СЃР±СЂРѕСЃ РІ РЅР°С‡Р°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ:
+      Р»СЋР±РѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ -> 0
+      РµСЃР»Рё СѓР¶Рµ 0, РѕС‚РґРµР»СЊРЅРѕ СЃРѕРѕР±С‰Р°РµРј
    */
    UPDATE xxi.mi_req r
       SET status_cd = cStatus_new,
@@ -879,14 +879,14 @@ BEGIN
     WHERE r.req_id = p_req_id;
 
    IF NOT FOUND THEN
-      p_res_Info := 'Не найден запрос с req_id = ' || p_req_id;
+      p_res_Info := 'РќРµ РЅР°Р№РґРµРЅ Р·Р°РїСЂРѕСЃ СЃ req_id = ' || p_req_id;
 
    ELSIF l_prev_status_cd = cStatus_new THEN
       p_res_Code := ret_OK;
-      p_res_Info := 'Сброс не требуется. Запрос уже находится в начальном статусе 0.';
+      p_res_Info := 'РЎР±СЂРѕСЃ РЅРµ С‚СЂРµР±СѓРµС‚СЃСЏ. Р—Р°РїСЂРѕСЃ СѓР¶Рµ РЅР°С…РѕРґРёС‚СЃСЏ РІ РЅР°С‡Р°Р»СЊРЅРѕРј СЃС‚Р°С‚СѓСЃРµ 0.';
 
    ELSE
-      p_res_Info := 'Не удалось выполнить reset. Текущий статус: ' || coalesce(l_prev_status_cd::varchar, '<NULL>');
+      p_res_Info := 'РќРµ СѓРґР°Р»РѕСЃСЊ РІС‹РїРѕР»РЅРёС‚СЊ reset. РўРµРєСѓС‰РёР№ СЃС‚Р°С‚СѓСЃ: ' || coalesce(l_prev_status_cd::varchar, '<NULL>');
    END IF;
 
    CALL MI_logger.info( cLogger, 'reset rejected', l_inf_id, p_req_id,  p_res_Info, cAction_Name, NULL::varchar, cPkg_Name  );
@@ -918,7 +918,7 @@ END;
 $procedure$
 
 /*
-   Получить correlation_id
+   РџРѕР»СѓС‡РёС‚СЊ correlation_id
 */
 CREATE FUNCTION get_Correlation_Id (
    in p_req_id numeric
@@ -943,7 +943,7 @@ END;
 $function$
 
 
-/* Взять request на блокировку */
+/* Р’Р·СЏС‚СЊ request РЅР° Р±Р»РѕРєРёСЂРѕРІРєСѓ */
 CREATE FUNCTION lock_Request (
    in p_req_id numeric
 )
@@ -968,7 +968,7 @@ END;
 $function$
 
 
-/* Удалить request */
+/* РЈРґР°Р»РёС‚СЊ request */
 CREATE PROCEDURE delete_Request(
    in p_req_id numeric
 )
@@ -984,7 +984,7 @@ END;
 $procedure$
 
 
-/* Удалить помеченные */
+/* РЈРґР°Р»РёС‚СЊ РїРѕРјРµС‡РµРЅРЅС‹Рµ */
 CREATE PROCEDURE delete_By_Marker(
    in  p_marker_id  numeric,
    out p_res_Info   varchar
@@ -1006,9 +1006,9 @@ BEGIN
    GET DIAGNOSTICS l_deleted_count = ROW_COUNT;
 
    IF l_deleted_count = 0 THEN
-      p_res_Info := 'По marker_id = ' || p_marker_id || ' запросы для удаления не найдены.';
+      p_res_Info := 'РџРѕ marker_id = ' || p_marker_id || ' Р·Р°РїСЂРѕСЃС‹ РґР»СЏ СѓРґР°Р»РµРЅРёСЏ РЅРµ РЅР°Р№РґРµРЅС‹.';
    ELSE
-      p_res_Info := 'Удалено запросов: ' || l_deleted_count::varchar || '.';
+      p_res_Info := 'РЈРґР°Р»РµРЅРѕ Р·Р°РїСЂРѕСЃРѕРІ: ' || l_deleted_count::varchar || '.';
    END IF;
 
    CALL MI_logger.info( cLogger, 'delete_By_Marker completed', NULL::numeric, NULL::numeric, p_res_Info, cAction_Name, 'marker_id=' || p_marker_id::varchar, cPkg_Name );
@@ -1041,7 +1041,7 @@ END;
 $procedure$
 
 
-/* Установка запроса в ошибочный стутс из-за ответа СМЭВ */
+/* РЈСЃС‚Р°РЅРѕРІРєР° Р·Р°РїСЂРѕСЃР° РІ РѕС€РёР±РѕС‡РЅС‹Р№ СЃС‚СѓС‚СЃ РёР·-Р·Р° РѕС‚РІРµС‚Р° РЎРњР­Р’ */
 CREATE PROCEDURE apply_Request_Failure (
    
    in p_external_uuid uuid,
@@ -1082,13 +1082,13 @@ begin
    p_res_code := -1;
    p_res_Info := 'Unhandled error in ' || cAction_Name;
 
-/*   call MI_logger.enter_f( cLogger, cAction_Name, 'Отрицательный ответ от MI/SMEV на запрос'::varchar, 
+/*   call MI_logger.enter_f( cLogger, cAction_Name, 'РћС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Р№ РѕС‚РІРµС‚ РѕС‚ MI/SMEV РЅР° Р·Р°РїСЂРѕСЃ'::varchar, 
                           'p_external_uuid=' || p_external_uuid || ', p_reason= ' || p_reason_code || ', p_error_code = ' || p_error_code  ); */
 
    CALL MI_logger.enter_f(
       p_logger_name   => cLogger,
       p_function_name => cAction_Name,
-      p_message_text  => 'Отрицательный ответ от MI/SMEV на запрос'::varchar,
+      p_message_text  => 'РћС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Р№ РѕС‚РІРµС‚ РѕС‚ MI/SMEV РЅР° Р·Р°РїСЂРѕСЃ'::varchar,
       p_parameters    => 'p_external_uuid=' || p_external_uuid || ', p_reason= ' || p_reason_code || ', p_error_code = ' || p_error_code,
       p_inf_id        => NULL::numeric,
       p_req_id        => NULL::numeric,
@@ -1097,13 +1097,13 @@ begin
 
 
    /*
-    * Нормализуем значение transport enum:
+    * РќРѕСЂРјР°Р»РёР·СѓРµРј Р·РЅР°С‡РµРЅРёРµ transport enum:
     * REQUEST_REJECTED / REQUEST_FAILED.
     */
 
    l_reason_code := upper( trim(p_reason_code) );
 
-   -- Проверка обязательных параметров.
+   -- РџСЂРѕРІРµСЂРєР° РѕР±СЏР·Р°С‚РµР»СЊРЅС‹С… РїР°СЂР°РјРµС‚СЂРѕРІ.
    IF p_external_uuid IS NULL THEN
       p_res_info := 'p_external_uuid is null';
       RETURN;
@@ -1126,8 +1126,8 @@ begin
          ELSE NULL
       END;
 
-   /* Ищем запрос независимо от текущего статуса
-      и блокируем его до завершения процедуры. */
+   /* РС‰РµРј Р·Р°РїСЂРѕСЃ РЅРµР·Р°РІРёСЃРёРјРѕ РѕС‚ С‚РµРєСѓС‰РµРіРѕ СЃС‚Р°С‚СѓСЃР°
+      Рё Р±Р»РѕРєРёСЂСѓРµРј РµРіРѕ РґРѕ Р·Р°РІРµСЂС€РµРЅРёСЏ РїСЂРѕС†РµРґСѓСЂС‹. */
    BEGIN
 
       SELECT r.req_id,
@@ -1149,48 +1149,48 @@ begin
       WHEN no_data_found THEN
 
          p_res_code := ret_Fail;
-         p_res_info := 'Не найден запрос с external_uuid = ' || p_external_uuid;
+         p_res_info := 'РќРµ РЅР°Р№РґРµРЅ Р·Р°РїСЂРѕСЃ СЃ external_uuid = ' || p_external_uuid;
 
          RETURN;
    END;
 
    -- call MI_logger.variable_Value( cLogger, 'req_id', l_req_Id, p_inf_id => l_inf_id, p_req_id => l_req_Id );
 
-   -- Запрос уже установлен в ошибочный статус. 
+   -- Р—Р°РїСЂРѕСЃ СѓР¶Рµ СѓСЃС‚Р°РЅРѕРІР»РµРЅ РІ РѕС€РёР±РѕС‡РЅС‹Р№ СЃС‚Р°С‚СѓСЃ. 
    IF l_status_cd = -1 THEN
 
-      -- Тот же message_uuid должен содержать точно такие же данные.
+      -- РўРѕС‚ Р¶Рµ message_uuid РґРѕР»Р¶РµРЅ СЃРѕРґРµСЂР¶Р°С‚СЊ С‚РѕС‡РЅРѕ С‚Р°РєРёРµ Р¶Рµ РґР°РЅРЅС‹Рµ.
       IF l_current_message_uuid = p_message_uuid THEN
 
          IF l_current_stage_cd IS NOT DISTINCT FROM l_expected_stage_cd
          THEN
             p_res_code := ret_Ok;
-            p_res_info := 'Отрицательный ответ уже применён ранее';
+            p_res_info := 'РћС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Р№ РѕС‚РІРµС‚ СѓР¶Рµ РїСЂРёРјРµРЅС‘РЅ СЂР°РЅРµРµ';
 
             RETURN;
          END IF;
 
          p_res_code := ret_Fail;
-         p_res_info := 'Конфликт повторного сообщения: message_uuid=' || p_message_uuid || ' уже применён с другими данными';
+         p_res_info := 'РљРѕРЅС„Р»РёРєС‚ РїРѕРІС‚РѕСЂРЅРѕРіРѕ СЃРѕРѕР±С‰РµРЅРёСЏ: message_uuid=' || p_message_uuid || ' СѓР¶Рµ РїСЂРёРјРµРЅС‘РЅ СЃ РґСЂСѓРіРёРјРё РґР°РЅРЅС‹РјРё';
 
          RETURN;
 
       END IF;
 
-      -- Другой ответ пришёл для уже завершённого запроса.
+      -- Р”СЂСѓРіРѕР№ РѕС‚РІРµС‚ РїСЂРёС€С‘Р» РґР»СЏ СѓР¶Рµ Р·Р°РІРµСЂС€С‘РЅРЅРѕРіРѕ Р·Р°РїСЂРѕСЃР°.
       p_res_code := ret_Fail;
-      p_res_info := 'Запрос уже установлен в ошибочный статус другим сообщением: current_message_uuid='
+      p_res_info := 'Р—Р°РїСЂРѕСЃ СѓР¶Рµ СѓСЃС‚Р°РЅРѕРІР»РµРЅ РІ РѕС€РёР±РѕС‡РЅС‹Р№ СЃС‚Р°С‚СѓСЃ РґСЂСѓРіРёРј СЃРѕРѕР±С‰РµРЅРёРµРј: current_message_uuid='
                     || coalesce( l_current_message_uuid::varchar, 'null' ) || ', incoming_message_uuid='|| p_message_uuid;
 
       RETURN;
 
    END IF;
 
-   -- Отрицательный ответ применим только к запросу, который был успешно отправлен.
+   -- РћС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Р№ РѕС‚РІРµС‚ РїСЂРёРјРµРЅРёРј С‚РѕР»СЊРєРѕ Рє Р·Р°РїСЂРѕСЃСѓ, РєРѕС‚РѕСЂС‹Р№ Р±С‹Р» СѓСЃРїРµС€РЅРѕ РѕС‚РїСЂР°РІР»РµРЅ.
    IF l_status_cd <> 3 THEN
 
       p_res_code := ret_Fail;
-      p_res_info := 'Запрос не находится в необходимом статусе 3: ' || 'status_cd=' || coalesce( l_status_cd::varchar, 'null' );
+      p_res_info := 'Р—Р°РїСЂРѕСЃ РЅРµ РЅР°С…РѕРґРёС‚СЃСЏ РІ РЅРµРѕР±С…РѕРґРёРјРѕРј СЃС‚Р°С‚СѓСЃРµ 3: ' || 'status_cd=' || coalesce( l_status_cd::varchar, 'null' );
 
       RETURN;
 
@@ -1209,14 +1209,14 @@ begin
 
    IF NOT FOUND THEN
       p_res_code := ret_Fail;
-      p_res_info := 'Не удалось обновить запрос: req_id=' || l_req_id || '. Данные не нашлись';
+      p_res_info := 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕР±РЅРѕРІРёС‚СЊ Р·Р°РїСЂРѕСЃ: req_id=' || l_req_id || '. Р”Р°РЅРЅС‹Рµ РЅРµ РЅР°С€Р»РёСЃСЊ';
 
       RETURN;
 
    END IF;
 
    p_res_code := ret_Ok;
-   p_res_info := 'Отрицательный ответ успешно применён: req_id=' || l_req_id;
+   p_res_info := 'РћС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Р№ РѕС‚РІРµС‚ СѓСЃРїРµС€РЅРѕ РїСЂРёРјРµРЅС‘РЅ: req_id=' || l_req_id;
 
 EXCEPTION
    WHEN others THEN

@@ -1,7 +1,7 @@
 --
--- Таблица    : xxi.mi_0010_acc
--- Назначение : ЕГР ЗАГС
--- Описание   : Список счетов
+-- РўР°Р±Р»РёС†Р°    : xxi.mi_0010_acc
+-- РќР°Р·РЅР°С‡РµРЅРёРµ : Р•Р“Р  Р—РђР“РЎ
+-- РћРїРёСЃР°РЅРёРµ   : РЎРїРёСЃРѕРє СЃС‡РµС‚РѕРІ
 --
 CREATE TABLE IF NOT EXISTS xxi.mi_0010_acc (
 -- +---------------------------------------------------------------------------
@@ -30,17 +30,17 @@ create index if not exists fx_mi_0010_acc__itm_Id on xxi.mi_0010_acc using btree
 alter table xxi.mi_0010_acc owner to "xxi"
 ;
 -- Comments
-COMMENT ON TABLE xxi.mi_0010_acc is 'СМЭВ-3. Сведения о смерти физ лица. Список счетов. $id: {1.0.0} {15.07.2026} Sulimoff$'
+COMMENT ON TABLE xxi.mi_0010_acc is 'РЎРњР­Р’-3. РЎРІРµРґРµРЅРёСЏ Рѕ СЃРјРµСЂС‚Рё С„РёР· Р»РёС†Р°. РЎРїРёСЃРѕРє СЃС‡РµС‚РѕРІ. $id: {1.0.0} {15.07.2026} Sulimoff$'
 ;
-comment on column xxi.mi_0010_acc.itm_id is 'ID элемента запроса /xxi.mi_0010/'
+comment on column xxi.mi_0010_acc.itm_id is 'ID СЌР»РµРјРµРЅС‚Р° Р·Р°РїСЂРѕСЃР° /xxi.mi_0010/'
 ;
-comment on column xxi.mi_0010_acc.fil is 'Филиал'
+comment on column xxi.mi_0010_acc.fil is 'Р¤РёР»РёР°Р»'
 ;
-comment on column xxi.mi_0010_acc.acc is 'Счет'
+comment on column xxi.mi_0010_acc.acc is 'РЎС‡РµС‚'
 ;
-comment on column xxi.mi_0010_acc.acc_date is 'Дата открытия счета'
+comment on column xxi.mi_0010_acc.acc_date is 'Р”Р°С‚Р° РѕС‚РєСЂС‹С‚РёСЏ СЃС‡РµС‚Р°'
 ;
-comment on column xxi.mi_0010_acc.acc_cur  is 'Валюта счета'
+comment on column xxi.mi_0010_acc.acc_cur  is 'Р’Р°Р»СЋС‚Р° СЃС‡РµС‚Р°'
 ;
-comment on column xxi.mi_0010_acc.acc_type is 'Код вида счета'
+comment on column xxi.mi_0010_acc.acc_type is 'РљРѕРґ РІРёРґР° СЃС‡РµС‚Р°'
 ;

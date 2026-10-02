@@ -7,7 +7,7 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 
 [*.sql]
-charset = windows-1251
+charset = utf-8
 indent_style = space
 indent_size = 3
 

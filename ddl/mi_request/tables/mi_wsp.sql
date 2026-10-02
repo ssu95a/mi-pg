@@ -8,13 +8,13 @@ CREATE TABLE xxi.mi_wsp (
 TABLESPACE 
    users
 ;
-COMMENT ON TABLE xxi.mi_wsp IS 'Один АРМ модуля СМЭВ'
+COMMENT ON TABLE xxi.mi_wsp IS 'РћРґРёРЅ РђР Рњ РјРѕРґСѓР»СЏ РЎРњР­Р’'
 ;
-COMMENT ON COLUMN xxi.mi_wsp.wsp_id IS E'ID Арм /wsp_id/'
+COMMENT ON COLUMN xxi.mi_wsp.wsp_id IS E'ID РђСЂРј /wsp_id/'
 ;
-COMMENT ON COLUMN xxi.mi_wsp.name IS E'Наименование'
+COMMENT ON COLUMN xxi.mi_wsp.name IS E'РќР°РёРјРµРЅРѕРІР°РЅРёРµ'
 ;
-COMMENT ON COLUMN xxi.mi_wsp.note IS E'Примечание'
+COMMENT ON COLUMN xxi.mi_wsp.note IS E'РџСЂРёРјРµС‡Р°РЅРёРµ'
 ;
 ALTER TABLE xxi.mi_wsp OWNER TO "XXI"
 ;

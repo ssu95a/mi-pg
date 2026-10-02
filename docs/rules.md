@@ -25,31 +25,32 @@ versions/  — версии поставок
 docs/      — правила и документация
 
 ### Внутри ddl/ модули хранятся так:
-
+```text
 ddl/<module>/<object-type>/<file.sql>
-
+```
 #### Примеры
-
+```text
 ddl/logger/tables/mi_log.sql
 ddl/logger/packages/mi_logger.sql
 ddl/mi_request/tables/mi_req.sql
 ddl/mi_request/packages/MI_request_Api.sql
 ddl/mi_request/triggers/tad_mi_req.sql
+```
 
 ## 3. Модули
 Модуль — это функциональная часть проекта MI.
 
 #### Примеры модулей:
-
+```text
 logger
 mi_request
 mi_person
 mi_0001
 mi_0007
 mi_utils
-
+```
 #### Внутри модуля могут быть папки:
-
+```text
 tables/
 sequences/
 packages/
@@ -57,7 +58,7 @@ views/
 triggers/
 grants/
 fill/
-
+```
 Создавать нужно только те папки, которые реально используются.
 
 ## 3. Таблицы
