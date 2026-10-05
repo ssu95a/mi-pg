@@ -9,11 +9,12 @@ CREATE OR REPLACE PACKAGE mi_0600_api
    -- Инициализация пакета
    CREATE FUNCTION __init__() RETURNS void AS $$
    DECLARE
-      cVersion CONSTANT VARCHAR(100) := '$id: {1.2.10} {29.09.2026} Sukhotina$';
+      cVersion CONSTANT VARCHAR(100) := '$id: {1.2.11} {05.10.2026} Sukhotina$';
 
       RET_OK      CONSTANT INTEGER := 0;
       RET_FAIL    CONSTANT INTEGER := -1;
       RET_NO_DATA CONSTANT INTEGER := 1;
+      RET_EXISTS  CONSTANT INTEGER := 4;
    
       cPkg_Name CONSTANT VARCHAR(20) := 'mi_0600_api';
       c_Logger  CONSTANT VARCHAR(20) := 'mi.0600';
@@ -56,9 +57,11 @@ CREATE OR REPLACE PACKAGE mi_0600_api
    ) AS $$
       #package
    DECLARE
-      l_req_id    numeric;
-      l_itm_id    numeric;
-      l_file_name varchar;
+      l_req_id          numeric;
+      l_itm_id          numeric;
+      l_file_name       varchar;
+      l_existing_req_id numeric;
+      l_existing_itm_id numeric;
    BEGIN
       CALL mi_logger.enter_f(
          p_logger_name   => c_Logger,
@@ -87,6 +90,77 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          IF p_czip_name IS NULL OR btrim(p_czip_name) = '' THEN
             p_ret_info := 'p_czip_name is null or empty';
             RETURN;
+         END IF;
+
+         -- Проверка дубликатов
+         IF p_inf_id IN (601, 603, 611) THEN
+            -- Инициатор: дубликат по имени архива
+            SELECT h.req_id, h.itm_id
+              INTO l_existing_req_id, l_existing_itm_id
+              FROM xxi.mi_0600 h
+             WHERE h.czip_name = p_czip_name
+             LIMIT 1;
+
+            IF FOUND THEN
+               -- Обновляем архив и метаданные
+               UPDATE xxi.mi_0600
+                  SET bzip_data        = p_bzip_data,
+                      izip_size        = p_izip_size,
+                      izip_files_count = p_izip_files_count
+                WHERE itm_id = l_existing_itm_id;
+
+               -- Пересобираем имена файлов: старые удаляем, новые вставляем
+               DELETE FROM xxi.mi_0600_f WHERE itm_id = l_existing_itm_id;
+
+               IF p_file_names IS NOT NULL AND array_length(p_file_names, 1) > 0 THEN
+                  FOREACH l_file_name IN ARRAY p_file_names
+                  LOOP
+                     IF l_file_name IS NULL OR btrim(l_file_name) = '' THEN
+                        CONTINUE;
+                     END IF;
+                     INSERT INTO xxi.mi_0600_f (itm_id, czip_file_name)
+                     VALUES (l_existing_itm_id, l_file_name);
+                  END LOOP;
+               END IF;
+
+               p_req_id   := l_existing_req_id;
+               p_itm_id   := l_existing_itm_id;
+               p_ret_code := RET_OK;
+               p_ret_info := 'Дубликат архива: возвращён существующий req_id=' || l_existing_req_id
+                             || ', zip_data и имена файлов обновлены';
+
+               CALL mi_logger.info(
+                  p_logger_name   => c_Logger,
+                  p_message_text  => p_ret_info,
+                  p_inf_id        => p_inf_id
+               );
+               RETURN;
+            END IF;
+
+         ELSIF p_inf_id IN (602, 604, 612) THEN
+            -- Ответчик: дубликат по original_request_uuid
+            IF p_original_request_uuid IS NOT NULL THEN
+               SELECT h.req_id, h.itm_id
+                 INTO l_existing_req_id, l_existing_itm_id
+                 FROM xxi.mi_req r
+                 LEFT JOIN xxi.mi_0600 h ON h.req_id = r.req_id
+                WHERE r.original_request_uuid = p_original_request_uuid
+                LIMIT 1;
+
+               IF FOUND THEN
+                  p_req_id   := l_existing_req_id;
+                  p_itm_id   := l_existing_itm_id;
+                  p_ret_code := RET_EXISTS;
+                  p_ret_info := 'Дубликат original_request_uuid: уже существует req_id=' || l_existing_req_id;
+
+                  CALL mi_logger.info(
+                     p_logger_name   => c_Logger,
+                     p_message_text  => p_ret_info,
+                     p_inf_id        => p_inf_id
+                  );
+                  RETURN;
+               END IF;
+            END IF;
          END IF;
    
          -- Заголовок запроса
