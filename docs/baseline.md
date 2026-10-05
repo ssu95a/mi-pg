@@ -83,9 +83,9 @@ mi_request_api.sql
 | Primary Key | `pk_<table>` |
 | Foreign Key | `fk_<table>__<ref_table>[__<purpose>]` |
 | Unique Constraint | `uk_<table>__<purpose>` |
-| Check Constraint | `chk_<table>__<purpose>` |
+| Check Constraint | `ck_<table>__<purpose>` |
 | Index | `ix_<table>__<purpose>` |
-| Unique Index | `uix_<table>__<purpose>` |
+| Unique Index | `ux_<table>__<purpose>` |
 | Trigger | `t_<timing><operation>[_s]_<table>__<purpose>` |
 | Trigger Function | `tf_<timing><operation>[_s]_<table>__<purpose>` |
 
