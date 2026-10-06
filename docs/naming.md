@@ -208,7 +208,7 @@ ck_<table>__<purpose>
 
 ```text
 ck_mi_req__status
-ch_mi_req__date_range
+ck_mi_req__date_range
 ck_mi_person__type
 ```
 
@@ -579,19 +579,19 @@ Trigger function создаётся в схеме функционального
 
 ```text
 Таблица:
-mi.mi_req
+xxi.mi_req
 
 Trigger:
 t_bi_mi_req__validate
 
 Trigger function:
-mi_request.tf_bi_mi_req__validate()
+mi_request_trg.tf_bi_mi_req__validate()
 ```
 
 SQL-файл:
 
 ```sql
-create or replace function mi_request.tf_bi_mi_req__validate()
+create or replace function mi_request_trg.tf_bi_mi_req__validate()
 returns trigger
 language plpgsql
 as $$
@@ -602,13 +602,15 @@ end;
 $$;
 
 
-create trigger t_bi_mi_req__validate
-before insert on mi.mi_req
+create or replace trigger t_bi_mi_req__validate
+before insert on xxi.mi_req
 for each row
-execute function mi_request.tf_bi_mi_req__validate();
+execute function mi_request_trg.tf_bi_mi_req__validate();
 ```
 
 Сначала создаётся trigger function, затем trigger.
+
+Для обычных triggers используется `CREATE OR REPLACE TRIGGER`. Constraint triggers требуют отдельного подхода.
 
 ---
 
@@ -723,7 +725,7 @@ JIRA
 ```text
 mi_req__WXXI-1234__add_col__email__v1.0.2.sql
 mi_req__WXXI-1235__create_index__ix_email__v1.0.3.sql
-mi_req__WXXI-1240__add_constraint__chk_status__v1.1.0.sql
+mi_req__WXXI-1240__add_constraint__ck_status__v1.1.0.sql
 mi_req__WXXI-1250__change__email_search__v1.2.0.sql
 ```
 
@@ -822,7 +824,7 @@ MAJOR.MINOR.PATCH
 
 ```sql
 cVersion CONSTANT varchar(100) :=
-    '$id: {1.1.0} {17.06.2026}$';
+    '$Id: {1.1.0} {17.06.2026} Sulimoff$';
 ```
 
 ---
@@ -878,9 +880,9 @@ Windows-1251
 | Primary Key | `pk_<table>` |
 | Foreign Key | `fk_<table>__<ref_table>[__<purpose>]` |
 | Unique Constraint | `uk_<table>__<purpose>` |
-| Check Constraint | `chk_<table>__<purpose>` |
+| Check Constraint | `ck_<table>__<purpose>` |
 | Index | `ix_<table>__<purpose>` |
-| Unique Index | `uix_<table>__<purpose>` |
+| Unique Index | `ux_<table>__<purpose>` |
 | Row Trigger | `t_<timing><operation>_<table>__<purpose>` |
 | Statement Trigger | `t_<timing><operation>_s_<table>__<purpose>` |
 | Trigger Function | `tf_<timing><operation>[_s]_<table>__<purpose>` |
@@ -915,13 +917,13 @@ Unique Constraint:
 uk_mi_req__external_id
 
 Check Constraint:
-chk_mi_req__status
+ck_mi_req__status
 
 Index:
 ix_mi_req__email_search
 
 Unique Index:
-uix_mi_req__external_id
+ux_mi_req__external_id
 
 View:
 v_mi_req
@@ -930,7 +932,7 @@ Trigger:
 t_bi_mi_req__validate
 
 Trigger Function:
-mi_request.tf_bi_mi_req__validate
+mi_request_trg.tf_bi_mi_req__validate
 ```
 
 Такое именование должно позволять определить назначение и принадлежность объекта без необходимости предварительно открывать его DDL.

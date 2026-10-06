@@ -8,7 +8,7 @@ declare
    /**
       Пакет для поддержки работы со СМЭВ 3
    */
-   cVersion CONSTANT VARCHAR( 100 ) := '$id: {1.0.0} {28.06.2025} Sulimoff$';
+   cVersion CONSTANT VARCHAR( 100 ) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
 
    ret_OK          Constant INTEGER := 0;
    ret_Fail        Constant INTEGER := -1;

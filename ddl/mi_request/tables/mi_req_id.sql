@@ -1,8 +1,6 @@
---
--- Object   : xxi.mi_req_id
--- Purpose  : Глобальный реестр req_id.
--- Note     : Эмулирует "глобальный уникальный индекс" для req_id
---
+-- Таблица   : xxi.mi_req_id
+-- Назначение: Глобальный реестр req_id.
+-- Описание  : Эмулирует "глобальный уникальный индекс" для req_id
 CREATE TABLE IF NOT EXISTS xxi.mi_req_id (
    
    req_id numeric(12) not null 
@@ -13,19 +11,20 @@ CREATE TABLE IF NOT EXISTS xxi.mi_req_id (
 
 -- Constraints
 -- PK
-   CONSTRAINT pk_mi_req_id PRIMARY KEY (req_id) USING INDEX TABLESPACE indexes
+   constraint pk_mi_req_id primary key (req_id) using index tablespace indexes
 )
-TABLESPACE indexes
+tablespace indexes
 ;
 -- Owner
 ALTER TABLE xxi.mi_req_id OWNER TO "XXI"
 ;
 -- Comments
 COMMENT ON TABLE xxi.mi_req_id is
-   'Глобальный реестр идентификаторов запросов. Используется как якорь для FK по req_id.';
-
+   'MI-edo. Реестр запросов. Глобальный реестр идентификаторов запросов. Используется как якорь для FK по req_id. $Id: {1.0.1} {06.10.2026} Sulimoff$'
+;
 COMMENT ON COLUMN xxi.mi_req_id.req_id is
-   'Глобально уникальный идентификатор запроса';
-
+   'Глобально уникальный идентификатор запроса'
+;
 COMMENT ON COLUMN xxi.mi_req_id.created_at is
-   'Дата и время резервирования req_id';
+   'Дата и время резервирования req_id'
+;

@@ -1,7 +1,7 @@
 --
 -- Таблица    : xxi.mi_0007
 -- Назначение : Элементы запросов паспорта физ лиц
--- Описание   : Запросы на валидность паспортов РФ
+-- Описание   : Запросы на валидность паспортов
 --
 CREATE TABLE IF NOT EXISTS xxi.mi_0007 (
 -- +------------------------------------------------------------------------------------
@@ -25,26 +25,26 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0007 (
 
 -- constraints
 -- PK
-   CONSTRAINT pk_mi_0007 PRIMARY KEY (itm_id) using index tablespace indexes,
+   constraint pk_mi_0007 primary key (itm_id) using index tablespace indexes,
 -- UK
-   CONSTRAINT uk_0007_external_uuid UNIQUE (external_uuid) using index tablespace indexes,
+   constraint uk_0007_external_uuid unique (external_uuid) using index tablespace indexes,
 -- FK      
-   CONSTRAINT fk_mi_0007__req_id FOREIGN KEY (req_id   ) REFERENCES xxi.mi_req_id (req_id   ) ON DELETE CASCADE,
-   CONSTRAINT fk_mi_0007__person FOREIGN KEY (person_id) REFERENCES xxi.mi_person (person_id)
+   constraint fk_mi_0007__req_id foreign key (req_id   ) references xxi.mi_req_id (req_id   ) on delete cascade,
+   constraint fk_mi_0007__person foreign key (person_id) references xxi.mi_person (person_id)
 )
-TABLESPACE users
+tablespace users
 ;
 -- Indexes
-CREATE INDEX IF NOT EXISTS fx_mi_0007__req_id ON xxi.mi_0007 USING btree ( req_id ) TABLESPACE indexes
+create index if not exists fx_mi_0007__req_id on xxi.mi_0007 using btree ( req_id ) tablespace indexes
 ;
-CREATE INDEX IF NOT EXISTS fx_mi_0007__person_id ON xxi.mi_0007 USING btree ( person_id ) TABLESPACE indexes
+create index if not exists fx_mi_0007__person_id on xxi.mi_0007 using btree ( person_id ) tablespace indexes
 ;
 -- Grants
-ALTER TABLE xxi.mi_0007 owner to "XXI"
+alter table xxi.mi_0007 owner to "xxi"
 ;
 -- Comments
-COMMENT ON TABLE xxi.mi_0007 is 
-   'СМЭВ-3. Запросы валидности физ лиц $id: {3.1.0} {01.05.2026} Sulimoff$'
+comment on table xxi.mi_0007 is 
+   'MI-edo. Валидность данных физ лиц. Запросы валидности паспортов физ лиц $Id: {1.0.1} {06.10.2026} Sulimoff$'
 ;
 COMMENT ON COLUMN xxi.mi_0007.itm_id is 
    'ID элемента запроса'
@@ -56,7 +56,7 @@ COMMENT ON COLUMN xxi.mi_0007.person_id is
    'ID физ лица /mi_person/'
 ;
 COMMENT ON COLUMN xxi.mi_0007.ires_code is 
-   'Код результата из СМЭВ или -1 в случае ошибки при обработке элемента'
+   'Код результата из MI или -1 в случае ошибки при обработке элемента'
 ;
 COMMENT ON COLUMN xxi.mi_0007.cres_info is 
    'Информация о результате'

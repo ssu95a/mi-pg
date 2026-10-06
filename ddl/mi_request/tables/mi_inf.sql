@@ -50,16 +50,16 @@ CREATE TABLE IF NOT EXISTS xxi.mi_inf
    CONSTRAINT ck_mi_req__initiator_cd
         CHECK ( initiator_cd in ( 1, -1) )
 )
-TABLESPACE users
+tablespace users
 ;
 -- Indexes
-CREATE INDEX IF NOT EXISTS fx_mi_inf__wsp_id ON xxi.mi_inf USING BTREE (wsp_id)
+CREATE INDEX IF NOT EXISTS fx_mi_inf__wsp_id ON xxi.mi_inf USING BTREE (wsp_id) tablespace indexes
 ;
 -- Owner
 ALTER TABLE xxi.mi_inf OWNER TO "XXI";
 -- Table comment
 COMMENT ON TABLE xxi.mi_inf is 
-   'СМЭВ-3. Виды сведений $id: {3.1.0} {19.03.2026} Sulimoff$'
+   'MI-edo. Виды сведений. Реестр видов сведений $Id: {1.0.1} {06.10.2026} Sulimoff$'
 ;
 -- Columns comments
 COMMENT ON COLUMN xxi.mi_inf.inf_id is 

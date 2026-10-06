@@ -1,11 +1,11 @@
-CREATE OR REPLACE PACKAGE MI_mbus
+CREATE OR REPLACE PACKAGE mi_mbus
 CREATE FUNCTION __init__()
    RETURNS void
 AS
 $init$
 DECLARE
 
-   cVersion            CONSTANT varchar(100) := '$id: {2.0.0} {14.03.2026} Sulimoff$';
+   cVersion            CONSTANT varchar(100) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
    cPkg_Name           CONSTANT varchar(20 ) := 'mi_mbus';
 
    cMultiBus_Gate      CONSTANT varchar(50 ) := 'r-xxl-gate';

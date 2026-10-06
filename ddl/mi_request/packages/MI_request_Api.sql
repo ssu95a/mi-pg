@@ -1,4 +1,4 @@
-CREATE OR REPLACE PACKAGE MI_Request_Api
+CREATE OR REPLACE PACKAGE mi_request_api
 
 CREATE FUNCTION __init__()
    RETURNS void
@@ -9,7 +9,7 @@ DECLARE
    /*
       Общая логика request header для mi_req
    */
-   cVersion       CONSTANT varchar(100) := '$id: {1.1.0} {08.09.2026}$';
+   cVersion       CONSTANT varchar(100) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
    cLogger        CONSTANT varchar(20 ) := 'mi.req'; 
    cPkg_Name      CONSTANT varchar(20 ) := 'MI_Request_Api'; 
 

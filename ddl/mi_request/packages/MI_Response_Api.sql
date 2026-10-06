@@ -9,7 +9,7 @@ DECLARE
    /*
       Общая логика response для mi_rsp/mi_req
    */
-   cVersion       CONSTANT varchar(100) := '$id: {0.0.1} {16.08.2026}$';
+   cVersion       CONSTANT varchar(100) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
    cLogger        CONSTANT varchar(20 ) := 'mi.rsp'; 
    cPkg_Name      CONSTANT varchar(20 ) := 'MI_Response_Api'; 
 

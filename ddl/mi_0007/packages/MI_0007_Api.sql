@@ -1,20 +1,12 @@
-create or replace package MI_0007_Api
+create or replace package mi_0007_api
 
 CREATE FUNCTION __init__()
    RETURNS void
 AS
 $init$
 DECLARE
-   /*
-      Entry point логики вида сведений 0007
-      Работает поверх:
-         - mi_req
-         - xxi.mi_0007
-         - xxi.v_mi_0007_req
-         - mi_request_Api
-         - mi_person_Api
-   */
-   cVersion  CONSTANT varchar(100) := '$id: {1.1.0} {17.06.2026}$';
+
+   cVersion  CONSTANT varchar(100) := '$Id: {1.0.1} {17.06.2026} Sulimoff$';
 
    cPkg_Name CONSTANT varchar(20 ) := 'mi_0007_Api'; 
    cLogger   CONSTANT varchar(20 ) := 'mi.0007'; 
@@ -1095,39 +1087,6 @@ BEGIN
 END;
 $procedure$
 
-/*
-   helper:
-   проставить результат item и статус request
-CREATE PROCEDURE complete_Request (
-   in p_itm_id         NUMERIC,
-   in p_req_id         NUMERIC,
-   in p_ires_code      NUMERIC,
-   in p_cres_info      text DEFAULT NULL,
-   in p_tres_time      timestamptz DEFAULT clock_timestamp(),
-   in p_req_status_cd  NUMERIC DEFAULT NULL
-)
-   LANGUAGE
-      plpgsql
-AS
-$procedure$
-   #package
-BEGIN
-   CALL mi_0007_Api.apply_Item_Result (
-      p_itm_id    => p_itm_id,
-      p_ires_code => p_ires_code,
-      p_cres_info => p_cres_info,
-      p_tres_time => p_tres_time
-   );
-
-   IF p_req_status_cd IS NOT NULL THEN
-      CALL mi_0007_Api.set_Request_Status(
-         p_req_id    => p_req_id,
-         p_status_cd => p_req_status_cd
-      );
-   END IF;
-END;
-$procedure$
-*/
 
 /* end_Of_Package */
 ;

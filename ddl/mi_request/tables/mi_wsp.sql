@@ -1,20 +1,23 @@
-CREATE TABLE xxi.mi_wsp (
+--
+-- Таблица    : xxi.mi_wsp
+-- Назначение : Реестр АРМ
+-- 
+CREATE TABLE IF NOT EXISTS xxi.mi_wsp (
    wsp_id numeric(3) NOT NULL,
    name   varchar(250) NOT NULL,
    note   text,
-   CONSTRAINT pk_mi_wsp PRIMARY KEY (wsp_id) 
-        USING INDEX TABLESPACE indexes
+
+   constraint pk_mi_wsp primary key (wsp_id)  using index tablespace indexes
 )
-TABLESPACE 
-   users
+tablespace users
 ;
-COMMENT ON TABLE xxi.mi_wsp IS 'Один АРМ модуля СМЭВ'
+COMMENT ON TABLE xxi.mi_wsp IS 'MI-edo. Виды сведений. АРМ модуля MI. $Id: {1.0.1} {06.10.2026} Sulimoff$'
 ;
-COMMENT ON COLUMN xxi.mi_wsp.wsp_id IS E'ID Арм /wsp_id/'
+COMMENT ON COLUMN xxi.mi_wsp.wsp_id IS 'ID Арм'
 ;
-COMMENT ON COLUMN xxi.mi_wsp.name IS E'Наименование'
+COMMENT ON COLUMN xxi.mi_wsp.name IS 'Наименование'
 ;
-COMMENT ON COLUMN xxi.mi_wsp.note IS E'Примечание'
+COMMENT ON COLUMN xxi.mi_wsp.note IS 'Примечание'
 ;
 ALTER TABLE xxi.mi_wsp OWNER TO "XXI"
 ;

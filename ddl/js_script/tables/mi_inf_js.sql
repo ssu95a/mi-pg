@@ -7,9 +7,9 @@ CREATE TABLE IF NOT EXISTS xxi.mi_inf_js (
 -- +---------------------------------------------------------------------------
 -- |   column   |  type       |   null   | default 
 -- +---------------------------------------------------------------------------
-     inf_id       numeric(6)    not null, 
-     js_type      numeric(3)    not null, 
-     name         varchar(100)  not null, 
+     inf_id       numeric(6)    not null,
+     js_type      numeric(3)    not null,
+     name         varchar(100)  not null,
      note         text              null,
      ts_body      timestamp     not NULL   DEFAULT current_timestamp,
      js_body      text          not null,
@@ -25,29 +25,29 @@ CREATE TABLE IF NOT EXISTS xxi.mi_inf_js (
          ON DELETE CASCADE
 )
    tablespace users
-;   
+;
 -- Grants
 ALTER TABLE xxi.mi_inf_js OWNER TO "XXI"
 ;
 -- Comments
 COMMENT ON TABLE xxi.mi_inf_js IS 
-    'СМЭВ-3. JS скрипты для реализации логики вида сведения'
+   'MI-edo. Виды сведений. JS-скрипты для реализации логики вида сведения. $Id: {1.0.1} {05.10.2026} Sulimoff$'
 ;
 COMMENT ON COLUMN xxi.mi_inf_js.inf_id IS 
-    'Вид сведения /mi_inf/'
+   'Вид сведения /mi_inf/'
 ;
 COMMENT ON COLUMN xxi.mi_inf_js.js_type IS 
-    'Тип скрипта - подготовка, обработка и тд. на форме раскрывается через enum'
+   'Тип скрипта - подготовка, обработка и тд. на форме раскрывается через enum'
 ;
 COMMENT ON COLUMN xxi.mi_inf_js.name IS 
-    'Наименование'
+   'Наименование'
 ;
 COMMENT ON COLUMN xxi.mi_inf_js.note IS 
-    'Примечание'
+   'Примечание'
 ;
 COMMENT ON COLUMN xxi.mi_inf_js.js_body IS 
-    'Тело скрипта'
+   'Тело скрипта'
 ;
 COMMENT ON COLUMN xxi.mi_inf_js.ts_body IS 
-    'Дата/время последнего изменения тела скрипта. Устанавливается в триггере'
+   'Дата/время последнего изменения тела скрипта. Устанавливается в триггере'
 ;

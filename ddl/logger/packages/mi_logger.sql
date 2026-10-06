@@ -5,7 +5,7 @@ AS
 $init$
 DECLARE
 
-   cVersion CONSTANT varchar(100) := '$id: {1.0.1} {05.10.2026} Sulimoff$';
+   cVersion CONSTANT varchar(100) := '$Id: {1.0.1} {05.10.2026} Sulimoff$';
 
    cMode_Off        CONSTANT numeric := 0;
    cMode_Raise_Only CONSTANT numeric := 1;
