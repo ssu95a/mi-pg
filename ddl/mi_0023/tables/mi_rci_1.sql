@@ -16,7 +16,7 @@ DO $$ BEGIN
 END $$;
 
 -- Индекс по cdoc_raw
-CREATE INDEX IF NOT EXISTS ix_mi_rci_1_cdoc_raw ON xxi.mi_rci_1 (cdoc_raw);
+CREATE INDEX IF NOT EXISTS ix_mi_rci_1__cdoc_raw ON xxi.mi_rci_1 (cdoc_raw);
 
 -- Комментарии к столбцам
 COMMENT ON COLUMN xxi.mi_rci_1.cureg_id IS 'Уникальный идентификатор записи реестра (UUID)';
@@ -25,3 +25,6 @@ COMMENT ON COLUMN xxi.mi_rci_1.dbth     IS 'Дата рождения';
 COMMENT ON COLUMN xxi.mi_rci_1.ipr_dbth IS 'Признак неполноты даты рождения: 1 – месяц ''нп'', 2 – день ''нп'', NULL – полная дата';
 COMMENT ON COLUMN xxi.mi_rci_1.cdoc_raw IS 'Серия и номер документа (сырое значение из реестра)';
 COMMENT ON COLUMN xxi.mi_rci_1.ddoc_date IS 'Дата выдачи документа';
+
+COMMENT ON TABLE xxi.mi_rci_1 IS
+$$MI-edo. Реестр контролируемых лиц. Таблица-слот 1. '$id: {1.0.1} {22.07.2026} Sukhotina$'$$;

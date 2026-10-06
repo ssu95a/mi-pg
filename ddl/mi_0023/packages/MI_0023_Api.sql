@@ -7,7 +7,7 @@ CREATE OR REPLACE PACKAGE mi_0023_Api
          Пакет для ведения логики СМЭВ 3.0
          Модуль: Реестр контролируемых лиц
       */
-      cVersion CONSTANT VARCHAR(100) := '$id: {1.1.0} {29.07.2026} Sukhotina$';
+      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {29.07.2026} Sukhotina$';
 
       -- Коды возврата
       RET_OK   CONSTANT INTEGER := 0;

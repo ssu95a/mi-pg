@@ -7,7 +7,7 @@ CREATE OR REPLACE PACKAGE mi_0003_Api
          Пакет для ведения логики СМЭВ 3.0
          Модуль: Сведения ЕГРЮЛ/ЕГРИП (вид сведений 003)
       */
-      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.0} {12.08.2026} Sukhotina$';
+      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {12.08.2026} Sukhotina$';
 
       -- Коды возврата
       RET_OK      CONSTANT INTEGER := 0;

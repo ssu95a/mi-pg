@@ -21,8 +21,8 @@ CREATE TABLE xxi.mi_0600 (
     message_uuid     uuid,                                     -- ID сообщения (для ответчиков)
     CONSTRAINT pk_mi_0600 PRIMARY KEY (itm_id),
     CONSTRAINT uk_mi_0600__req_id UNIQUE (req_id),
-    CONSTRAINT uk_mi_0600_external_uuid UNIQUE (external_uuid),
-    CONSTRAINT fk_mi_0600__req FOREIGN KEY (req_id) REFERENCES xxi.mi_req_id(req_id) ON DELETE CASCADE
+    CONSTRAINT uk_mi_0600__external_uuid UNIQUE (external_uuid),
+    CONSTRAINT fk_mi_0600__mi_req_id FOREIGN KEY (req_id) REFERENCES xxi.mi_req_id(req_id) ON DELETE CASCADE
 ) TABLESPACE users;
 
 -- Индексы
@@ -31,7 +31,7 @@ CREATE INDEX ix_mi_0600__dsend_stamp  ON xxi.mi_0600 USING btree (dsend_stamp);
 CREATE INDEX ix_mi_0600__message_uuid ON xxi.mi_0600 USING btree (message_uuid) WHERE message_uuid IS NOT NULL;
 
 -- Комментарии
-COMMENT ON TABLE  xxi.mi_0600 IS 'СМЭВ-3. ЭДО с ФНС (виды сведений 601-604, 611, 612). Элементы запросов (ZIP-архивы)';
+COMMENT ON TABLE  xxi.mi_0600 IS $$MI-edo. ЭДО с ФНС. Элементы запросов (ZIP-архивы) видов сведений 601–604, 611, 612. '$id: {1.0.1} {17.09.2026} Sukhotina$'$$;
 COMMENT ON COLUMN xxi.mi_0600.itm_id           IS 'ID элемента запроса';
 COMMENT ON COLUMN xxi.mi_0600.external_uuid    IS 'Внешний UUID элемента';
 COMMENT ON COLUMN xxi.mi_0600.req_id           IS 'ID запроса /mi_req_id/';

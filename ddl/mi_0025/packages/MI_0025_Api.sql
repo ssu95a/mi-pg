@@ -3,7 +3,7 @@ CREATE OR REPLACE PACKAGE mi_0025_api
    -- Инициализация пакета
    CREATE FUNCTION __init__() RETURNS void AS $$
    DECLARE
-      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.2} {26.08.2026} Sukhotina$';
+      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {26.08.2026} Sukhotina$';
 
       RET_OK   CONSTANT INTEGER := 0;
       RET_FAIL CONSTANT INTEGER := -1;

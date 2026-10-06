@@ -20,4 +20,5 @@ FROM (
 ) r
 LEFT JOIN xxi.mi_rci_cus c ON r.cureg_id = c.cureg_id;
 
-COMMENT ON VIEW xxi.v_mi_rci IS 'Представление реестра контролируемых лиц $id: {1.0.0} {22.07.2026} Sukhotina$';
+COMMENT ON VIEW xxi.v_mi_rci IS 
+$$MI-edo. Реестр контролируемых лиц. Представление реестра контролируемых лиц. '$id: {1.0.1} {22.07.2026} Sukhotina$'$$;

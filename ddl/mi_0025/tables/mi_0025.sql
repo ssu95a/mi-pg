@@ -36,23 +36,23 @@ CREATE TABLE xxi.mi_0025 (
     payload         text,                               -- Исходный XML/JSON запроса
 
     CONSTRAINT pk_mi_0025 PRIMARY KEY (itm_id),
-    CONSTRAINT uk_mi_0025_external_uuid UNIQUE (external_uuid),
-    CONSTRAINT fk_mi_0025__req FOREIGN KEY (req_id) REFERENCES xxi.mi_req_id(req_id) ON DELETE CASCADE,
-    CONSTRAINT fk_mi_0025__confirmed_usr FOREIGN KEY (confirmed_usr_id) REFERENCES xxi.usr(iusrid),
+    CONSTRAINT uk_mi_0025__external_uuid UNIQUE (external_uuid),
+    CONSTRAINT fk_mi_0025__mi_req_id FOREIGN KEY (req_id) REFERENCES xxi.mi_req_id(req_id) ON DELETE CASCADE,
+    CONSTRAINT fk_mi_0025__usr FOREIGN KEY (confirmed_usr_id) REFERENCES xxi.usr(iusrid),
     CONSTRAINT ck_mi_0025__confirmed_value CHECK (confirmed_value IN (0,1))
 )
 TABLESPACE users;
 
 -- Индексы для поиска
-CREATE INDEX fx_mi_0025__req_id ON xxi.mi_0025 USING btree (req_id);
+CREATE INDEX ix_mi_0025__req_id ON xxi.mi_0025 USING btree (req_id);
 CREATE INDEX ix_mi_0025__request_id ON xxi.mi_0025 USING btree (request_id);
 CREATE INDEX ix_mi_0025__n_uivid ON xxi.mi_0025 USING btree (n_uivid);
 CREATE INDEX ix_mi_0025__a_uivid ON xxi.mi_0025 USING btree (a_uivid) WHERE a_uivid IS NOT NULL;
 CREATE INDEX ix_mi_0025__cred_id ON xxi.mi_0025 USING btree (cred_id);
-CREATE INDEX fx_mi_0025__confirmed_usr_id ON xxi.mi_0025 USING btree (confirmed_usr_id) WHERE confirmed_usr_id IS NOT NULL;
+CREATE INDEX ix_mi_0025__confirmed_usr_id ON xxi.mi_0025 USING btree (confirmed_usr_id) WHERE confirmed_usr_id IS NOT NULL;
 
 -- Комментарии
-COMMENT ON TABLE  xxi.mi_0025 IS 'СМЭВ-3. Нотариат. Элементы запроса (входящие данные) $id: {1.0.0} {18.08.2026} Sukhotina$';
+COMMENT ON TABLE  xxi.mi_0025 IS $$MI-edo. Нотариат. Элементы запроса (входящие данные). '$id: {1.0.1} {18.08.2026} Sukhotina$'$$;
 COMMENT ON COLUMN xxi.mi_0025.itm_id IS 'ID элемента запроса';
 COMMENT ON COLUMN xxi.mi_0025.external_uuid IS 'Внешний UUID элемента';
 COMMENT ON COLUMN xxi.mi_0025.req_id IS 'ID запроса /mi_req_id/';

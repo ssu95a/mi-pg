@@ -7,7 +7,7 @@ CREATE OR REPLACE PACKAGE mi_0111_Api
          Пакет для ведения логики СМЭВ 3.0
          Модуль: Признак самозанятого (вид сведений 0111)
       */
-      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.0} {29.07.2026} Sukhotina$';
+      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {29.07.2026} Sukhotina$';
    
       -- Коды возврата
       RET_OK      CONSTANT INTEGER := 0;
