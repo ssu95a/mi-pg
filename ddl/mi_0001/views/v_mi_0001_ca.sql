@@ -1,3 +1,7 @@
+--
+-- View       : xxi.v_mi_0001
+-- Назначение : Список клиентов без ИНН, по которым не было запросов в MI
+--
 CREATE OR REPLACE VIEW xxi.v_mi_0001_ca
 AS 
 WITH q AS (
@@ -55,7 +59,7 @@ JOIN xxi.pud
 ;
 -- Comments
 COMMENT ON VIEW xxi.v_mi_0001_ca is 
-   'СМЭВ 3. Список клиентов без ИНН, по которым не было запросов в СМЭВ $id: {3.0.0} {29.05.2026} Sulimoff$'
+   'MI-edo. ИНН физ лиц. Список клиентов без ИНН, по которым не было запросов в MI $Id: {1.0.1} {06.10.2026} Sulimoff$'
 ;
 -- Grants
 grant select on xxi.v_mi_0001_ca to odb

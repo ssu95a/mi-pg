@@ -1,8 +1,7 @@
 --
 -- Таблица    : xxi.mi_0010
 -- Назначение : ЕГР ЗАГС
--- Описание   : Сведения в кредитные организации о снятии с учета в налоговом органе физического лица 
---             - владельца счета на основании сведений о смерти
+-- Описание   : Сведения в кредитные организации о снятии с учета в налоговом органе физического лица - владельца счета на основании сведений о смерти
 --
 CREATE TABLE IF NOT EXISTS xxi.mi_0010 (
 -- +---------------------------------------------------------------------------
@@ -50,21 +49,21 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0010 (
    CONSTRAINT fk_mi_0010__cus    FOREIGN KEY (icusnum  ) REFERENCES xxi."CUS" (icusnum),
 
 -- CK
-   constraint CH_IPRD_CUS17 check( IPR_CUS17 IN (0, 1 )),
-   constraint CH_IPRD_DBTH  check( IPR_DBTH  IN (1,2,3)),
-   constraint CH_IPRD_DDTH  check( IPR_DDTH  IN (1,2,3))
+   constraint ck_iprd_cus17 check( ipr_cus17 in (0, 1 )),
+   constraint ck_iprd_dbth  check( ipr_dbth  in (1,2,3)),
+   constraint ck_iprd_ddth  check( ipr_ddth  in (1,2,3))
 )
 TABLESPACE users
 ;
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS fx_mi_0010__req_id ON xxi.mi_0010 USING btree ( req_id ) TABLESPACE indexes
+create index if not exists fx_mi_0010__req_id on xxi.mi_0010 using btree ( req_id ) tablespace indexes
 ;
-CREATE INDEX IF NOT EXISTS fx_mi_0010__person_id ON xxi.mi_0010 USING btree ( person_id ) TABLESPACE indexes
+create index if not exists fx_mi_0010__person_id on xxi.mi_0010 using btree ( person_id ) tablespace indexes
 ;
-CREATE INDEX IF NOT EXISTS fx_mi_0010__icusnum ON xxi.mi_0010 USING btree ( icusnum ) TABLESPACE indexes
+create index if not exists fx_mi_0010__icusnum on xxi.mi_0010 using btree ( icusnum ) tablespace indexes
 ;
-CREATE INDEX IF NOT EXISTS ix_mi_0010__message_uuid ON xxi.mi_0010 (message_uuid) TABLESPACE indexes WHERE message_uuid IS NOT NULL
+create index if not exists ix_mi_0010__message_uuid on xxi.mi_0010 (message_uuid) tablespace indexes where message_uuid is not null
 ;
 -- Grants
 ALTER TABLE xxi.mi_0010 owner to "XXI"
@@ -72,7 +71,7 @@ ALTER TABLE xxi.mi_0010 owner to "XXI"
 
 -- Comments
 COMMENT ON TABLE xxi.mi_0010 is 
-   'СМЭВ-3. Сведения о смерти физ лица. $id: {1.0.0} {15.07.2026} Sulimoff$'
+   'MI-edo. Валидация данных физ лиц. Сведения о смерти физ лица. $Id: {1.0.1} {06.10.2026} Sulimoff$'
 ;
 COMMENT ON COLUMN xxi.mi_0010.itm_id is 
    'ID элемента запроса'
@@ -87,7 +86,7 @@ COMMENT ON COLUMN xxi.mi_0010.icusnum is
    'ID клиента XXI /CUS/'
 ;
 COMMENT ON COLUMN xxi.mi_0010.ires_code is 
-   'Код результата из СМЭВ'
+   'Код результата из MI'
 ;
 COMMENT ON COLUMN xxi.mi_0010.cres_info is 
    'Информация о результате'

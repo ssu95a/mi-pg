@@ -1,4 +1,3 @@
---
 -- Таблица    : xxi.mi_log
 -- Назначение : Техническая debug-трасса MI для разработчиков
 -- Описание   : Не аудит. Может чиститься, отключаться, теряться при crash.
@@ -8,96 +7,102 @@ CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log
 -- +---------------------------------------------------------------------------
 -- | column        | type         | null    | default 
 -- +---------------------------------------------------------------------------
-        log_id        numeric(38)   NOT NULL   DEFAULT nextval('xxi.s_mi_log'::regclass),
+       log_id        numeric(38)   NOT NULL   DEFAULT nextval('xxi.s_mi_log'::regclass),
 
-        inf_id        numeric(6)    NOT NULL,
-        wsp_id        numeric(3)    NOT NULL,
+       inf_id        numeric(6)    NOT NULL,
+       wsp_id        numeric(3)    NOT NULL,
 
-        logged_at     timestamptz   NOT NULL   DEFAULT clock_timestamp(),
+       logged_at     timestamptz   NOT NULL   DEFAULT clock_timestamp(),
 
-        -- Ссылка на сессию системного аудита
-        au_session_id numeric(38)   NOT NULL,
+       -- Ссылка на сессию системного аудита
+       au_session_id numeric(38)   NOT NULL,
 
-        level_cd      bpchar(3)     NOT NULL,
+       level_cd      bpchar(3)     NOT NULL,
 
-        logger_name   varchar(50),
+       logger_name   varchar(50),
 
-        action_cd     varchar(50),
-        object_name   varchar(100),
+       action_cd     varchar(50),
+       object_name   varchar(100),
 
         -- Смысловой контекст события:
         -- sqlstate, exception name, correlation_id, бизнес-ключ, номер счёта и т.п.
-        context_value varchar(100),
+       context_value varchar(100),
 
-        message_text  varchar(2000),
-        details_text  text,
+       message_text  varchar(2000),
+       details_text  text,
 
-        req_id        numeric(12),
-        itm_id        numeric(12),
-        rsp_id        numeric(12),
+       req_id        numeric(12),
+       itm_id        numeric(12),
+       rsp_id        numeric(12),
 
-        person_id     numeric(12),
-        icusnum       numeric(12),
+       person_id     numeric(12),
+       icusnum       numeric(12),
 
-        object_id     numeric(12),
-        object_id2    numeric(12),
+       object_id     numeric(12),
+       object_id2    numeric(12),
 
         -- Ссылка на родительскую запись лога
-        parent_id     numeric(38)
+       parent_id     numeric(38)
 )
-PARTITION BY LIST (wsp_id)
+partition by list (wsp_id)
 ;
-
 -- Partitions
-CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log_1
-    PARTITION OF xxi.mi_log
-        FOR VALUES IN (1)
-            TABLESPACE USERS
+create unlogged table if not exists xxi.mi_log_1
+   partition of xxi.mi_log
+      for values in (1,10)
+          tablespace users
 ;
-CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log_7
-    PARTITION OF xxi.mi_log
-        FOR VALUES IN (7)
-            TABLESPACE USERS
+create unlogged table if not exists xxi.mi_log_7
+   partition of xxi.mi_log
+      for values in (7)
+          tablespace users
 ;
-CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log_3
-    PARTITION OF xxi.mi_log
-        FOR VALUES IN (3)
-            TABLESPACE USERS
+create unlogged table if not exists xxi.mi_log_3
+   partition of xxi.mi_log
+      for values in (3)
+          tablespace users
 ;
-CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log_23
-   PARTITION OF xxi.mi_log
-      FOR VALUES IN (23)
-         TABLESPACE USERS
+create unlogged table if not exists xxi.mi_log_23
+   partition of xxi.mi_log
+      for values in (23, 25 )
+          tablespace users
 ;
--- Партиция по умолчанию
-CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log_0
-    PARTITION OF xxi.mi_log
-        DEFAULT
-            TABLESPACE USERS
+create unlogged table if not exists xxi.mi_log_6
+   partition of xxi.mi_log
+      for values in (6)
+          tablespace users
 ;
-
+create unlogged table if not exists xxi.mi_log_600
+   partition of xxi.mi_log
+      for values in (600)
+          tablespace users
+;
+-- партиция по умолчанию
+create unlogged table if not exists xxi.mi_log_0
+    partition of xxi.mi_log
+        default
+            tablespace users
+;
 -- Indexes
 -- Индексы на parent создадут соответствующие индексы на partitions
-CREATE INDEX IF NOT EXISTS ix_mi_log__log_id ON xxi.mi_log (log_id) TABLESPACE INDEXES
+create index if not exists ix_mi_log__log_id on xxi.mi_log (log_id) tablespace indexes
 ;
-CREATE INDEX IF NOT EXISTS ix_mi_log__logged_at ON xxi.mi_log (logged_at) TABLESPACE INDEXES
+create index if not exists ix_mi_log__logged_at on xxi.mi_log (logged_at) tablespace indexes
 ;
-CREATE INDEX IF NOT EXISTS ix_mi_log__req_itm_id ON xxi.mi_log(req_id,itm_id) TABLESPACE INDEXES
+create index if not exists ix_mi_log__req_itm_id on xxi.mi_log(req_id,itm_id) tablespace indexes
 ;
-CREATE INDEX IF NOT EXISTS ix_mi_log__person_id ON xxi.mi_log (person_id) TABLESPACE INDEXES
+create index if not exists ix_mi_log__person_id on xxi.mi_log (person_id) tablespace indexes
 ;
-CREATE INDEX IF NOT EXISTS ix_mi_log__audit_session_id ON xxi.mi_log (au_session_id) TABLESPACE INDEXES
+create index if not exists ix_mi_log__audit_session_id on xxi.mi_log (au_session_id) tablespace indexes
 ;
-CREATE INDEX IF NOT EXISTS ix_mi_log__logger_name_logged_at ON xxi.mi_log (logger_name, logged_at) TABLESPACE INDEXES
+create index if not exists ix_mi_log__logger_name_logged_at on xxi.mi_log (logger_name, logged_at) tablespace indexes
 ;
-CREATE INDEX IF NOT EXISTS ix_mi_log__parent_id ON xxi.mi_log (parent_id) TABLESPACE INDEXES
+create index if not exists ix_mi_log__parent_id on xxi.mi_log (parent_id) tablespace indexes
 ;
-
 -- Comments
 COMMENT ON TABLE xxi.mi_log IS
-   'Техническая debug-трасса MI для разработчиков. Не является аудитом. Может очищаться и отключаться.'
+   'MI-edo.Система логирования. Техническая debug-трасса MI для разработчиков. Не является аудитом. Может очищаться и отключаться. $Id: {1.0.1} {05.10.2026} Sulimoff$'
 ;
-
 COMMENT ON COLUMN xxi.mi_log.log_id IS
    'Идентификатор записи debug-лога'
 ;

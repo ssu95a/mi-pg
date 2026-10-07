@@ -1,7 +1,6 @@
-CREATE OR REPLACE PACKAGE MI_Person_Api
+CREATE OR REPLACE PACKAGE mi_person_api
 
-/* РўРёРї РґР»СЏ С…СЂР°РЅРµРЅРёСЏ СЃРїРёСЃРєР° РёСЃРїРѕР»СЊР·СѓРµРјС‹С… Р°С‚СЂРёР±СѓС‚РѕРІ РёР·
-   Person РґР»СЏ РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ inf */
+/* Тип данных для атрибутов */
 CREATE TYPE MI_Person_Api.Inf_Attrs_t AS (
    inf_List int4[],
    atr_List varchar[]
@@ -13,20 +12,16 @@ CREATE FUNCTION __init__()
 AS
 $init$
 DECLARE
-   /*
-    РџР°РєРµС‚ РґР»СЏ РІРµРґРµРЅРёСЏ Р»РѕРіРёРєРё MS
-    РњРѕРґСѓР»СЊ person
-   */
-   cVersion Constant VARCHAR( 100 ) := '$id: {1.0.0} {11.03.2026} $';
+
+   cVersion Constant VARCHAR( 100 ) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
 
    RET_OK   Constant numeric := 0;
    RET_FAIL Constant numeric := -1;
 
-   cPkg_Name CONSTANT varchar(20) := 'MI_Person_Api'; 
+   cPkg_Name CONSTANT varchar(20) := 'mi_person_api'; 
    cLogger   Constant varchar(30) := 'ms.person';
 
    g_inf_Attrs MI_Person_Api.inf_Attrs_t[] := array[
-      -- РџР°СЃРїРѕСЂС‚Р°
       ( array[74,75], array['doc_type_id', 'doc_ser', 'doc_num', 'doc_issue_date'] )::MI_Person_Api.inf_Attrs_t,
       ( array[1],     array['snils'] )::MI_Person_Api.inf_Attrs_t
    ];
@@ -37,7 +32,7 @@ END;
 $init$
 
 
-/* Р’РµСЂСЃРёСЏ */
+/* Версия */
 CREATE FUNCTION get_Version()
    returns
       varchar
@@ -52,7 +47,7 @@ end;
 $function$
 
 
-/* РґРµР±Р°Р¶РёРј */
+/* Вывод отладки */
 CREATE PROCEDURE dbg (
    in p_message_text  varchar,
    in p_inf_id        numeric default null::numeric,
@@ -126,7 +121,7 @@ END;
 $procedure$
 
 
-/* Р”Р°РЅРЅС‹Рµ С„РёР· Р»РёС†Р° РїРѕ person_Id */
+/* Полная информация о физ лице по person_Id */
 create function get_Person ( 
    in p_person_Id numeric 
 ) 
@@ -150,32 +145,6 @@ end;
 $function$
 
 
-/* РЎСЂР°РІРЅРµРЅРёРµ РґРІСѓС… "Person"- Р·Р°РїРёСЃРµР№ (normalized compare)
-create function eq_Person ( 
-   in p_n1 xxi.mi_person,
-   in p_n2 xxi.mi_person
-) 
-   returns 
-      BOOLEAN 
-   LANGUAGE
-      plpgsql
-AS 
-$function$
-   #package
-BEGIN
-   RETURN
-      concat_Ws( ':', p_n1.first_Name, p_n1.last_Name, p_n1.middle_Name, p_n1.ctzn_Country_Code, p_n1.birth_Date, p_n1.inn, p_n1.doc_Type_Id, p_n1.doc_Ser, p_n1.doc_Num, p_n1.doc_Issue_Date )
-      =
-      concat_Ws( ':', p_n2.first_Name, p_n2.last_Name, p_n2.middle_Name, p_n2.ctzn_Country_Code, p_n2.birth_Date, p_n2.inn, p_n2.doc_Type_Id, p_n2.doc_Ser, p_n2.doc_Num, p_n2.doc_Issue_Date )
-      ;
-END;
-$function$
- */
-
-/*
-   РќРѕСЂРјР°Р»РёР·Р°С†РёСЏ РІС…РѕРґРЅРѕРіРѕ json: 
-    - null-РєР»СЋС‡Рё РІС‹РєРёРґС‹РІР°РµРј
-*/
 CREATE FUNCTION json_Normalize (
    in p_person_J jsonb
 )
@@ -193,7 +162,7 @@ END;
 $function$
 
 
-/* РџРѕСЃС‚СЂРѕРёС‚СЊ person-РєР°РЅРґРёРґР°С‚Р° payload РїРµСЂРµРґР°РЅРЅС‹С… РґР°РЅРЅС‹С… */
+/* */
 CREATE FUNCTION json_Build_Person (
    in p_person_J jsonb
 )
@@ -217,7 +186,7 @@ END;
 $function$
 
 
-/* РџСЂРѕРІРµСЂРёС‚СЊ, С‡С‚Рѕ РІ json РµСЃС‚СЊ РІСЃРµ РЅСѓР¶РЅС‹Рµ Р°С‚СЂРёР±СѓС‚С‹ Рё РѕРЅРё РЅРµ null */
+/* */
 CREATE FUNCTION json_Contains_All_Attrs (
    in p_person_J jsonb,
    in p_attrs    varchar[]
@@ -258,12 +227,7 @@ END;
 $function$
 
 
-/* 
-   РџРѕСЃС‚СЂРѕРёС‚СЊ РґРёРЅР°РјРёС‡РµСЃРєРёР№ SQL РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ СЌРєР·РµРјРїР»СЏСЂР° person
-   РџР°СЂР°РјРµС‚СЂС‹:
-   p_by_inf = true  -> РёСЃРєР°С‚СЊ С‚РѕР»СЊРєРѕ СЃСЂРµРґРё person, СѓР¶Рµ СЃРІСЏР·Р°РЅРЅС‹С… СЃ inf_id
-   p_by_inf = false -> РёСЃРєР°С‚СЊ РіР»РѕР±Р°Р»СЊРЅРѕ РїРѕ РІСЃРµР№ mi_person
-*/
+/* */
 CREATE FUNCTION build_Match_Sql_Select(
    in p_attrs  varchar[],
    in p_by_inf boolean
@@ -317,10 +281,7 @@ END;
 $function$
 
 
-/* 
-   Р’С‹РїРѕР»РЅРёС‚СЊ РїРѕРёСЃРє РїРѕ exact/null-safe РїСЂРѕС„РёР»СЋ
-   РЎРЅР°С‡Р°Р»Р° СЃСЂРµРґРё person СЌС‚РѕРіРѕ inf_id, РїРѕС‚РѕРј РіР»РѕР±Р°Р»СЊРЅРѕ.
-*/
+/* */
 CREATE FUNCTION try_Find_Person_Id (
    in p_inf_id numeric,
    in p_person xxi.mi_person,
@@ -375,7 +336,7 @@ END;
 $function$
 
 
-/* РќР°Р№С‚Рё person ID РґР»СЏ inf */
+/*  */
 CREATE FUNCTION find_Person_Id (
    in p_inf_id   numeric,
    in p_person_r xxi.mi_person,
@@ -438,10 +399,7 @@ END;
 $function$
 
 
-/* 
-   Р’СЃС‚Р°РІРёС‚СЊ РЅРѕРІРѕРіРѕ person
-   created_at Рё person_id РёР· default
-*/
+/*  */
 CREATE FUNCTION insert_Person(
    in p_person xxi.mi_person
 )
@@ -531,7 +489,7 @@ END;
 $function$
 
 
-/* РЎРІСЏР·С‚СЊ person Рє mi_inf*/
+/* */
 CREATE PROCEDURE link_Person_To_Inf (
    in p_person_id numeric,
    in p_inf_id    numeric
@@ -559,9 +517,7 @@ END;
 $procedure$
 
 
-/* 
-   Р“Р»Р°РІРЅР°СЏ РїСѓР±Р»РёС‡РЅР°СЏ С„СѓРЅРєС†РёСЏ РїРѕ СЂР°Р±РѕС‚Рµ СЃ person
-*/
+/* */
 CREATE FUNCTION get_Or_Create(
    in p_inf_id   numeric,
    in p_person_J jsonb
@@ -628,7 +584,7 @@ END;
 $function$
 
 
-/* Р•СЃР»Рё icusnum РїСЂРёС…РѕРґРёС‚ РѕС‚РґРµР»СЊРЅРѕ РѕС‚ json */
+/* */
 CREATE FUNCTION get_Or_Create(
    in p_inf_id   numeric,
    in p_icusnum  numeric,
@@ -656,7 +612,7 @@ END;
 $function$
 
 
-/* Id РїРѕСЃР»РµРґРЅРµР№ Р·Р°РїРёСЃРё person, РґР»СЏ icusnum */
+/* */
 create function get_Last_person_Id (
    in p_icusnum numeric,
    in p_inf_id  numeric default null

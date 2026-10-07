@@ -1,4 +1,4 @@
-create or replace package MI_0001_Api
+create or replace package mi_0001_api
 
 CREATE FUNCTION __init__()
    RETURNS void
@@ -6,7 +6,7 @@ AS
 $init$
 DECLARE
 
-   cVersion     CONSTANT varchar(100) := '$id: {1.0.0} {27.05.2026}$';
+   cVersion     CONSTANT varchar(100) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
 
    cPkg_Name    CONSTANT varchar(20 ) := 'mi_0001_Api'; 
    cLogger      CONSTANT varchar(20 ) := 'mi.0001'; 

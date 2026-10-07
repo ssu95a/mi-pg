@@ -1,7 +1,7 @@
 --
 -- Таблица    : xxi.mi_person
--- Назначение : Клиенты
--- Описание   : Реестр клиентов Физ лиц, используемых в модуле СМЭВ
+-- Назначение : Реестр физ-лиц
+-- Описание   : Реестр физ лиц, используемых в модуле MI-edo
 --
 CREATE TABLE IF NOT EXISTS xxi.mi_person
 (
@@ -81,12 +81,13 @@ TABLESPACE users
 ALTER TABLE xxi.mi_person OWNER TO "XXI"
 ;
 
--- bind SEQUENCE
-ALTER SEQUENCE xxi.s_mi_person OWNED BY xxi.mi_person.person_id
+-- bind sequence
+alter sequence xxi.s_mi_person owned by xxi.mi_person.person_id
+;
 
 -- Indexes
 -- Поиск по ФИО + документу, как в оракле
-CREATE INDEX IF NOT EXISTS ix_mi_person__doc_fio ON xxi.mi_person USING btree
+create index if not exists ix_mi_person__doc_fio on xxi.mi_person using btree
 (
    doc_type_id,
    replace(doc_num, ' ', ''),
@@ -97,103 +98,103 @@ CREATE INDEX IF NOT EXISTS ix_mi_person__doc_fio ON xxi.mi_person USING btree
 TABLESPACE indexes;
 
 -- Для fk_mi_person__cus
-CREATE INDEX IF NOT EXISTS fx_mi_person__icusnum ON xxi.mi_person USING btree
+create index if not exists fx_mi_person__icusnum on xxi.mi_person using btree
 (
-    icusnum
+   icusnum
 )
-TABLESPACE indexes;
+tablespace indexes;
 
 -- Comments
 COMMENT ON TABLE xxi.mi_person IS 
-    'СМЭВ-3. Данные физ лиц'
+   'MI-edo. Реестр физ лиц. Данные физ лиц используемые в MI-edo $Id: {1.0.1} {06.10.2026} Sulimoff$'
 ;
 COMMENT ON COLUMN xxi.mi_person.person_id IS 
-    'ID записи /mi_person/'
+   'ID записи /mi_person/'
 ;
 COMMENT ON COLUMN xxi.mi_person.icusnum IS 
-    'Обычно заполнен; допускается NULL для локальных персон без привязки к CUS'
+   'Обычно заполнен; допускается NULL для локальных персон без привязки к CUS'
 ;
 COMMENT ON COLUMN xxi.mi_person.created_at IS 
-    'Дата и время создания записи'
+   'Дата и время создания записи'
 ;
 COMMENT ON COLUMN xxi.mi_person.first_name IS 
-    'Имя'
+   'Имя'
 ;
 COMMENT ON COLUMN xxi.mi_person.last_name IS 
-    'Фамилия'
+   'Фамилия'
 ;
 COMMENT ON COLUMN xxi.mi_person.middle_name IS 
-    'Отчество'
+   'Отчество'
 ;
 COMMENT ON COLUMN xxi.mi_person.first_name_lat IS 
-    'Имя латиницей'
+   'Имя латиницей'
 ;
 COMMENT ON COLUMN xxi.mi_person.last_name_lat IS 
-    'Фамилия латиницей'
+   'Фамилия латиницей'
 ;
 COMMENT ON COLUMN xxi.mi_person.middle_name_lat IS 
-    'Отчество латиницей'
+   'Отчество латиницей'
 ;
 COMMENT ON COLUMN xxi.mi_person.gender_id IS 
-    'Пол человека'
+   'Пол человека'
 ;
 COMMENT ON COLUMN xxi.mi_person.ctzn_type_id IS 
-    'Тип гражданства'
+   'Тип гражданства'
 ;
 COMMENT ON COLUMN xxi.mi_person.ctzn_country_code IS 
-    'Страна/код страны гражданства'
+   'Страна/код страны гражданства'
 ;
 COMMENT ON COLUMN xxi.mi_person.inn IS 
-    'ИНН'
+   'ИНН'
 ;
 COMMENT ON COLUMN xxi.mi_person.snils IS 
-    'СНИЛС'
+   'СНИЛС'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_type_id IS 
-    'Тип документа, ДУЛ'
+   'Тип документа, ДУЛ'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_type_code IS 
-    'Строковый код типа ДУЛ'
+   'Строковый код типа ДУЛ'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_ser IS 
-    'Серия ДУЛ'
+   'Серия ДУЛ'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_num IS 
-    'Номер ДУЛ'
+   'Номер ДУЛ'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_issue_date IS 
-    'Дата выдачи ДУЛ'
+   'Дата выдачи ДУЛ'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_issuer_code IS 
-    'Код подразделения, выдавшего ДУЛ'
+   'Код подразделения, выдавшего ДУЛ'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_expire_date IS 
-    'Дата окончания срока действия ДУЛ'
+   'Дата окончания срока действия ДУЛ'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_issuer_name IS 
-    'Наименование органа, выдавшего ДУЛ'
+   'Наименование органа, выдавшего ДУЛ'
 ;
 COMMENT ON COLUMN xxi.mi_person.doc_invalid_from IS 
-    'Дата, с которой ДУЛ недействителен'
+   'Дата, с которой ДУЛ недействителен'
 ;
 COMMENT ON COLUMN xxi.mi_person.birth_date IS 
-    'Дата рождения'
+   'Дата рождения'
 ;
 COMMENT ON COLUMN xxi.mi_person.birth_date_raw IS 
-    'Строковая дата рождения для особых случаев'
+   'Строковая дата рождения для особых случаев'
 ;
 COMMENT ON COLUMN xxi.mi_person.birth_place IS 
-    'Место рождения'
+   'Место рождения'
 ;
 COMMENT ON COLUMN xxi.mi_person.death_date IS 
-    'Дата смерти'
+   'Дата смерти'
 ;
 COMMENT ON COLUMN xxi.mi_person.phone IS 
-    'Телефон'
+   'Телефон'
 ;
 COMMENT ON COLUMN xxi.mi_person.email IS 
-    'E-mail'
+   'E-mail'
 ;
 COMMENT ON COLUMN xxi.mi_person.region_code IS 
-    'Код региона'
+   'Код региона'
 ;

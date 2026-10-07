@@ -36,10 +36,10 @@ CREATE FUNCTION __init__()
 AS
 $init$
 DECLARE
-    cVersion        constant varchar(100) := '$id: {4.0.0} {03.05.2026} Sulimoff$';
+    cVersion        constant varchar(100) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
 
-    c_ok_code        constant varchar(50)  := 'SUCCESS';
-    c_error_code     constant varchar(50)  := 'ERROR';
+    c_ok_code        constant varchar(50) := 'SUCCESS';
+    c_error_code     constant varchar(50) := 'ERROR';
 
     /*
       SQLSTATE для структурированных app/integration ошибок,

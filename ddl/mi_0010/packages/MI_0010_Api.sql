@@ -1,4 +1,4 @@
-create or replace package MI_0010_Api
+create or replace package mi_0010_api
 
 CREATE FUNCTION __init__()
 	RETURNS void
@@ -8,7 +8,7 @@ DECLARE
 	/*
 		Entry point логики вида сведений 0010
 	*/
-	cVersion  CONSTANT varchar(100) := '$id: {1.0.0} {16.07.2026}$';
+	cVersion  CONSTANT varchar(100) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
 
 	cPkg_Name CONSTANT varchar(20 ) := 'mi_0010_Api'; 
 	cLogger   CONSTANT varchar(20 ) := 'mi.0010'; 
