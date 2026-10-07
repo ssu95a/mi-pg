@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0007 (
       tres_time     timestamptz       NULL,
       cres_info     text              NULL,
       -- код обработки при ошибке
-      error_code    varchar(100)      NULL
+      error_code    varchar(100)      NULL,
 
 -- constraints
 -- PK

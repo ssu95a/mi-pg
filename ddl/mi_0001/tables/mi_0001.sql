@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0001 (
       cres_info      text              NULL,
       message_uuid   uuid              NULL,
       -- код обработки при ошибке
-      error_code     varchar(100)      NULL
+      error_code     varchar(100)      NULL,
 
 -- constraints
 -- PK
