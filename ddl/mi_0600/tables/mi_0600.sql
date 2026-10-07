@@ -10,13 +10,13 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0600 (
     req_id           numeric(12) NOT NULL,                     -- ID запроса /mi_req_id/
     czip_name        varchar(300) NOT NULL,                    -- Наименование ZIP-архива
     bzip_data        bytea,                                    -- Данные архива (ZIP)
-    izip_size        integer,                                  -- Размер архива (КБ или байты)
-    izip_files_count integer,                                  -- Количество файлов в архиве
-    ires_code        integer,                                  -- Код результата обработки
+    izip_size        numeric,                                  -- Размер архива (КБ или байты)
+    izip_files_count numeric,                                  -- Количество файлов в архиве
+    ires_code        numeric,                                  -- Код результата обработки
     dsend_stamp      timestamptz,                              -- Время постановки в очередь отправки
-    icreate_type     integer DEFAULT 0,                        -- Способ создания: 1 - автоматически, 0 - вручную
+    icreate_type     numeric DEFAULT 0,                        -- Способ создания: 1 - автоматически, 0 - вручную
     cerr_msg         varchar(255),                             -- Текст ошибки (если есть)
-    was_uploaded     integer DEFAULT 0,                        -- Признак выгрузки архива (1 - выгружен)
+    was_uploaded     numeric DEFAULT 0,                        -- Признак выгрузки архива (1 - выгружен)
     created_at       timestamptz DEFAULT clock_timestamp() NOT NULL, -- Дата создания элемента
     message_uuid     uuid,                                     -- ID сообщения (для ответчиков)
     cres_info        text,                                     -- Информация о результате

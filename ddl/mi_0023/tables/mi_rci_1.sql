@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_rci_1 (
     cureg_id    CHAR(36),
     cdprf_id    VARCHAR(50),
     dbth        DATE,
-    ipr_dbth    SMALLINT,
+    ipr_dbth    NUMERIC,
     cdoc_raw    VARCHAR(100),
     ddoc_date   DATE
 );

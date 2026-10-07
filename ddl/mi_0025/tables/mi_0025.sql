@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0025 (
     attach_file     bytea NOT NULL,                     -- Файл вложения (PDF)
     created_at      timestamptz DEFAULT clock_timestamp() NOT NULL, -- Дата создания элемента
 
-    confirmed_usr_id  integer,                          -- ID пользователя, подтвердившего ответ /USR/
-    confirmed_value   smallint,                         -- Решение: 1 – подтверждаю, 0 – не подтверждаю
+    confirmed_usr_id  numeric,                          -- ID пользователя, подтвердившего ответ /USR/
+    confirmed_value   numeric,                          -- Решение: 1 – подтверждаю, 0 – не подтверждаю
     confirmed_at      timestamptz,                      -- Дата и время подтверждения
     confirmed_name    varchar(255),                     -- Имя подтвердившего (на момент подтверждения)
     confirmed_post    varchar(255),                     -- Должность подтвердившего

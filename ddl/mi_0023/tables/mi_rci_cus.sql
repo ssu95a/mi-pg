@@ -1,7 +1,7 @@
 -- Таблица связей реестра контролируемых лиц с клиентами CUS
 CREATE TABLE IF NOT EXISTS xxi.mi_rci_cus (
     cureg_id    CHAR(36) NOT NULL,
-    icusnum     BIGINT   NOT NULL,
+    icusnum     NUMERIC(12)   NOT NULL,
     CONSTRAINT pk_mi_rci_cus PRIMARY KEY (cureg_id, icusnum)
 );
 

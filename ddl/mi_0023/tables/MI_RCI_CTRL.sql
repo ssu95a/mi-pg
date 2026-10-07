@@ -1,13 +1,13 @@
 -- Управляющая таблица загрузки реестра контролируемых лиц
 CREATE TABLE IF NOT EXISTS xxi."MI_RCI_CTRL" (
-    ctrl_id             INTEGER,              -- Идентификатор управляющей записи (всегда 1)
+    ctrl_id             NUMERIC,              -- Идентификатор управляющей записи (всегда 1)
     active_slot         CHAR(1) NOT NULL,     -- Активный слот данных (1,2,3)
     status              VARCHAR(10) NOT NULL, -- Статус загрузки: OK, LOADING, FAIL
     stage               VARCHAR(50),          -- Текущий этап загрузки
     started_at          TIMESTAMPTZ,          -- Время старта загрузки
     finished_at         TIMESTAMPTZ,          -- Время завершения загрузки
     last_error          VARCHAR(4000),        -- Текст последней ошибки (обрезан до 4000 символов)
-    last_loaded_rows    INTEGER,              -- Количество загруженных строк в последней успешной загрузке
+    last_loaded_rows    NUMERIC,              -- Количество загруженных строк в последней успешной загрузке
     stage_started_at    TIMESTAMPTZ,          -- Время начала текущего этапа
     req_id              NUMERIC(12),          -- Идентификатор запроса (mi_req.req_id), в рамках которого выполнялась загрузка
     CONSTRAINT pk_mi_rci_ctrl              PRIMARY KEY (ctrl_id),

@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0003 (
     itm_id         numeric(12) NOT NULL,        -- ID элемента запроса
     external_uuid  uuid DEFAULT gen_random_uuid() NOT NULL, -- внешний UUID элемента
     req_id         numeric(12) NOT NULL,        -- ID запроса /mi_req_id/
-    cus_type       smallint NOT NULL,           -- Тип субъекта: 2-ЮЛ, 4-ИП
+    cus_type       numeric NOT NULL,           -- Тип субъекта: 2-ЮЛ, 4-ИП
     icusnum        numeric(12) NOT NULL,        -- ID клиента XXI /CUS/
     cogrn          varchar(20),                 -- ОГРН/ОГРНИП
     cinn           varchar(12),                 -- ИНН
