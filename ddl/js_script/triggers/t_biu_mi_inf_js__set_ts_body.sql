@@ -31,3 +31,9 @@ FOR
 EXECUTE
    FUNCTION mi_request_trg.tf_biu_mi_inf_js__set_ts_body()
 ;
+
+COMMENT ON FUNCTION mi_request_trg.tf_biu_mi_inf_js__set_ts_body() IS 'Trigger function mi_request_trg.tf_biu_mi_inf_js__set_ts_body {$Id$}'
+;
+
+COMMENT ON TRIGGER t_biu_mi_inf_js__set_ts_body ON xxi.mi_inf_js IS 'Trigger t_biu_mi_inf_js__set_ts_body on xxi.mi_inf_js {$Id$}'
+;

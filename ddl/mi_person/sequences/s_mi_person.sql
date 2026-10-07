@@ -5,5 +5,5 @@ create sequence if not exists xxi.s_mi_person start with 1 increment by 1 minval
 ;
 ALTER SEQUENCE xxi.s_mi_person OWNER TO "XXI"
 ;
-COMMENT ON SEQUENCE xxi.s_mi_person IS 'MI-edo. Реестр физлиц. Генератор идентификаторов PK записей реестра. $Id: {1.0.1} {06.10.2026} Sulimoff$'
+COMMENT ON SEQUENCE xxi.s_mi_person IS 'MI-edo. Реестр физлиц. Генератор идентификаторов PK записей реестра. {$Id$}'
 ;

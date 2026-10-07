@@ -302,3 +302,6 @@ $procedure$
 
 
 ; -- end_Of_Package
+
+COMMENT ON SCHEMA MI_Response_Api IS 'Package MI_Response_Api {$Id$}'
+;

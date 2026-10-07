@@ -44,8 +44,8 @@ alter table xxi.mi_0007 owner to "xxi"
 ;
 -- Comments
 comment on table xxi.mi_0007 is 
-   'MI-edo. Валидность данных физ лиц. Запросы валидности паспортов физ лиц $Id: {1.0.1} {06.10.2026} Sulimoff$'
-;
+   'MI-edo. Валидность данных физ лиц. Запросы валидности паспортов физ лиц {$Id$}'
+
 COMMENT ON COLUMN xxi.mi_0007.itm_id is 
    'ID элемента запроса'
 ;

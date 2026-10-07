@@ -7,5 +7,5 @@ CREATE SCHEMA IF NOT EXISTS mi_request_trg
 ALTER SCHEMA mi_request_trg OWNER TO "XXI"
 ;
 COMMENT ON SCHEMA mi_request_trg IS 
-   'MI-edo. Реестр запросов. Триггерные функции модуля запросов. $Id: {1.0.1} {06.10.2026} Sulimoff$'
+   'MI-edo. Реестр запросов. Триггерные функции модуля запросов. {$Id$}'
 ;

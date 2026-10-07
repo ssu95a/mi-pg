@@ -982,3 +982,6 @@ $procedure$
 
 /* end_Of_Package */
 ;
+
+COMMENT ON SCHEMA mi_logger IS 'Package mi_logger {$Id$}'
+;

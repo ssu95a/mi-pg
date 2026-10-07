@@ -734,3 +734,6 @@ $function$
 
 -- end_Of_Package
 ;
+
+COMMENT ON SCHEMA MI_resultCtx IS 'Package MI_resultCtx {$Id$}'
+;

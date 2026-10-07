@@ -1090,3 +1090,6 @@ $procedure$
 
 /* end_Of_Package */
 ;
+
+COMMENT ON SCHEMA mi_0007_api IS 'Package mi_0007_api {$Id$}'
+;

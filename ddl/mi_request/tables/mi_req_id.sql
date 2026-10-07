@@ -20,8 +20,8 @@ ALTER TABLE xxi.mi_req_id OWNER TO "XXI"
 ;
 -- Comments
 COMMENT ON TABLE xxi.mi_req_id is
-   'MI-edo. Реестр запросов. Глобальный реестр идентификаторов запросов. Используется как якорь для FK по req_id. $Id: {1.0.1} {06.10.2026} Sulimoff$'
-;
+   'MI-edo. Реестр запросов. Глобальный реестр идентификаторов запросов. Используется как якорь для FK по req_id. {$Id$}'
+
 COMMENT ON COLUMN xxi.mi_req_id.req_id is
    'Глобально уникальный идентификатор запроса'
 ;

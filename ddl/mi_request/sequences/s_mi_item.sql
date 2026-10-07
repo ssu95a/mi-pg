@@ -6,5 +6,6 @@ CREATE SEQUENCE IF NOT EXISTS xxi.s_mi_item START WITH 1 INCREMENT BY 1 MINVALUE
 ALTER SEQUENCE xxi.s_mi_item owner to "XXI"
 ;
 COMMENT ON SEQUENCE xxi.s_mi_item IS
-   'MI-edo. Реестр запросов. Генератор идентификаторов элементов mi_item запросов в СМЭВ. $Id: {1.0.1} {06.10.2026} Sulimoff$'
+   'MI-edo. Реестр запросов. Генератор идентификаторов элементов mi_item запросов в СМЭВ. {$Id$}'
 ;
+

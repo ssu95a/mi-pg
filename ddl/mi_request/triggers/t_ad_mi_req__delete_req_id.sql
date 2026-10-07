@@ -29,3 +29,9 @@ FOR
 EXECUTE 
    FUNCTION mi_request_trg.tf_ad_mi_req__delete_req_id()
 ;
+
+COMMENT ON FUNCTION mi_request_trg.tf_ad_mi_req__delete_req_id() IS 'Trigger function mi_request_trg.tf_ad_mi_req__delete_req_id {$Id$}'
+;
+
+COMMENT ON TRIGGER t_ad_mi_req__delete_req_id ON xxi.mi_req IS 'Trigger t_ad_mi_req__delete_req_id on xxi.mi_req {$Id$}'
+;

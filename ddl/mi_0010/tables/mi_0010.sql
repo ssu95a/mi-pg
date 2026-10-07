@@ -71,8 +71,8 @@ ALTER TABLE xxi.mi_0010 owner to "XXI"
 
 -- Comments
 COMMENT ON TABLE xxi.mi_0010 is 
-   'MI-edo. Валидация данных физ лиц. Сведения о смерти физ лица. $Id: {1.0.1} {06.10.2026} Sulimoff$'
-;
+   'MI-edo. Валидация данных физ лиц. Сведения о смерти физ лица. {$Id$}'
+
 COMMENT ON COLUMN xxi.mi_0010.itm_id is 
    'ID элемента запроса'
 ;

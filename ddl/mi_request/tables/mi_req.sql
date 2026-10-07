@@ -160,8 +160,8 @@ alter table xxi.mi_req owner to "XXI"
 ;
 -- Comments
 comment on table xxi.mi_req is
-   'MI-edo. Реестр запросов. Таблица единого реестра. $Id: {1.0.1} {05.10.2026} Sulimoff$'
-;
+   'MI-edo. Реестр запросов. Таблица единого реестра. {$Id$}'
+
 comment on column xxi.mi_req.inf_id is
    'Идентификатор вида сведений. Ключ партицирования /mi_inf/'
 ;

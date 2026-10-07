@@ -101,8 +101,8 @@ create index if not exists ix_mi_log__parent_id on xxi.mi_log (parent_id) tables
 ;
 -- Comments
 COMMENT ON TABLE xxi.mi_log IS
-   'MI-edo.Система логирования. Техническая debug-трасса MI для разработчиков. Не является аудитом. Может очищаться и отключаться. $Id: {1.0.1} {05.10.2026} Sulimoff$'
-;
+   'MI-edo.Система логирования. Техническая debug-трасса MI для разработчиков. Не является аудитом. Может очищаться и отключаться. {$Id$}'
+
 COMMENT ON COLUMN xxi.mi_log.log_id IS
    'Идентификатор записи debug-лога'
 ;

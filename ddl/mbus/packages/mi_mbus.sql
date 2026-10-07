@@ -1356,3 +1356,6 @@ $procedure$
 
 -- end_Of_Package
 ;
+
+COMMENT ON SCHEMA mi_mbus IS 'Package mi_mbus {$Id$}'
+;

@@ -59,8 +59,8 @@ CREATE INDEX IF NOT EXISTS fx_mi_inf__wsp_id ON xxi.mi_inf USING BTREE (wsp_id) 
 ALTER TABLE xxi.mi_inf OWNER TO "XXI";
 -- Table comment
 COMMENT ON TABLE xxi.mi_inf is 
-   'MI-edo. Виды сведений. Реестр видов сведений $Id: {1.0.1} {06.10.2026} Sulimoff$'
-;
+   'MI-edo. Виды сведений. Реестр видов сведений {$Id$}'
+
 -- Columns comments
 COMMENT ON COLUMN xxi.mi_inf.inf_id is 
    'ID вида сведений'

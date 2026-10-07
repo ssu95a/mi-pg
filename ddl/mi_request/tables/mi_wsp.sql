@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS xxi.mi_wsp (
 )
 tablespace users
 ;
-COMMENT ON TABLE xxi.mi_wsp IS 'MI-edo. Виды сведений. АРМ модуля MI. $Id: {1.0.1} {06.10.2026} Sulimoff$'
-;
+COMMENT ON TABLE xxi.mi_wsp IS 'MI-edo. Виды сведений. АРМ модуля MI. {$Id$}'
+
 COMMENT ON COLUMN xxi.mi_wsp.wsp_id IS 'ID Арм'
 ;
 COMMENT ON COLUMN xxi.mi_wsp.name IS 'Наименование'

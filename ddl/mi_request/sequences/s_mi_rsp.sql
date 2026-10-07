@@ -9,8 +9,6 @@ CREATE SEQUENCE IF NOT EXISTS xxi.s_mi_rsp
             NO MAXVALUE
                CACHE 20
 ;
-ALTER SEQUENCE xxi.s_mi_rsp OWNER TO "XXI"
-;
 COMMENT ON SEQUENCE xxi.s_mi_rsp IS
-   'MI-edo. Реестр запросов. Генератор идентификаторов ответов в MI. $Id: {1.0.1} {06.10.2026} Sulimoff$'
+   'MI-edo. Реестр запросов. Генератор идентификаторов ответов в MI. {$Id$}'
 ;

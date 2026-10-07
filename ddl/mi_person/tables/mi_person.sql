@@ -106,8 +106,8 @@ tablespace indexes;
 
 -- Comments
 COMMENT ON TABLE xxi.mi_person IS 
-   'MI-edo. Реестр физ лиц. Данные физ лиц используемые в MI-edo $Id: {1.0.1} {06.10.2026} Sulimoff$'
-;
+   'MI-edo. Реестр физ лиц. Данные физ лиц используемые в MI-edo {$Id$}'
+
 COMMENT ON COLUMN xxi.mi_person.person_id IS 
    'ID записи /mi_person/'
 ;

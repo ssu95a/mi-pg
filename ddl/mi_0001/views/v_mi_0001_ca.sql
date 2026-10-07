@@ -59,8 +59,8 @@ JOIN xxi.pud
 ;
 -- Comments
 COMMENT ON VIEW xxi.v_mi_0001_ca is 
-   'MI-edo. ИНН физ лиц. Список клиентов без ИНН, по которым не было запросов в MI $Id: {1.0.1} {06.10.2026} Sulimoff$'
-;
+   'MI-edo. ИНН физ лиц. Список клиентов без ИНН, по которым не было запросов в MI {$Id$}'
+
 -- Grants
 grant select on xxi.v_mi_0001_ca to odb
 ;

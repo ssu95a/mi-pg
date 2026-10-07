@@ -158,3 +158,5 @@ $$
 -- end_Of_Packages
 ;
 
+COMMENT ON SCHEMA MI_utils IS 'Package MI_utils {$Id$}'
+;

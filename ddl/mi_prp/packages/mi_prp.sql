@@ -224,3 +224,6 @@ $procedure$
 
 -- end_Of_Package
 ;
+
+COMMENT ON SCHEMA MI_prp IS 'Package MI_prp {$Id$}'
+;

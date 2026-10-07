@@ -645,3 +645,6 @@ $function$
 
 /*end_Of_Package*/
 ;
+
+COMMENT ON SCHEMA mi_person_api IS 'Package mi_person_api {$Id$}'
+;

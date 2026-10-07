@@ -329,3 +329,6 @@ END;
 $procedure$
 
 ; -- end_of_Package
+
+COMMENT ON SCHEMA MI_Item_Result_Api IS 'Package MI_Item_Result_Api {$Id$}'
+;

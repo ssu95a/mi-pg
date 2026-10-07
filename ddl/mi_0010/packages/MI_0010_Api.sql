@@ -563,3 +563,6 @@ $procedure$
 
 
 ; -- end_Of_Package
+
+COMMENT ON SCHEMA mi_0010_api IS 'Package mi_0010_api {$Id$}'
+;

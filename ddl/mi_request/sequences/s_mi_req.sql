@@ -9,10 +9,6 @@ CREATE SEQUENCE IF NOT EXISTS xxi.s_mi_req
    CACHE 50
    NO CYCLE
 ;
-
-ALTER SEQUENCE xxi.s_mi_req OWNER TO "XXI"
-;
-
 COMMENT ON SEQUENCE xxi.s_mi_req IS
-   'MI-edo. Реестр запросов. Генератор идентификаторов запросов в СМЭВ. $Id: {1.0.1} {06.10.2026} Sulimoff$'
+   'MI-edo. Реестр запросов. Генератор идентификаторов запросов в СМЭВ. {$Id$}'
 ;

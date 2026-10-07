@@ -57,8 +57,8 @@ ALTER TABLE xxi.mi_0001 owner to "XXI"
 
 -- Comments
 COMMENT ON TABLE xxi.mi_0001 is 
-   'MI-edo. ИНН физ.лица. Запрос cведений об ИНН физ лица $Id: {1.0.1} {06.10.2026} Sulimoff$'
-;
+   'MI-edo. ИНН физ.лица. Запрос cведений об ИНН физ лица {$Id$}'
+
 COMMENT ON COLUMN xxi.mi_0001.itm_id is 
    'ID элемента запроса'
 ;

@@ -27,8 +27,8 @@ tablespace users
 create index if not exists fx_mi_p2i__inf on xxi.mi_p2i using btree( inf_id ) tablespace indexes
 ;
 comment on table xxi.mi_p2i is
-   'MI-edo. Реестр физ лиц. Связь person и видами сведений $Id: {1.0.1} {06.10.2026} Sulimoff$'
-;
+   'MI-edo. Реестр физ лиц. Связь person и видами сведений {$Id$}'
+
 comment on column xxi.mi_p2i.linked_at is
    'Когда была сформирована связь'
 ;

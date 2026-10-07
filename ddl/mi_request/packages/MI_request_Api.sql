@@ -1251,3 +1251,6 @@ $procedure$
 
 /* end_Of_Package */
 ;
+
+COMMENT ON SCHEMA mi_request_api IS 'Package mi_request_api {$Id$}'
+;

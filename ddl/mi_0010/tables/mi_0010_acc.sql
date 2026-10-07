@@ -30,8 +30,8 @@ create index if not exists fx_mi_0010_acc__itm_Id on xxi.mi_0010_acc using btree
 alter table xxi.mi_0010_acc owner to "XXI"
 ;
 -- Comments
-COMMENT ON TABLE xxi.mi_0010_acc is 'MI-edo. Валидация данных физ лиц. Список счетов ЕГР ЗАГС. $Id: {1.0.1} {06.10.2026} Sulimoff$'
-;
+COMMENT ON TABLE xxi.mi_0010_acc is 'MI-edo. Валидация данных физ лиц. Список счетов ЕГР ЗАГС. {$Id$}'
+
 comment on column xxi.mi_0010_acc.itm_id is 'ID записи о ФЛ /xxi.mi_0010/'
 ;
 comment on column xxi.mi_0010_acc.fil is 'Филиал'

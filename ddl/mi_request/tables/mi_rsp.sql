@@ -62,5 +62,5 @@ ALTER TABLE xxi.mi_rsp OWNER TO "XXI"
 ;
 -- Comments
 COMMENT ON TABLE xxi.mi_rsp IS
-   'MI-edo. Реестр запросов. Ответы на запросы. $Id: {1.0.1} {06.10.2026} Sulimoff$'
+   'MI-edo. Реестр запросов. Ответы на запросы. {$Id$}'
 ;

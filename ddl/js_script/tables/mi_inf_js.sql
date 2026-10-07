@@ -31,8 +31,8 @@ ALTER TABLE xxi.mi_inf_js OWNER TO "XXI"
 ;
 -- Comments
 COMMENT ON TABLE xxi.mi_inf_js IS 
-   'MI-edo. Виды сведений. JS-скрипты для реализации логики вида сведения. $Id: {1.0.1} {05.10.2026} Sulimoff$'
-;
+   'MI-edo. Виды сведений. JS-скрипты для реализации логики вида сведения. {$Id$}'
+
 COMMENT ON COLUMN xxi.mi_inf_js.inf_id IS 
    'Вид сведения /mi_inf/'
 ;
