@@ -3,6 +3,10 @@ CREATE OR REPLACE PACKAGE mi_0025_api
    -- Инициализация пакета
    CREATE FUNCTION __init__() RETURNS void AS $$
    DECLARE
+      /*
+         Пакет для ведения логики MI-edo
+         Модуль: Нотариат
+      */
       cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {26.08.2026} Sukhotina$';
 
       RET_OK   CONSTANT INTEGER := 0;

@@ -9,6 +9,10 @@ CREATE OR REPLACE PACKAGE mi_0600_api
    -- Инициализация пакета
    CREATE FUNCTION __init__() RETURNS void AS $$
    DECLARE
+      /*
+         Пакет для ведения логики MI-edo
+         Модуль: ЭДО с ФНС
+      */
       cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {05.10.2026} Sukhotina$';
 
       RET_OK      CONSTANT INTEGER := 0;

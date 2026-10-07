@@ -4,7 +4,7 @@
 -- Описание   : ЭДО с ФНС
 --
 
-CREATE TABLE xxi.mi_0600 (
+CREATE TABLE IF NOT EXISTS xxi.mi_0600 (
     itm_id           numeric(12) NOT NULL,                     -- ID элемента запроса
     external_uuid    uuid DEFAULT gen_random_uuid() NOT NULL,  -- Внешний UUID элемента
     req_id           numeric(12) NOT NULL,                     -- ID запроса /mi_req_id/
@@ -19,6 +19,8 @@ CREATE TABLE xxi.mi_0600 (
     was_uploaded     integer DEFAULT 0,                        -- Признак выгрузки архива (1 - выгружен)
     created_at       timestamptz DEFAULT clock_timestamp() NOT NULL, -- Дата создания элемента
     message_uuid     uuid,                                     -- ID сообщения (для ответчиков)
+    cres_info        text,                                     -- Информация о результате
+    tres_time        timestamptz,                              -- Время получения результата
     CONSTRAINT pk_mi_0600 PRIMARY KEY (itm_id),
     CONSTRAINT uk_mi_0600__req_id UNIQUE (req_id),
     CONSTRAINT uk_mi_0600__external_uuid UNIQUE (external_uuid),
@@ -26,9 +28,9 @@ CREATE TABLE xxi.mi_0600 (
 ) TABLESPACE users;
 
 -- Индексы
-CREATE INDEX ix_mi_0600__czip_name    ON xxi.mi_0600 USING btree (czip_name);
-CREATE INDEX ix_mi_0600__dsend_stamp  ON xxi.mi_0600 USING btree (dsend_stamp);
-CREATE INDEX ix_mi_0600__message_uuid ON xxi.mi_0600 USING btree (message_uuid) WHERE message_uuid IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_mi_0600__czip_name    ON xxi.mi_0600 USING btree (czip_name);
+CREATE INDEX IF NOT EXISTS ix_mi_0600__dsend_stamp  ON xxi.mi_0600 USING btree (dsend_stamp);
+CREATE INDEX IF NOT EXISTS ix_mi_0600__message_uuid ON xxi.mi_0600 USING btree (message_uuid) WHERE message_uuid IS NOT NULL;
 
 -- Комментарии
 COMMENT ON TABLE  xxi.mi_0600 IS $$MI-edo. ЭДО с ФНС. Элементы запросов (ZIP-архивы) видов сведений 601–604, 611, 612. '$id: {1.0.1} {17.09.2026} Sukhotina$'$$;
@@ -46,9 +48,5 @@ COMMENT ON COLUMN xxi.mi_0600.cerr_msg         IS 'Текст ошибки, ес
 COMMENT ON COLUMN xxi.mi_0600.was_uploaded     IS 'Признак выгрузки архива (1 - выгружен)';
 COMMENT ON COLUMN xxi.mi_0600.created_at       IS 'Дата создания элемента';
 COMMENT ON COLUMN xxi.mi_0600.message_uuid     IS 'ID сообщения (для ответчиков)';
-
-ALTER TABLE xxi.mi_0600 ADD COLUMN cres_info  text;
-ALTER TABLE xxi.mi_0600 ADD COLUMN tres_time  timestamptz;
-
-COMMENT ON COLUMN xxi.mi_0600.cres_info IS 'Информация о результате';
-COMMENT ON COLUMN xxi.mi_0600.tres_time IS 'Время получения результата';
+COMMENT ON COLUMN xxi.mi_0600.cres_info        IS 'Информация о результате';
+COMMENT ON COLUMN xxi.mi_0600.tres_time        IS 'Время получения результата';

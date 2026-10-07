@@ -4,7 +4,7 @@ CREATE OR REPLACE PACKAGE mi_0023_Api
    CREATE FUNCTION __init__() RETURNS void AS $$
    DECLARE
       /*
-         Пакет для ведения логики СМЭВ 3.0
+         Пакет для ведения логики MI-edo
          Модуль: Реестр контролируемых лиц
       */
       cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {29.07.2026} Sukhotina$';

@@ -9,6 +9,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS t_au_mi_req__set_dsend ON xxi.mi_req;
+
 -- Триггер на mi_req
 CREATE TRIGGER t_au_mi_req__set_dsend
 AFTER UPDATE OF status_cd ON xxi.mi_req

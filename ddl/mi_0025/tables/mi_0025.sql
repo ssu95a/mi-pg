@@ -4,7 +4,7 @@
 -- Описание   : Нотариат
 --
 
-CREATE TABLE xxi.mi_0025 (
+CREATE TABLE IF NOT EXISTS xxi.mi_0025 (
     itm_id          numeric(12) NOT NULL,               -- ID элемента запроса
     external_uuid   uuid DEFAULT gen_random_uuid() NOT NULL, -- внешний UUID элемента
     req_id          numeric(12) NOT NULL,               -- ID запроса /mi_req_id/
@@ -44,12 +44,12 @@ CREATE TABLE xxi.mi_0025 (
 TABLESPACE users;
 
 -- Индексы для поиска
-CREATE INDEX ix_mi_0025__req_id ON xxi.mi_0025 USING btree (req_id);
-CREATE INDEX ix_mi_0025__request_id ON xxi.mi_0025 USING btree (request_id);
-CREATE INDEX ix_mi_0025__n_uivid ON xxi.mi_0025 USING btree (n_uivid);
-CREATE INDEX ix_mi_0025__a_uivid ON xxi.mi_0025 USING btree (a_uivid) WHERE a_uivid IS NOT NULL;
-CREATE INDEX ix_mi_0025__cred_id ON xxi.mi_0025 USING btree (cred_id);
-CREATE INDEX ix_mi_0025__confirmed_usr_id ON xxi.mi_0025 USING btree (confirmed_usr_id) WHERE confirmed_usr_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_mi_0025__req_id ON xxi.mi_0025 USING btree (req_id);
+CREATE INDEX IF NOT EXISTS ix_mi_0025__request_id ON xxi.mi_0025 USING btree (request_id);
+CREATE INDEX IF NOT EXISTS ix_mi_0025__n_uivid ON xxi.mi_0025 USING btree (n_uivid);
+CREATE INDEX IF NOT EXISTS ix_mi_0025__a_uivid ON xxi.mi_0025 USING btree (a_uivid) WHERE a_uivid IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_mi_0025__cred_id ON xxi.mi_0025 USING btree (cred_id);
+CREATE INDEX IF NOT EXISTS ix_mi_0025__confirmed_usr_id ON xxi.mi_0025 USING btree (confirmed_usr_id) WHERE confirmed_usr_id IS NOT NULL;
 
 -- Комментарии
 COMMENT ON TABLE  xxi.mi_0025 IS $$MI-edo. Нотариат. Элементы запроса (входящие данные). '$id: {1.0.1} {18.08.2026} Sukhotina$'$$;
