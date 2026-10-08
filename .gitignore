@@ -73,3 +73,5 @@ tmp/
 temp/
 out/
 build/
+tools/
+versions/
