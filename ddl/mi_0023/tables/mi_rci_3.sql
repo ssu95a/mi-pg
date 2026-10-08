@@ -26,5 +26,5 @@ COMMENT ON COLUMN xxi.mi_rci_3.ipr_dbth IS 'Признак неполноты д
 COMMENT ON COLUMN xxi.mi_rci_3.cdoc_raw IS 'Серия и номер документа (сырое значение из реестра)';
 COMMENT ON COLUMN xxi.mi_rci_3.ddoc_date IS 'Дата выдачи документа';
 
-COMMENT ON TABLE xxi.mi_rci_3 IS
-$$MI-edo. Реестр контролируемых лиц. Таблица-слот 3. '$id: {1.0.1} {22.07.2026} Sukhotina$'$$;
+COMMENT ON TABLE xxi.mi_rci_1 IS
+'MI-edo. Реестр контролируемых лиц. Таблица-слот 3. $Id$';

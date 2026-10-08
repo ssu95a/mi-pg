@@ -9,4 +9,4 @@ COMMENT ON COLUMN xxi.mi_rci_cus.cureg_id IS 'Идентификатор зап�
 COMMENT ON COLUMN xxi.mi_rci_cus.icusnum  IS 'Идентификатор клиента CUS (ICUSNUM)';
 
 COMMENT ON TABLE xxi.mi_rci_cus IS 
-$$MI-edo. Реестр контролируемых лиц. Связи реестра с клиентами CUS. '$id: {1.0.1} {22.07.2026} Sukhotina$'$$;
+'MI-edo. Реестр контролируемых лиц. Связи реестра с клиентами CUS. $Id$';

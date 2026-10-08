@@ -34,7 +34,7 @@ CREATE INDEX IF NOT EXISTS ix_mi_0003__cogrn      ON xxi.mi_0003 USING btree (co
 CREATE INDEX IF NOT EXISTS ix_mi_0003__cinn       ON xxi.mi_0003 USING btree (cinn) WHERE cinn IS NOT NULL;
 
 -- Комментарии
-COMMENT ON TABLE  xxi.mi_0003 IS $$MI-edo. Виды сведений. Запрос сведений ЕГРЮЛ/ЕГРИП (вид сведений 003). '$id: {1.0.1} {12.08.2026} Sukhotina$'$$;
+COMMENT ON TABLE  xxi.mi_0003 IS 'MI-edo. Виды сведений. Запрос сведений ЕГРЮЛ/ЕГРИП (вид сведений 003). $Id$';
 COMMENT ON COLUMN xxi.mi_0003.itm_id         IS 'ID элемента запроса';
 COMMENT ON COLUMN xxi.mi_0003.external_uuid  IS 'Внешний UUID элемента';
 COMMENT ON COLUMN xxi.mi_0003.req_id         IS 'ID запроса /mi_req_id/';

@@ -52,7 +52,7 @@ CREATE INDEX IF NOT EXISTS ix_mi_0025__cred_id ON xxi.mi_0025 USING btree (cred_
 CREATE INDEX IF NOT EXISTS ix_mi_0025__confirmed_usr_id ON xxi.mi_0025 USING btree (confirmed_usr_id) WHERE confirmed_usr_id IS NOT NULL;
 
 -- Комментарии
-COMMENT ON TABLE  xxi.mi_0025 IS $$MI-edo. Нотариат. Элементы запроса (входящие данные). '$id: {1.0.1} {18.08.2026} Sukhotina$'$$;
+COMMENT ON TABLE  xxi.mi_0025 IS 'MI-edo. Нотариат. Элементы запроса (входящие данные). $Id$';
 COMMENT ON COLUMN xxi.mi_0025.itm_id IS 'ID элемента запроса';
 COMMENT ON COLUMN xxi.mi_0025.external_uuid IS 'Внешний UUID элемента';
 COMMENT ON COLUMN xxi.mi_0025.req_id IS 'ID запроса /mi_req_id/';

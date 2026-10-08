@@ -33,7 +33,7 @@ CREATE INDEX IF NOT EXISTS ix_mi_0600__dsend_stamp  ON xxi.mi_0600 USING btree (
 CREATE INDEX IF NOT EXISTS ix_mi_0600__message_uuid ON xxi.mi_0600 USING btree (message_uuid) WHERE message_uuid IS NOT NULL;
 
 -- Комментарии
-COMMENT ON TABLE  xxi.mi_0600 IS $$MI-edo. ЭДО с ФНС. Элементы запросов (ZIP-архивы) видов сведений 601–604, 611, 612. '$id: {1.0.1} {17.09.2026} Sukhotina$'$$;
+COMMENT ON TABLE  xxi.mi_0600 IS 'MI-edo. ЭДО с ФНС. Элементы запросов (ZIP-архивы) видов сведений 601–604, 611, 612. $Id$';
 COMMENT ON COLUMN xxi.mi_0600.itm_id           IS 'ID элемента запроса';
 COMMENT ON COLUMN xxi.mi_0600.external_uuid    IS 'Внешний UUID элемента';
 COMMENT ON COLUMN xxi.mi_0600.req_id           IS 'ID запроса /mi_req_id/';

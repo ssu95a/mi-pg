@@ -27,4 +27,4 @@ COMMENT ON COLUMN xxi.mi_rci_1.cdoc_raw IS 'Серия и номер докум�
 COMMENT ON COLUMN xxi.mi_rci_1.ddoc_date IS 'Дата выдачи документа';
 
 COMMENT ON TABLE xxi.mi_rci_1 IS
-$$MI-edo. Реестр контролируемых лиц. Таблица-слот 1. '$id: {1.0.1} {22.07.2026} Sukhotina$'$$;
+'MI-edo. Реестр контролируемых лиц. Таблица-слот 1. $Id$';

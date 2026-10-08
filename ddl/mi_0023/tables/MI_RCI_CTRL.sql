@@ -33,4 +33,4 @@ COMMENT ON COLUMN xxi."MI_RCI_CTRL".stage_started_at IS 'Время начала
 COMMENT ON COLUMN xxi."MI_RCI_CTRL".req_id           IS 'Идентификатор запроса (mi_req.req_id), в рамках которого выполнялась загрузка';
 
 COMMENT ON TABLE xxi."MI_RCI_CTRL" IS
-$$MI-edo. Реестр контролируемых лиц. Управляющая таблица загрузки. '$id: {1.0.1} {22.07.2026} Sukhotina$'$$;
+'MI-edo. Реестр контролируемых лиц. Управляющая таблица загрузки. $Id$';

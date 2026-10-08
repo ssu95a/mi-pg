@@ -13,6 +13,6 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0600_f (
 
 CREATE INDEX IF NOT EXISTS ix_mi_0600_f__file_name   ON xxi.mi_0600_f USING btree (upper(btrim((czip_file_name)::text)));
 
-COMMENT ON TABLE  xxi.mi_0600_f IS $$MI-edo. ЭДО с ФНС. Имена файлов внутри ZIP-архивов видов сведений 601-604, 611, 612. '$id: {1.0.1} {15.09.2026} Sukhotina$'$$;
+COMMENT ON TABLE  xxi.mi_0600_f IS 'MI-edo. ЭДО с ФНС. Имена файлов внутри ZIP-архивов видов сведений 601-604, 611, 612. $Id$';
 COMMENT ON COLUMN xxi.mi_0600_f.itm_id         IS 'Ссылка на элемент mi_0600';
 COMMENT ON COLUMN xxi.mi_0600_f.czip_file_name IS 'Имя файла внутри ZIP-архива';

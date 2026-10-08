@@ -22,8 +22,7 @@ WHERE c.ccusflag = ANY (ARRAY['2'::bpchar, '4'::bpchar])
   --     WHERE a.iacccus = c.icusnum
   --       AND a.caccprizn = 'О'::bpchar
   --)
-  --LIMIT 100
   ;
   
 COMMENT ON VIEW xxi.v_mi_0003_ca IS 
-   $$MI-edo. Виды сведений. Список клиентов для запроса сведений ЕГРЮЛ/ЕГРИП (вид сведений 003). '$id: {1.0.1} {13.08.2026} Sukhotina$'$$;
+   'MI-edo. Виды сведений. Список клиентов для запроса сведений ЕГРЮЛ/ЕГРИП (вид сведений 003). $Id$';
