@@ -42,11 +42,11 @@ TABLESPACE users
 ;
 
 -- Indexes
-create index if not exists fx_mi_0001__req_id on xxi.mi_0001 using btree ( req_id ) tablespace indexes
+create index if not exists fx_mi_0001__req_id       on xxi.mi_0001 using btree (req_id) tablespace indexes
 ;
-create index if not exists fx_mi_0001__person_id on xxi.mi_0001 using btree ( person_id ) tablespace indexes
+create index if not exists fx_mi_0001__person_id    on xxi.mi_0001 using btree (person_id) tablespace indexes
 ;
-create index if not exists fx_mi_0001__icusnum on xxi.mi_0001 using btree ( icusnum ) tablespace indexes
+create index if not exists fx_mi_0001__icusnum      on xxi.mi_0001 using btree (icusnum) tablespace indexes
 ;
 create index if not exists ix_mi_0001__message_uuid on xxi.mi_0001(message_uuid) tablespace indexes where message_uuid is not null
 ;
@@ -59,13 +59,13 @@ ALTER TABLE xxi.mi_0001 owner to "XXI"
 COMMENT ON TABLE xxi.mi_0001 is 
    'MI-edo. ИНН физ.лица. Запрос cведений об ИНН физ лица {$Id$}'
 
-COMMENT ON COLUMN xxi.mi_0001.itm_id is 
+COMMENT ON COLUMN xxi.mi_0001.itm_id is
    'ID элемента запроса'
 ;
-COMMENT ON COLUMN xxi.mi_0001.req_id is 
+COMMENT ON COLUMN xxi.mi_0001.req_id is
    'ID запроса /mi_req/'
 ;
-COMMENT ON COLUMN xxi.mi_0001.person_id is 
+COMMENT ON COLUMN xxi.mi_0001.person_id is
    'ID физ лица /mi_person/'
 ;
 COMMENT ON COLUMN xxi.mi_0001.icusnum is 

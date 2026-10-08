@@ -2,47 +2,47 @@
 -- Назначение : Техническая debug-трасса MI для разработчиков
 -- Описание   : Не аудит. Может чиститься, отключаться, теряться при crash.
 --
-CREATE UNLOGGED TABLE IF NOT EXISTS xxi.mi_log
+CREATE TABLE IF NOT EXISTS xxi.mi_log
 (
 -- +---------------------------------------------------------------------------
 -- | column        | type         | null    | default 
 -- +---------------------------------------------------------------------------
-       log_id        numeric(38)   NOT NULL   DEFAULT nextval('xxi.s_mi_log'::regclass),
+      log_id        numeric(38)   NOT NULL   DEFAULT nextval('xxi.s_mi_log'::regclass),
 
-       inf_id        numeric(6)    NOT NULL,
-       wsp_id        numeric(3)    NOT NULL,
+      inf_id        numeric(6)    NOT NULL,
+      wsp_id        numeric(3)    NOT NULL,
 
-       logged_at     timestamptz   NOT NULL   DEFAULT clock_timestamp(),
+      logged_at     timestamptz   NOT NULL   DEFAULT clock_timestamp(),
 
-       -- Ссылка на сессию системного аудита
-       au_session_id numeric(38)   NOT NULL,
+      -- Ссылка на сессию системного аудита
+      au_session_id numeric(38)   NOT NULL,
 
-       level_cd      bpchar(3)     NOT NULL,
+      level_cd      bpchar(3)     NOT NULL,
 
-       logger_name   varchar(50),
+      logger_name   varchar(50),
 
-       action_cd     varchar(50),
-       object_name   varchar(100),
+      action_cd     varchar(50),
+      object_name   varchar(100),
 
-        -- Смысловой контекст события:
-        -- sqlstate, exception name, correlation_id, бизнес-ключ, номер счёта и т.п.
-       context_value varchar(100),
+      -- Смысловой контекст события:
+      -- sqlstate, exception name, correlation_id, бизнес-ключ, номер счёта и т.п.
+      context_value varchar(100),
 
-       message_text  varchar(2000),
-       details_text  text,
+      message_text  varchar(2000),
+      details_text  text,
 
-       req_id        numeric(12),
-       itm_id        numeric(12),
-       rsp_id        numeric(12),
+      req_id        numeric(12),
+      itm_id        numeric(12),
+      rsp_id        numeric(12),
 
-       person_id     numeric(12),
-       icusnum       numeric(12),
+      person_id     numeric(12),
+      icusnum       numeric(12),
 
-       object_id     numeric(12),
-       object_id2    numeric(12),
+      object_id     numeric(12),
+      object_id2    numeric(12),
 
-        -- Ссылка на родительскую запись лога
-       parent_id     numeric(38)
+      -- Ссылка на родительскую запись лога
+      parent_id     numeric(38)
 )
 partition by list (wsp_id)
 ;
@@ -161,5 +161,5 @@ COMMENT ON COLUMN xxi.mi_log.object_id2 IS
     'Технический идентификатор объекта 2'
 ;
 COMMENT ON COLUMN xxi.mi_log.parent_id IS
-    'Ссылка на родительскую запись debug-лога'
+   'Ссылка на родительскую запись debug-лога'
 ;

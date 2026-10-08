@@ -6,7 +6,7 @@ AS
 $init$
 DECLARE
 
-   cVersion     CONSTANT varchar(100) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
+   cVersion     CONSTANT varchar(100) := '1.0.1';
 
    cPkg_Name    CONSTANT varchar(20 ) := 'mi_0001_Api'; 
    cLogger      CONSTANT varchar(20 ) := 'mi.0001'; 
