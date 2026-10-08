@@ -1257,3 +1257,6 @@ CREATE OR REPLACE PACKAGE mi_0023_Api
    END;
    $$
 ;
+
+COMMENT ON SCHEMA mi_0023_api IS 'Package mi_0023_api {$Id$}'
+;

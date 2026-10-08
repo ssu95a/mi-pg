@@ -9,11 +9,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS t_au_mi_req__set_dsend ON xxi.mi_req;
+COMMENT ON FUNCTION mi_request_trg.tf_au_mi_req__set_dsend()
+IS 'Trigger function mi_request_trg.tf_au_mi_req__set_dsend. $Id$'
+;
 
 -- Триггер на mi_req
-CREATE TRIGGER t_au_mi_req__set_dsend
+CREATE OR REPLACE TRIGGER t_au_mi_req__set_dsend
 AFTER UPDATE OF status_cd ON xxi.mi_req
 FOR EACH ROW
 WHEN (OLD.status_cd = 2 AND NEW.status_cd = 3)
 EXECUTE FUNCTION mi_request_trg.tf_au_mi_req__set_dsend();
+
+COMMENT ON TRIGGER t_au_mi_req__set_dsend
+ON xxi.mi_req
+IS 'Trigger t_ad_mi_req__delete_req_id on xxi.mi_req. $Id$'
+;

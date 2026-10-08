@@ -5,18 +5,12 @@ CREATE TABLE IF NOT EXISTS xxi.mi_rci_1 (
     dbth        DATE,
     ipr_dbth    NUMERIC,
     cdoc_raw    VARCHAR(100),
-    ddoc_date   DATE
-);
-
--- Первичный ключ
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'pk_mi_rci_1' AND contype = 'p') THEN
-        ALTER TABLE xxi.mi_rci_1 ADD CONSTRAINT pk_mi_rci_1 PRIMARY KEY (cureg_id);
-    END IF;
-END $$;
+    ddoc_date   DATE,
+    CONSTRAINT pk_mi_rci_1 PRIMARY KEY (cureg_id) USING INDEX TABLESPACE indexes
+) TABLESPACE users;
 
 -- Индекс по cdoc_raw
-CREATE INDEX IF NOT EXISTS ix_mi_rci_1__cdoc_raw ON xxi.mi_rci_1 (cdoc_raw);
+CREATE INDEX IF NOT EXISTS ix_mi_rci_1__cdoc_raw ON xxi.mi_rci_1 (cdoc_raw) TABLESPACE indexes;
 
 -- Комментарии к столбцам
 COMMENT ON COLUMN xxi.mi_rci_1.cureg_id IS 'Уникальный идентификатор записи реестра (UUID)';
@@ -27,4 +21,4 @@ COMMENT ON COLUMN xxi.mi_rci_1.cdoc_raw IS 'Серия и номер докум�
 COMMENT ON COLUMN xxi.mi_rci_1.ddoc_date IS 'Дата выдачи документа';
 
 COMMENT ON TABLE xxi.mi_rci_1 IS
-$$MI-edo. Реестр контролируемых лиц. Таблица-слот 1. '$id: {1.0.1} {22.07.2026} Sukhotina$'$$;
+'MI-edo. Реестр контролируемых лиц. Таблица-слот 1. $Id$';

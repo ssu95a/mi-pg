@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS xxi."MI_RCI_CTRL" (
     last_loaded_rows    NUMERIC,              -- Количество загруженных строк в последней успешной загрузке
     stage_started_at    TIMESTAMPTZ,          -- Время начала текущего этапа
     req_id              NUMERIC(12),          -- Идентификатор запроса (mi_req.req_id), в рамках которого выполнялась загрузка
-    CONSTRAINT pk_mi_rci_ctrl              PRIMARY KEY (ctrl_id),
+    CONSTRAINT pk_mi_rci_ctrl              PRIMARY KEY (ctrl_id) USING INDEX TABLESPACE indexes,
     CONSTRAINT ck_mi_rci_ctrl__active_slot CHECK ((active_slot = ANY (ARRAY['1'::bpchar, '2'::bpchar, '3'::bpchar]))),
     CONSTRAINT ck_mi_rci_ctrl__ctrl_id     CHECK ((ctrl_id = 1)),
     CONSTRAINT ck_mi_rci_ctrl__status      CHECK (((status)::text = ANY ((ARRAY['OK'::character varying, 'LOADING'::character varying, 'FAIL'::character varying])::text[])))
@@ -33,4 +33,4 @@ COMMENT ON COLUMN xxi."MI_RCI_CTRL".stage_started_at IS 'Время начала
 COMMENT ON COLUMN xxi."MI_RCI_CTRL".req_id           IS 'Идентификатор запроса (mi_req.req_id), в рамках которого выполнялась загрузка';
 
 COMMENT ON TABLE xxi."MI_RCI_CTRL" IS
-$$MI-edo. Реестр контролируемых лиц. Управляющая таблица загрузки. '$id: {1.0.1} {22.07.2026} Sukhotina$'$$;
+'MI-edo. Реестр контролируемых лиц. Управляющая таблица загрузки. $Id$';
