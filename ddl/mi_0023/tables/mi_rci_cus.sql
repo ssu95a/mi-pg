@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS xxi.mi_rci_cus (
     cureg_id    CHAR(36) NOT NULL,
     icusnum     NUMERIC(12)   NOT NULL,
-    CONSTRAINT pk_mi_rci_cus PRIMARY KEY (cureg_id, icusnum)
+    CONSTRAINT pk_mi_rci_cus PRIMARY KEY (cureg_id, icusnum) USING INDEX TABLESPACE indexes
 );
 
 COMMENT ON COLUMN xxi.mi_rci_cus.cureg_id IS 'Идентификатор записи реестра';

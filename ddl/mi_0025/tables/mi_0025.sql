@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0025 (
     
     payload         text,                               -- Исходный XML/JSON запроса
 
-    CONSTRAINT pk_mi_0025 PRIMARY KEY (itm_id),
-    CONSTRAINT uk_mi_0025__external_uuid UNIQUE (external_uuid),
+    CONSTRAINT pk_mi_0025 PRIMARY KEY (itm_id) USING INDEX TABLESPACE indexes,
+    CONSTRAINT uk_mi_0025__external_uuid UNIQUE (external_uuid) USING INDEX TABLESPACE indexes,
     CONSTRAINT fk_mi_0025__mi_req_id FOREIGN KEY (req_id) REFERENCES xxi.mi_req_id(req_id) ON DELETE CASCADE,
     CONSTRAINT fk_mi_0025__usr FOREIGN KEY (confirmed_usr_id) REFERENCES xxi.usr(iusrid),
     CONSTRAINT ck_mi_0025__confirmed_value CHECK (confirmed_value IN (0,1))
@@ -44,12 +44,12 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0025 (
 TABLESPACE users;
 
 -- Индексы для поиска
-CREATE INDEX IF NOT EXISTS ix_mi_0025__req_id ON xxi.mi_0025 USING btree (req_id);
-CREATE INDEX IF NOT EXISTS ix_mi_0025__request_id ON xxi.mi_0025 USING btree (request_id);
-CREATE INDEX IF NOT EXISTS ix_mi_0025__n_uivid ON xxi.mi_0025 USING btree (n_uivid);
-CREATE INDEX IF NOT EXISTS ix_mi_0025__a_uivid ON xxi.mi_0025 USING btree (a_uivid) WHERE a_uivid IS NOT NULL;
-CREATE INDEX IF NOT EXISTS ix_mi_0025__cred_id ON xxi.mi_0025 USING btree (cred_id);
-CREATE INDEX IF NOT EXISTS ix_mi_0025__confirmed_usr_id ON xxi.mi_0025 USING btree (confirmed_usr_id) WHERE confirmed_usr_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS fx_mi_0025__mi_req_id ON xxi.mi_0025 USING btree (req_id) TABLESPACE indexes;
+CREATE INDEX IF NOT EXISTS ix_mi_0025__request_id ON xxi.mi_0025 USING btree (request_id) TABLESPACE indexes;
+CREATE INDEX IF NOT EXISTS ix_mi_0025__n_uivid ON xxi.mi_0025 USING btree (n_uivid) TABLESPACE indexes;
+CREATE INDEX IF NOT EXISTS ix_mi_0025__a_uivid ON xxi.mi_0025 USING btree (a_uivid) TABLESPACE indexes WHERE a_uivid IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_mi_0025__cred_id ON xxi.mi_0025 USING btree (cred_id) TABLESPACE indexes;
+CREATE INDEX IF NOT EXISTS fx_mi_0025__usr     ON xxi.mi_0025 USING btree (confirmed_usr_id) TABLESPACE indexes WHERE confirmed_usr_id IS NOT NULL;
 
 -- Комментарии
 COMMENT ON TABLE  xxi.mi_0025 IS 'MI-edo. Нотариат. Элементы запроса (входящие данные). $Id$';

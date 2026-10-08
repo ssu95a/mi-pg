@@ -21,16 +21,16 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0600 (
     message_uuid     uuid,                                     -- ID сообщения (для ответчиков)
     cres_info        text,                                     -- Информация о результате
     tres_time        timestamptz,                              -- Время получения результата
-    CONSTRAINT pk_mi_0600 PRIMARY KEY (itm_id),
-    CONSTRAINT uk_mi_0600__req_id UNIQUE (req_id),
-    CONSTRAINT uk_mi_0600__external_uuid UNIQUE (external_uuid),
+    CONSTRAINT pk_mi_0600 PRIMARY KEY (itm_id) USING INDEX TABLESPACE indexes,
+    CONSTRAINT uk_mi_0600__req_id UNIQUE (req_id) USING INDEX TABLESPACE indexes,
+    CONSTRAINT uk_mi_0600__external_uuid UNIQUE (external_uuid) USING INDEX TABLESPACE indexes,
     CONSTRAINT fk_mi_0600__mi_req_id FOREIGN KEY (req_id) REFERENCES xxi.mi_req_id(req_id) ON DELETE CASCADE
 ) TABLESPACE users;
 
 -- Индексы
-CREATE INDEX IF NOT EXISTS ix_mi_0600__czip_name    ON xxi.mi_0600 USING btree (czip_name);
-CREATE INDEX IF NOT EXISTS ix_mi_0600__dsend_stamp  ON xxi.mi_0600 USING btree (dsend_stamp);
-CREATE INDEX IF NOT EXISTS ix_mi_0600__message_uuid ON xxi.mi_0600 USING btree (message_uuid) WHERE message_uuid IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_mi_0600__czip_name    ON xxi.mi_0600 USING btree (czip_name) TABLESPACE indexes;
+CREATE INDEX IF NOT EXISTS ix_mi_0600__dsend_stamp  ON xxi.mi_0600 USING btree (dsend_stamp) TABLESPACE indexes;
+CREATE INDEX IF NOT EXISTS ix_mi_0600__message_uuid ON xxi.mi_0600 USING btree (message_uuid) TABLESPACE indexes WHERE message_uuid IS NOT NULL;
 
 -- Комментарии
 COMMENT ON TABLE  xxi.mi_0600 IS 'MI-edo. ЭДО с ФНС. Элементы запросов (ZIP-архивы) видов сведений 601–604, 611, 612. $Id$';
