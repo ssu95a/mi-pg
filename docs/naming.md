@@ -8,7 +8,11 @@
 - ограничений и индексов;
 - триггеров и триггерных функций;
 - исходных SQL-файлов;
-- SQL-файлов изменений объектов.
+- SQL-файлов изменений объектов;
+- поставочных SQL-файлов для Update ядра.
+
+Исходный SQL в GitLab и поставочный SQL для ядра являются разными слоями:
+правила их именования, кодировки и версионирования описаны отдельно ниже.
 
 Правила первоначальной поставки объектов дополнительно описаны в `baseline.md`.
 
@@ -251,7 +255,9 @@ ux_mi_person__external_code
 `purpose` должен позволять понять назначение индекса без просмотра его определения.
 
 ## 10.3. FK Index
-Если индекс делается тлько для FK поля, индекс выделяется одтельно.
+
+Если индекс создаётся специально для поддержки поля Foreign Key, он выделяется отдельным префиксом.
+
 Формат:
 
 ```text
@@ -262,10 +268,10 @@ fx_<table>__<purpose>
 
 ```text
 fx_mi_req__mi_inf
-fx_mi_person__external_code
+fx_mi_p2i__mi_person
 ```
 
-`purpose` должен позволять понять назначение индекса без просмотра его определения.
+`purpose` должен позволять понять назначение FK-индекса без просмотра его определения.
 
 ---
 
@@ -727,9 +733,14 @@ JIRA
 
 ---
 
-# 19. SQL-файлы последующих изменений
+# 19. SQL-файлы последующих изменений в GitLab
 
-После фиксации baseline развитие объектов ведётся отдельными SQL-файлами.
+После фиксации baseline развитие объектов ведётся отдельными change/alter-скриптами.
+
+Правила этого раздела относятся к **исходным SQL-файлам разработки в GitLab**.
+Они не определяют имя поставочного файла Update для ядра.
+
+Исходные change/alter-скрипты хранятся в UTF-8.
 
 Формат имени:
 
@@ -745,6 +756,13 @@ mi_req__WXXI-1235__create_index__ix_email__v1.0.3.sql
 mi_req__WXXI-1240__add_constraint__ck_status__v1.1.0.sql
 mi_req__WXXI-1250__change__email_search__v1.2.0.sql
 ```
+
+Таким образом, имя исходного change/alter-скрипта фиксирует:
+
+- объект;
+- Jira;
+- назначение изменения;
+- нашу версию объекта.
 
 Смысловые части имени разделяются:
 
@@ -808,9 +826,9 @@ mi_req__WXXI-1250__change__email_search__v1.2.0.sql
 
 ---
 
-# 21. Версия объекта
+# 21. Наша версия объекта
 
-Версия объекта определяется разработчиком.
+Версия объекта определяется разработчиком нашей группы.
 
 Формат:
 
@@ -835,14 +853,765 @@ MAJOR.MINOR.PATCH
 - не является порядковым номером SQL-файла;
 - не вычисляется автоматически из Jira;
 - не является Git commit;
+- не является SVN revision;
 - не совпадает обязательно с версией приложения.
 
-Для packages версия может дополнительно храниться непосредственно в объекте:
+Для change/alter-скрипта наша версия входит в имя исходного файла:
+
+```text
+mi_req__WXXI-1250__change__email_search__v1.2.0.sql
+```
+
+При формировании Update эта же версия должна попасть в `COMMENT ON` поставочного артефакта:
 
 ```sql
-cVersion CONSTANT varchar(100) :=
-    '$Id: {1.1.0} {17.06.2026} Sulimoff$';
+COMMENT ON TABLE xxi.mi_req IS
+   'MI-edo. Реестр запросов. Заголовки запросов 1.2.0 {$Id$}'
+;
 ```
+
+Для packages наша версия может дополнительно храниться непосредственно в объекте:
+
+```sql
+cVersion CONSTANT varchar(100) := '1.2.0';
+```
+
+`cVersion` не должен содержать SVN keyword `$Id# Правила именования объектов и SQL-скриптов MI
+
+## 1. Назначение
+
+Документ определяет правила именования:
+
+- объектов БД;
+- ограничений и индексов;
+- триггеров и триггерных функций;
+- исходных SQL-файлов;
+- SQL-файлов изменений объектов;
+- поставочных SQL-файлов для Update ядра.
+
+Исходный SQL в GitLab и поставочный SQL для ядра являются разными слоями:
+правила их именования, кодировки и версионирования описаны отдельно ниже.
+
+Правила первоначальной поставки объектов дополнительно описаны в `baseline.md`.
+
+---
+
+# 2. Общие правила именования объектов БД
+
+Для новых объектов используются:
+
+- нижний регистр;
+- `snake_case`;
+- осмысленные имена;
+- стандартные префиксы по типу объекта.
+
+Не рекомендуется использовать quoted identifiers и имена, требующие двойных кавычек.
+
+Пример:
+
+```sql
+mi_req
+```
+
+вместо:
+
+```sql
+"MiReq"
+```
+
+Существующие объекты не переименовываются только ради приведения к новому стандарту.
+
+---
+
+# 3. Таблицы
+
+Все таблицы подсистемы `MI` имеют префикс:
+
+```text
+mi_
+```
+
+Формат:
+
+```text
+mi_<name>
+```
+
+Примеры:
+
+```text
+mi_req
+mi_rsp
+mi_person
+mi_log
+mi_req_event
+```
+
+---
+
+# 4. Представления
+
+Представления имеют префикс:
+
+```text
+v_mi_
+```
+
+Формат:
+
+```text
+v_mi_<name>
+```
+
+Примеры:
+
+```text
+v_mi_req
+v_mi_person
+v_mi_0001
+v_mi_0001_ca
+```
+
+---
+
+# 5. Последовательности
+
+## 5.1. Sequence для Primary Key
+
+Если sequence используется для генерации PK таблицы:
+
+```text
+s_<table>
+```
+
+Примеры:
+
+```text
+s_mi_req
+s_mi_rsp
+s_mi_person
+```
+
+## 5.2. Sequence для другого поля
+
+Если sequence используется не для PK, в имени дополнительно указывается поле:
+
+```text
+s_<table>__<column>
+```
+
+Примеры:
+
+```text
+s_mi_req__external_id
+s_mi_req__message_no
+```
+
+Двойное подчёркивание `__` разделяет смысловые части имени.
+
+---
+
+# 6. Primary Key
+
+Формат:
+
+```text
+pk_<table>
+```
+
+Примеры:
+
+```text
+pk_mi_req
+pk_mi_rsp
+pk_mi_person
+```
+
+---
+
+# 7. Foreign Key
+
+Основной формат:
+
+```text
+fk_<table>__<ref_table>
+```
+
+Пример:
+
+```text
+fk_mi_req__mi_person
+```
+
+Если между двумя таблицами существует несколько различных связей, добавляется назначение связи:
+
+```text
+fk_<table>__<ref_table>__<purpose>
+```
+
+Примеры:
+
+```text
+fk_mi_req__mi_person__owner
+fk_mi_req__mi_person__executor
+```
+
+---
+
+# 8. Unique Constraint
+
+Формат:
+
+```text
+uk_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+uk_mi_req__external_id
+uk_mi_req__request_number
+uk_mi_person__external_code
+```
+
+`purpose` описывает назначение ограничения, а не обязательно дословно перечисляет все участвующие колонки.
+
+---
+
+# 9. Check Constraint
+
+Формат:
+
+```text
+ck_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+ck_mi_req__status
+ck_mi_req__date_range
+ck_mi_person__type
+```
+
+---
+
+# 10. Индексы
+
+## 10.1. Обычный индекс
+
+Формат:
+
+```text
+ix_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+ix_mi_req__email
+ix_mi_req__status
+ix_mi_req__email_search
+ix_mi_req__created_at
+```
+
+## 10.2. Unique Index
+
+Формат:
+
+```text
+ux_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+ux_mi_req__external_id
+ux_mi_person__external_code
+```
+
+`purpose` должен позволять понять назначение индекса без просмотра его определения.
+
+## 10.3. FK Index
+
+Если индекс создаётся специально для поддержки поля Foreign Key, он выделяется отдельным префиксом.
+
+Формат:
+
+```text
+fx_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+fx_mi_req__mi_inf
+fx_mi_p2i__mi_person
+```
+
+`purpose` должен позволять понять назначение FK-индекса без просмотра его определения.
+
+---
+
+# 11. Триггеры
+
+Для триггеров используется компактное имя, отражающее:
+
+- момент срабатывания;
+- операцию;
+- scope;
+- таблицу;
+- назначение.
+
+## 11.1. Row trigger
+
+Формат:
+
+```text
+t_<timing><operation>_<table>__<purpose>
+```
+
+Где:
+
+```text
+timing:
+b = BEFORE
+a = AFTER
+
+operation:
+i = INSERT
+u = UPDATE
+d = DELETE
+t = TRUNCATE
+```
+
+Примеры:
+
+```text
+t_bi_mi_req__set_defaults
+t_bu_mi_req__validate
+t_ai_mi_req__log
+t_au_mi_req__audit
+t_ad_mi_req__history
+```
+
+---
+
+## 11.2. Statement trigger
+
+Для statement-level trigger используется дополнительный маркер:
+
+```text
+_s
+```
+
+Формат:
+
+```text
+t_<timing><operation>_s_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+t_ai_s_mi_req__log
+t_au_s_mi_req__audit
+t_at_s_mi_req__cleanup
+```
+
+Отсутствие `_s` означает row-level trigger.
+
+---
+
+## 11.3. Несколько операций
+
+Если один trigger работает для нескольких операций, операции объединяются в одном сегменте.
+
+Пример:
+
+```text
+t_aiud_mi_req__audit
+```
+
+означает:
+
+```text
+AFTER INSERT OR UPDATE OR DELETE
+```
+
+Такие триггеры рекомендуется использовать только тогда, когда несколько операций действительно реализуют один общий механизм.
+
+---
+
+# 12. Назначение триггеров
+
+Для `purpose` рекомендуется использовать устоявшиеся роли.
+
+## Audit
+
+Контроль изменения данных:
+
+```text
+audit
+```
+
+Пример:
+
+```text
+t_au_mi_req__audit
+```
+
+## Log
+
+Техническое логирование:
+
+```text
+log
+```
+
+Пример:
+
+```text
+t_ai_mi_req__log
+```
+
+## History
+
+Сохранение предыдущего состояния данных:
+
+```text
+history
+```
+
+Пример:
+
+```text
+t_au_mi_req__history
+```
+
+## Validate
+
+Проверка бизнес-условий:
+
+```text
+validate
+```
+
+Пример:
+
+```text
+t_bu_mi_req__validate
+```
+
+## Set defaults
+
+Установка или вычисление начальных значений:
+
+```text
+set_defaults
+```
+
+Пример:
+
+```text
+t_bi_mi_req__set_defaults
+```
+
+## Normalize
+
+Нормализация входных данных:
+
+```text
+normalize
+```
+
+## Calc
+
+Расчёт производных значений:
+
+```text
+calc
+```
+
+## Sync
+
+Синхронизация связанных данных:
+
+```text
+sync
+```
+
+## Notify
+
+Формирование уведомлений:
+
+```text
+notify
+```
+
+## Outbox
+
+Формирование интеграционного события:
+
+```text
+outbox
+```
+
+## Protect
+
+Ограничение или запрет определённых изменений:
+
+```text
+protect
+```
+
+## Cleanup
+
+Очистка связанных или технических данных:
+
+```text
+cleanup
+```
+
+Разница между наиболее похожими ролями:
+
+```text
+audit   — кто, когда и что изменил
+history — сохранение предыдущих состояний записи
+log     — техническое логирование работы системы
+```
+
+---
+
+# 13. Триггерные функции
+
+Trigger function и соответствующий trigger имеют одинаковую смысловую часть имени.
+
+Формат trigger:
+
+```text
+t_<timing><operation>[_s]_<table>__<purpose>
+```
+
+Формат trigger function:
+
+```text
+tf_<timing><operation>[_s]_<table>__<purpose>
+```
+
+Пример:
+
+```text
+trigger:
+t_bi_mi_req__validate
+
+trigger function:
+tf_bi_mi_req__validate
+```
+
+Другой пример:
+
+```text
+trigger:
+t_au_mi_req__audit
+
+trigger function:
+tf_au_mi_req__audit
+```
+
+Префиксы:
+
+```text
+t_  — trigger
+tf_ — trigger function
+```
+
+---
+
+# 14. Размещение trigger и trigger function
+
+Trigger и соответствующая ему trigger function хранятся в одном SQL-файле.
+
+Файл размещается в:
+
+```text
+ddl/<module>/triggers/
+```
+
+Имя файла совпадает с именем trigger:
+
+```text
+<trigger_name>.sql
+```
+
+Пример:
+
+```text
+ddl/mi_request/triggers/t_bi_mi_req__validate.sql
+```
+
+В одном файле располагаются:
+
+1. определение trigger function;
+2. определение trigger.
+
+Пример логической пары:
+
+```text
+Файл:
+t_bi_mi_req__validate.sql
+
+Trigger:
+t_bi_mi_req__validate
+
+Trigger function:
+tf_bi_mi_req__validate
+```
+
+---
+
+# 15. Схемы trigger и trigger function
+
+Trigger создаётся для таблицы в схеме, которой принадлежит таблица.
+
+Trigger function создаётся в схеме функционального модуля.
+
+Пример:
+
+```text
+Таблица:
+xxi.mi_req
+
+Trigger:
+t_bi_mi_req__validate
+
+Trigger function:
+mi_request_trg.tf_bi_mi_req__validate()
+```
+
+SQL-файл:
+
+```sql
+create or replace function mi_request_trg.tf_bi_mi_req__validate()
+returns trigger
+language plpgsql
+as $$
+begin
+    ...
+    return new;
+end;
+$$;
+
+
+create or replace trigger t_bi_mi_req__validate
+before insert on xxi.mi_req
+for each row
+execute function mi_request_trg.tf_bi_mi_req__validate();
+```
+
+Сначала создаётся trigger function, затем trigger.
+
+Для обычных triggers используется `CREATE OR REPLACE TRIGGER`. Constraint triggers требуют отдельного подхода.
+
+---
+
+# 16. Общие trigger functions
+
+Если trigger function используется несколькими таблицами или несколькими triggers, она может иметь самостоятельное имя по назначению и не привязываться к конкретной таблице.
+
+Примеры:
+
+```text
+tf_audit_row
+tf_history_row
+tf_set_timestamp
+tf_log_change
+```
+
+Например, triggers:
+
+```text
+t_au_mi_req__audit
+t_au_mi_rsp__audit
+```
+
+могут использовать одну общую функцию:
+
+```text
+tf_audit_row
+```
+
+Такое решение используется только для действительно общей инфраструктурной логики.
+
+---
+
+# 17. Packages
+
+Для packages сохраняется существующий подход.
+
+Рекомендуемый формат новых объектов:
+
+```text
+mi_<module>
+```
+
+или:
+
+```text
+mi_<module>_api
+```
+
+Примеры:
+
+```text
+mi_logger
+mi_utils
+mi_request_api
+mi_response_api
+```
+
+Существующие packages с исторически сложившимся регистром или именованием не переименовываются только ради соответствия новому стандарту.
+
+---
+
+# 18. Baseline SQL-файлы
+
+Для первоначальной загрузки используется отдельное правило.
+
+Все baseline-объекты считаются стартовой версией:
+
+```text
+1.0.1
+```
+
+Имя SQL-файла совпадает с именем объекта в БД.
+
+Примеры:
+
+```text
+mi_req.sql
+mi_rsp.sql
+mi_person.sql
+s_mi_req.sql
+v_mi_req.sql
+mi_logger.sql
+```
+
+Для baseline в имя файла не добавляются:
+
+```text
+BASELINE
+INIT
+CREATE
+JIRA
+версия
+```
+
+Подробные правила первоначального состояния описываются в `baseline.md`.
+
+---
+
+.
 
 ---
 
@@ -850,11 +1619,13 @@ cVersion CONSTANT varchar(100) :=
 
 Все изменения после baseline должны быть связаны с задачей Jira.
 
-Номер Jira входит в имя SQL-файла:
+В исходном GitLab change/alter-скрипте номер Jira входит в имя файла:
 
 ```text
 mi_req__WXXI-1250__change__email_search__v1.2.0.sql
 ```
+
+Jira относится к истории разработки нашей группы и **не обязана входить в имя поставочного файла ядра**.
 
 В дальнейшем получение Jira должно быть максимально автоматизировано:
 
@@ -868,25 +1639,861 @@ Jira является источником изменения, но не опр�
 
 # 23. Кодировка
 
-Все исходные SQL-файлы репозитория хранятся в:
+Исходные SQL-файлы репозитория GitLab хранятся в:
 
 ```text
 UTF-8
 ```
 
-Поставочные SQL-файлы для update при необходимости формируются в:
+Поставочные SQL-файлы Update для ядра формируются в:
 
 ```text
 Windows-1251
 ```
 
-Конвертация UTF-8 → Windows-1251 должна выполняться на этапе подготовки поставки.
+Конвертация UTF-8 → Windows-1251 выполняется только на этапе подготовки поставки.
 
-Исходные SQL в Git не переводятся обратно в Windows-1251.
+Исходные SQL в GitLab не переводятся обратно в Windows-1251.
+
+Кодировка поставки является свойством delivery-артефакта, а не исходного кода.
 
 ---
 
-# 24. Краткая таблица именования объектов
+# 24. Поставка Update для ядра
+
+Поставочный SQL-файл для ядра является отдельным delivery-артефактом.
+Он формируется из исходников GitLab и не обязан сохранять имя исходного change/alter-скрипта.
+
+Для поставки действуют требования ядра:
+
+1. кодировка — `Windows-1251`;
+2. имя файла соответствует имени поставляемого артефакта без Jira, purpose и нашей версии;
+3. каждый DDL-артефакт устанавливает версию оператором `COMMENT ON`;
+4. в `COMMENT ON` одновременно указываются наша версия и SVN placeholder `{$Id$}`.
+
+Пример исходного change-script в GitLab:
+
+```text
+mi_req__WXXI-1250__change__email_search__v1.2.0.sql
+```
+
+Пример поставочного файла ядра:
+
+```text
+mi_req.sql
+```
+
+Пример установки версии:
+
+```sql
+COMMENT ON TABLE xxi.mi_req IS
+   'MI-edo. Реестр запросов. Заголовки запросов 1.2.0 {$Id$}'
+;
+```
+
+Здесь:
+
+```text
+1.2.0   — наша версия артефакта;
+{$Id$}  — placeholder SVN ядра.
+```
+
+Для разных типов объектов используется соответствующий оператор:
+
+```text
+TABLE            → COMMENT ON TABLE
+VIEW             → COMMENT ON VIEW
+SEQUENCE         → COMMENT ON SEQUENCE
+SCHEMA           → COMMENT ON SCHEMA
+PACKAGE          → COMMENT ON SCHEMA
+TRIGGER FUNCTION → COMMENT ON FUNCTION
+TRIGGER          → COMMENT ON TRIGGER
+```
+
+Для package комментарий устанавливается на schema/namespace package:
+
+```sql
+COMMENT ON SCHEMA mi_request_api IS
+   'MI-edo. API реестра запросов 1.2.0 {$Id$}'
+;
+```
+
+Для trigger-файла версионируются оба самостоятельных объекта:
+
+```sql
+COMMENT ON FUNCTION mi_request_trg.tf_ad_mi_req__delete_req_id() IS
+   'Удаление связанного идентификатора запроса 1.2.0 {$Id$}'
+;
+
+COMMENT ON TRIGGER t_ad_mi_req__delete_req_id
+ON xxi.mi_req IS
+   'Удаление идентификатора после удаления запроса 1.2.0 {$Id$}'
+;
+```
+
+Партиции, создаваемые внутри DDL основного табличного артефакта, отдельного version comment не требуют.
+
+Перед передачей ядру для поставочных файлов устанавливается SVN property:
+
+```text
+svn:keywords = Id
+```
+
+После commit и получения файлов обратно из SVN внутренний keyword `$Id# Правила именования объектов и SQL-скриптов MI
+
+## 1. Назначение
+
+Документ определяет правила именования:
+
+- объектов БД;
+- ограничений и индексов;
+- триггеров и триггерных функций;
+- исходных SQL-файлов;
+- SQL-файлов изменений объектов;
+- поставочных SQL-файлов для Update ядра.
+
+Исходный SQL в GitLab и поставочный SQL для ядра являются разными слоями:
+правила их именования, кодировки и версионирования описаны отдельно ниже.
+
+Правила первоначальной поставки объектов дополнительно описаны в `baseline.md`.
+
+---
+
+# 2. Общие правила именования объектов БД
+
+Для новых объектов используются:
+
+- нижний регистр;
+- `snake_case`;
+- осмысленные имена;
+- стандартные префиксы по типу объекта.
+
+Не рекомендуется использовать quoted identifiers и имена, требующие двойных кавычек.
+
+Пример:
+
+```sql
+mi_req
+```
+
+вместо:
+
+```sql
+"MiReq"
+```
+
+Существующие объекты не переименовываются только ради приведения к новому стандарту.
+
+---
+
+# 3. Таблицы
+
+Все таблицы подсистемы `MI` имеют префикс:
+
+```text
+mi_
+```
+
+Формат:
+
+```text
+mi_<name>
+```
+
+Примеры:
+
+```text
+mi_req
+mi_rsp
+mi_person
+mi_log
+mi_req_event
+```
+
+---
+
+# 4. Представления
+
+Представления имеют префикс:
+
+```text
+v_mi_
+```
+
+Формат:
+
+```text
+v_mi_<name>
+```
+
+Примеры:
+
+```text
+v_mi_req
+v_mi_person
+v_mi_0001
+v_mi_0001_ca
+```
+
+---
+
+# 5. Последовательности
+
+## 5.1. Sequence для Primary Key
+
+Если sequence используется для генерации PK таблицы:
+
+```text
+s_<table>
+```
+
+Примеры:
+
+```text
+s_mi_req
+s_mi_rsp
+s_mi_person
+```
+
+## 5.2. Sequence для другого поля
+
+Если sequence используется не для PK, в имени дополнительно указывается поле:
+
+```text
+s_<table>__<column>
+```
+
+Примеры:
+
+```text
+s_mi_req__external_id
+s_mi_req__message_no
+```
+
+Двойное подчёркивание `__` разделяет смысловые части имени.
+
+---
+
+# 6. Primary Key
+
+Формат:
+
+```text
+pk_<table>
+```
+
+Примеры:
+
+```text
+pk_mi_req
+pk_mi_rsp
+pk_mi_person
+```
+
+---
+
+# 7. Foreign Key
+
+Основной формат:
+
+```text
+fk_<table>__<ref_table>
+```
+
+Пример:
+
+```text
+fk_mi_req__mi_person
+```
+
+Если между двумя таблицами существует несколько различных связей, добавляется назначение связи:
+
+```text
+fk_<table>__<ref_table>__<purpose>
+```
+
+Примеры:
+
+```text
+fk_mi_req__mi_person__owner
+fk_mi_req__mi_person__executor
+```
+
+---
+
+# 8. Unique Constraint
+
+Формат:
+
+```text
+uk_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+uk_mi_req__external_id
+uk_mi_req__request_number
+uk_mi_person__external_code
+```
+
+`purpose` описывает назначение ограничения, а не обязательно дословно перечисляет все участвующие колонки.
+
+---
+
+# 9. Check Constraint
+
+Формат:
+
+```text
+ck_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+ck_mi_req__status
+ck_mi_req__date_range
+ck_mi_person__type
+```
+
+---
+
+# 10. Индексы
+
+## 10.1. Обычный индекс
+
+Формат:
+
+```text
+ix_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+ix_mi_req__email
+ix_mi_req__status
+ix_mi_req__email_search
+ix_mi_req__created_at
+```
+
+## 10.2. Unique Index
+
+Формат:
+
+```text
+ux_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+ux_mi_req__external_id
+ux_mi_person__external_code
+```
+
+`purpose` должен позволять понять назначение индекса без просмотра его определения.
+
+## 10.3. FK Index
+
+Если индекс создаётся специально для поддержки поля Foreign Key, он выделяется отдельным префиксом.
+
+Формат:
+
+```text
+fx_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+fx_mi_req__mi_inf
+fx_mi_p2i__mi_person
+```
+
+`purpose` должен позволять понять назначение FK-индекса без просмотра его определения.
+
+---
+
+# 11. Триггеры
+
+Для триггеров используется компактное имя, отражающее:
+
+- момент срабатывания;
+- операцию;
+- scope;
+- таблицу;
+- назначение.
+
+## 11.1. Row trigger
+
+Формат:
+
+```text
+t_<timing><operation>_<table>__<purpose>
+```
+
+Где:
+
+```text
+timing:
+b = BEFORE
+a = AFTER
+
+operation:
+i = INSERT
+u = UPDATE
+d = DELETE
+t = TRUNCATE
+```
+
+Примеры:
+
+```text
+t_bi_mi_req__set_defaults
+t_bu_mi_req__validate
+t_ai_mi_req__log
+t_au_mi_req__audit
+t_ad_mi_req__history
+```
+
+---
+
+## 11.2. Statement trigger
+
+Для statement-level trigger используется дополнительный маркер:
+
+```text
+_s
+```
+
+Формат:
+
+```text
+t_<timing><operation>_s_<table>__<purpose>
+```
+
+Примеры:
+
+```text
+t_ai_s_mi_req__log
+t_au_s_mi_req__audit
+t_at_s_mi_req__cleanup
+```
+
+Отсутствие `_s` означает row-level trigger.
+
+---
+
+## 11.3. Несколько операций
+
+Если один trigger работает для нескольких операций, операции объединяются в одном сегменте.
+
+Пример:
+
+```text
+t_aiud_mi_req__audit
+```
+
+означает:
+
+```text
+AFTER INSERT OR UPDATE OR DELETE
+```
+
+Такие триггеры рекомендуется использовать только тогда, когда несколько операций действительно реализуют один общий механизм.
+
+---
+
+# 12. Назначение триггеров
+
+Для `purpose` рекомендуется использовать устоявшиеся роли.
+
+## Audit
+
+Контроль изменения данных:
+
+```text
+audit
+```
+
+Пример:
+
+```text
+t_au_mi_req__audit
+```
+
+## Log
+
+Техническое логирование:
+
+```text
+log
+```
+
+Пример:
+
+```text
+t_ai_mi_req__log
+```
+
+## History
+
+Сохранение предыдущего состояния данных:
+
+```text
+history
+```
+
+Пример:
+
+```text
+t_au_mi_req__history
+```
+
+## Validate
+
+Проверка бизнес-условий:
+
+```text
+validate
+```
+
+Пример:
+
+```text
+t_bu_mi_req__validate
+```
+
+## Set defaults
+
+Установка или вычисление начальных значений:
+
+```text
+set_defaults
+```
+
+Пример:
+
+```text
+t_bi_mi_req__set_defaults
+```
+
+## Normalize
+
+Нормализация входных данных:
+
+```text
+normalize
+```
+
+## Calc
+
+Расчёт производных значений:
+
+```text
+calc
+```
+
+## Sync
+
+Синхронизация связанных данных:
+
+```text
+sync
+```
+
+## Notify
+
+Формирование уведомлений:
+
+```text
+notify
+```
+
+## Outbox
+
+Формирование интеграционного события:
+
+```text
+outbox
+```
+
+## Protect
+
+Ограничение или запрет определённых изменений:
+
+```text
+protect
+```
+
+## Cleanup
+
+Очистка связанных или технических данных:
+
+```text
+cleanup
+```
+
+Разница между наиболее похожими ролями:
+
+```text
+audit   — кто, когда и что изменил
+history — сохранение предыдущих состояний записи
+log     — техническое логирование работы системы
+```
+
+---
+
+# 13. Триггерные функции
+
+Trigger function и соответствующий trigger имеют одинаковую смысловую часть имени.
+
+Формат trigger:
+
+```text
+t_<timing><operation>[_s]_<table>__<purpose>
+```
+
+Формат trigger function:
+
+```text
+tf_<timing><operation>[_s]_<table>__<purpose>
+```
+
+Пример:
+
+```text
+trigger:
+t_bi_mi_req__validate
+
+trigger function:
+tf_bi_mi_req__validate
+```
+
+Другой пример:
+
+```text
+trigger:
+t_au_mi_req__audit
+
+trigger function:
+tf_au_mi_req__audit
+```
+
+Префиксы:
+
+```text
+t_  — trigger
+tf_ — trigger function
+```
+
+---
+
+# 14. Размещение trigger и trigger function
+
+Trigger и соответствующая ему trigger function хранятся в одном SQL-файле.
+
+Файл размещается в:
+
+```text
+ddl/<module>/triggers/
+```
+
+Имя файла совпадает с именем trigger:
+
+```text
+<trigger_name>.sql
+```
+
+Пример:
+
+```text
+ddl/mi_request/triggers/t_bi_mi_req__validate.sql
+```
+
+В одном файле располагаются:
+
+1. определение trigger function;
+2. определение trigger.
+
+Пример логической пары:
+
+```text
+Файл:
+t_bi_mi_req__validate.sql
+
+Trigger:
+t_bi_mi_req__validate
+
+Trigger function:
+tf_bi_mi_req__validate
+```
+
+---
+
+# 15. Схемы trigger и trigger function
+
+Trigger создаётся для таблицы в схеме, которой принадлежит таблица.
+
+Trigger function создаётся в схеме функционального модуля.
+
+Пример:
+
+```text
+Таблица:
+xxi.mi_req
+
+Trigger:
+t_bi_mi_req__validate
+
+Trigger function:
+mi_request_trg.tf_bi_mi_req__validate()
+```
+
+SQL-файл:
+
+```sql
+create or replace function mi_request_trg.tf_bi_mi_req__validate()
+returns trigger
+language plpgsql
+as $$
+begin
+    ...
+    return new;
+end;
+$$;
+
+
+create or replace trigger t_bi_mi_req__validate
+before insert on xxi.mi_req
+for each row
+execute function mi_request_trg.tf_bi_mi_req__validate();
+```
+
+Сначала создаётся trigger function, затем trigger.
+
+Для обычных triggers используется `CREATE OR REPLACE TRIGGER`. Constraint triggers требуют отдельного подхода.
+
+---
+
+# 16. Общие trigger functions
+
+Если trigger function используется несколькими таблицами или несколькими triggers, она может иметь самостоятельное имя по назначению и не привязываться к конкретной таблице.
+
+Примеры:
+
+```text
+tf_audit_row
+tf_history_row
+tf_set_timestamp
+tf_log_change
+```
+
+Например, triggers:
+
+```text
+t_au_mi_req__audit
+t_au_mi_rsp__audit
+```
+
+могут использовать одну общую функцию:
+
+```text
+tf_audit_row
+```
+
+Такое решение используется только для действительно общей инфраструктурной логики.
+
+---
+
+# 17. Packages
+
+Для packages сохраняется существующий подход.
+
+Рекомендуемый формат новых объектов:
+
+```text
+mi_<module>
+```
+
+или:
+
+```text
+mi_<module>_api
+```
+
+Примеры:
+
+```text
+mi_logger
+mi_utils
+mi_request_api
+mi_response_api
+```
+
+Существующие packages с исторически сложившимся регистром или именованием не переименовываются только ради соответствия новому стандарту.
+
+---
+
+# 18. Baseline SQL-файлы
+
+Для первоначальной загрузки используется отдельное правило.
+
+Все baseline-объекты считаются стартовой версией:
+
+```text
+1.0.1
+```
+
+Имя SQL-файла совпадает с именем объекта в БД.
+
+Примеры:
+
+```text
+mi_req.sql
+mi_rsp.sql
+mi_person.sql
+s_mi_req.sql
+v_mi_req.sql
+mi_logger.sql
+```
+
+Для baseline в имя файла не добавляются:
+
+```text
+BASELINE
+INIT
+CREATE
+JIRA
+версия
+```
+
+Подробные правила первоначального состояния описываются в `baseline.md`.
+
+---
+
+ раскрывается SVN.
+Наша версия при этом остаётся неизменной.
+
+Условный результат:
+
+```text
+1.2.0 {$Id: mi_req.sql <svn-revision> <date> <author> $}
+```
+
+Таким образом:
+
+```text
+GitLab filename/version → история разработки нашей группы
+COMMENT version         → наша версия поставленного артефакта
+SVN Id                  → версия файла в процессе ядра
+```
+
+---
+
+# 25. Краткая таблица именования объектов
 
 | Тип объекта | Формат |
 |---|---|
@@ -900,6 +2507,7 @@ Windows-1251
 | Check Constraint | `ck_<table>__<purpose>` |
 | Index | `ix_<table>__<purpose>` |
 | Unique Index | `ux_<table>__<purpose>` |
+| FK Index | `fx_<table>__<purpose>` |
 | Row Trigger | `t_<timing><operation>_<table>__<purpose>` |
 | Statement Trigger | `t_<timing><operation>_s_<table>__<purpose>` |
 | Trigger Function | `tf_<timing><operation>[_s]_<table>__<purpose>` |
@@ -907,7 +2515,7 @@ Windows-1251
 
 ---
 
-# 25. Пример полного набора объектов
+# 26. Пример полного набора объектов
 
 Для таблицы:
 
@@ -941,6 +2549,9 @@ ix_mi_req__email_search
 
 Unique Index:
 ux_mi_req__external_id
+
+FK Index:
+fx_mi_req__mi_person
 
 View:
 v_mi_req
