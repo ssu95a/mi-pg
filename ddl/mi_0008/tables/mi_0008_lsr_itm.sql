@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr_itm
 
       lsr_id     numeric(12) NOT NULL,
 
-    -- Исходный icusnum, подготовленный бизнес-пакетом mi_0008_api.
+    -- Исходный icusnum, подготовленный mi_0008_api.create_And_Exec.
       s_icusnum  numeric(12) NOT NULL,
 
     -- Реальный icusnum после обработки связи типа 17.
@@ -49,7 +49,8 @@ TABLESPACE users
 
 
 -- Для одного исходного клиента в рамках LSR допускается не более одной рабочей
--- записи: бизнес-пакет создаёт CUS_PENDING, Sanitarium обновляет её результатом.
+-- записи: mi_0008_api.create_And_Exec создаёт CUS_PENDING,
+-- Sanitarium обновляет её результатом.
 --
 -- INCLUDE позволяет получать решение Sanitarium непосредственно из индекса
 -- при соединении с результатом расчёта.
@@ -87,7 +88,7 @@ COMMENT ON COLUMN xxi.mi_0008_lsr_itm.lsr_id IS
 ;
 
 COMMENT ON COLUMN xxi.mi_0008_lsr_itm.s_icusnum IS
-   'Исходный идентификатор клиента, подготовленный бизнес-пакетом mi_0008_api.'
+   'Исходный идентификатор клиента, подготовленный mi_0008_api.create_And_Exec.'
 ;
 
 COMMENT ON COLUMN xxi.mi_0008_lsr_itm.r_icusnum IS
