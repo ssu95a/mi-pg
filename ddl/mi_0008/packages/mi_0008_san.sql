@@ -126,15 +126,9 @@ end;
 $procedure$
 
 
-<<<<<<< HEAD
-/* Загрузить входной список клиентов, подготовленный mi_0008_api.create_And_Exec. */
-create procedure load_source_clients (
-    in p_lsr_id numeric,
-=======
 /* Загрузить входной список клиентов, подготовленный mi_0008_api.prepare_Report. */
 create procedure load_source_clients(
    in p_lsr_id numeric,
->>>>>>> 5354edb115d3c739c9e76a7f8527395d30b77fe6
    out p_source_count bigint
 )
 as
