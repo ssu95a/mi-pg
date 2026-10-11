@@ -5,5 +5,5 @@ CREATE SEQUENCE IF NOT EXISTS xxi.s_mi_0008_lsr_itm INCREMENT BY 1 MINVALUE 1 ST
 ;
 ALTER SEQUENCE xxi.s_mi_0008_lsr_itm OWNER TO "XXI"
 ;
-COMMENT ON SEQUENCE xxi.s_mi_person IS 'MI-edo. Доходы физ лиц. Генератор PK элементов протокола расчетов. {$Id$}'
+COMMENT ON SEQUENCE xxi.s_mi_0008_lsr_itm IS 'MI-edo. Доходы физ лиц. Генератор PK элементов протокола расчетов. {$Id$}'
 ;

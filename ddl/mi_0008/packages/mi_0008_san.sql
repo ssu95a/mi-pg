@@ -16,6 +16,8 @@ DECLARE
    ret_OK       CONSTANT int4 := 0;
    ret_FAIL     CONSTANT int4 := -1;
 
+   c_link_type_17       constant numeric(3)  := 17;
+
    c_err_Not_Found      CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#LSR_NOT_FOUND';
    c_err_Bad_Status     CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#BAD_STATUS';
    c_err_Bad_Stage      CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#BAD_STAGE';
@@ -32,8 +34,6 @@ $init$
 CREATE FUNCTION get_Version()
    RETURNS 
       varchar
-   LANGUAGE
-      plPGsql
 AS
 $function$
    #package
@@ -126,6 +126,7 @@ $procedure$
 
 /* */
 create procedure fill_temp_tables(
+    in p_iyear numeric,
    out p_source_count bigint,
    out p_graph_node_count bigint
 )
@@ -137,9 +138,9 @@ begin
    -- 1. Clients produced by the deposit calculation for the current year.
    ---------------------------------------------------------------------------
    INSERT INTO pg_temp.mi_0008_san_source (s_icusnum)
-   SELECT d.icusnum -- DISTINCT не применяем, если кривые данные то не скрываем
+   SELECT DISTINCT d.icusnum
      FROM xxi.dj_v_prc_to_client AS d
-    WHERE d.iyear = v_iyear
+    WHERE d.iyear = p_iyear
       AND d.icusnum  IS NOT NULL;
 
    GET DIAGNOSTICS p_source_count = ROW_COUNT;
@@ -184,8 +185,9 @@ begin
    ANALYZE pg_temp.mi_0008_san_edge;
    ANALYZE pg_temp.mi_0008_san_node;
 
-
 end;
+$procedure$
+
 
 /* */
 CREATE PROCEDURE sanitize_Cus( 
@@ -226,12 +228,10 @@ DECLARE
 
 BEGIN
 
-   CALL MI_logger.enter_f( cLogger, cAction_Name, p_infId => 8 );
+   CALL MI_logger.enter_f( cLogger, cAction_Name, p_inf_Id => 8 );
 
    p_ires_code := ret_FAIL;
    p_cres_info := null;
-
-   begin
 
       -- 1. Проверка и блокировка LSR.
       SELECT lsr.iyear,
@@ -240,7 +240,7 @@ BEGIN
         INTO l_iyear,
              l_status_cd,
              l_stage_cd
-         FROM xxi.mi_0008_san lsr
+         FROM xxi.mi_0008_lsr lsr
         WHERE lsr.lsr_id = p_lsr_id
           FOR UPDATE;
 
@@ -259,7 +259,7 @@ BEGIN
       -- Повторное выполнение для того же LSR не маскируем.
       IF EXISTS (
          SELECT 1
-            FROM xxi.mi_0008_san_itm item
+            FROM xxi.mi_0008_lsr_itm item
            WHERE item.lsr_id = p_lsr_id
          )
       THEN
@@ -268,7 +268,7 @@ BEGIN
 
        -- Run!
 
-       UPDATE xxi.mi_0008_san
+       UPDATE xxi.mi_0008_lsr
           SET stage_cd = 'SANITARIUM'
         WHERE
               lsr_id = p_lsr_id;
@@ -276,7 +276,7 @@ BEGIN
        -- 2. Временные рабочие таблицы текущей сессии. Удаляются при COMMIT/ROLLBACK.
        call create_temp_tables();
 
-       call fill_temp_tables(l_source_count, l_graph_node_count);
+       call fill_temp_tables( l_iyear, l_source_count, l_graph_node_count);
 
 
       ---------------------------------------------------------------------------
@@ -614,14 +614,13 @@ EXCEPTION
       CALL MI_logger.log_exec_result(
          p_logger_name   => cLogger,
          p_result        => p_result,
-         p_inf_id        => l_inf_id,
-         p_req_id        => p_req_id,
+         p_inf_id        => 8,
          p_action_cd     => 'exception',
          p_context_value => p_result.result_code,
          p_object_name   => cAction_Name
       );
 
-      RETURN;
+      raise;
 
    end;   
 

@@ -51,11 +51,11 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr
    -- вид отчета дул/сумма
    constraint ck_mi_0008_lsr__ireq_kind check (ireq_kind in (1, 2)),
    --   
-   constraint ck_mi_0008_lsr__status check ( run_status_cd IN ( 'RUNNING', 'COMPLETED', 'REJECTED', 'FAILED'  ) ),
+   constraint ck_mi_0008_lsr__status check ( status_cd IN ( 'RUNNING', 'COMPLETED', 'REJECTED', 'FAILED'  ) ),
    --
    constraint ck_mi_0008_lsr__stage check ( stage_cd IN ( 'CREATED', 'SOURCE_CALC', 'SANITARIUM', 'FINAL_WRITE', 'FINISHED' ) ),
    --
-   constraint ck_mi_0008_lsr__finished check ( ( run_status_cd = 'RUNNING' AND finished_at IS NULL ) OR ( run_status_cd <> 'RUNNING' AND finished_at IS NOT NULL ) ),
+   constraint ck_mi_0008_lsr__finished check ( ( status_cd = 'RUNNING' AND finished_at IS NULL ) OR ( tatus_cd <> 'RUNNING' AND finished_at IS NOT NULL ) ),
    --
    constraint ck_mi_0008_lsr__time check ( finished_at IS NULL OR finished_at >= started_at)
 )
