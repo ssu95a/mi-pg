@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr
    --
    constraint ck_mi_0008_lsr__stage check ( stage_cd IN ( 'CREATED', 'SOURCE_CALC', 'SANITARIUM', 'FINAL_WRITE', 'FINISHED' ) ),
    --
-   constraint ck_mi_0008_lsr__finished check ( ( status_cd = 'RUNNING' AND finished_at IS NULL ) OR ( tatus_cd <> 'RUNNING' AND finished_at IS NOT NULL ) ),
+   constraint ck_mi_0008_lsr__finished check ( ( status_cd = 'RUNNING' AND finished_at IS NULL ) OR ( status_cd <> 'RUNNING' AND finished_at IS NOT NULL ) ),
    --
    constraint ck_mi_0008_lsr__time check ( finished_at IS NULL OR finished_at >= started_at)
 )

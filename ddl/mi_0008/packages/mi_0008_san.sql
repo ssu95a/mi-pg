@@ -22,7 +22,7 @@ DECLARE
    c_err_Bad_Status     CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#BAD_STATUS';
    c_err_Bad_Stage      CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#BAD_STAGE';
    c_err_Already_Exists CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#ALREADY_EXISTS';
-
+   c_err_Unexpected     constant varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#UNEXPECTED';
 
 BEGIN
    raise debug 'Package "%" - % - initialized', cPkg_Name, cVersion;
@@ -202,8 +202,6 @@ DECLARE
 
    cAction_Name CONSTANT varchar(50) := cPkg_Name || '.sanitize_Cus';
 
-
-   c_link_type_17          constant numeric(3)  := 17;
    c_status_running        constant varchar(12) := 'RUNNING';
    c_stage_source_calc     constant varchar(20) := 'SOURCE_CALC';
    c_stage_sanitarium      constant varchar(20) := 'SANITARIUM';
@@ -274,9 +272,9 @@ BEGIN
               lsr_id = p_lsr_id;
 
        -- 2. Временные рабочие таблицы текущей сессии. Удаляются при COMMIT/ROLLBACK.
-       call create_temp_tables();
+       call mi_0008_san.create_temp_tables();
 
-       call fill_temp_tables( l_iyear, l_source_count, l_graph_node_count);
+       call mi_0008_san.fill_temp_tables( l_iyear, l_source_count, l_graph_node_count);
 
 
       ---------------------------------------------------------------------------
@@ -392,7 +390,7 @@ BEGIN
               FROM pg_temp.mi_0008_san_frontier AS f
              WHERE n.icusnum = f.icusnum;
 
-            IF l_kahn_pass > v_graph_node_count THEN
+            IF l_kahn_pass > l_graph_node_count THEN
                RAISE EXCEPTION
                   'sanitize_cus: cycle analysis did not converge for LSR %',
                   p_lsr_id;
@@ -557,11 +555,11 @@ BEGIN
 
    GET DIAGNOSTICS l_inserted_count = ROW_COUNT;
 
-   IF l_inserted_count <> v_source_count THEN
+   IF l_inserted_count <> l_source_count THEN
       RAISE EXCEPTION
          'sanitize_cus: result cardinality mismatch for LSR %: source %, inserted %',
          p_lsr_id,
-         v_source_count,
+         l_source_count,
          l_inserted_count;
    END IF;
 
@@ -573,6 +571,7 @@ EXCEPTION
    DECLARE
       ex TS.T_StackedDiagnostics;
       l_error_Text varchar;
+      l_result MI_resultCtx.exec_Result;
    begin
       GET STACKED DIAGNOSTICS
           ex.RETURNED_SQLSTATE    = RETURNED_SQLSTATE,  
@@ -587,7 +586,7 @@ EXCEPTION
             Любая ошибка, ожидаемая или неожиданная,
             превращается в MI_resultCtx.exec_Result.
          */
-         p_result := MI_resultCtx.from_exception (
+         l_result := MI_resultCtx.from_exception (
             p_sqlstate => ex.returned_sqlstate,
             p_message  => ex.message_text,
             p_detail   => ex.pg_exception_detail,
@@ -600,23 +599,22 @@ EXCEPTION
       */
       IF ex.returned_sqlstate IS DISTINCT FROM 'MI001' THEN
 
-         p_result.is_success  := false;
-         p_result.result_code := coalesce( p_result.result_code, c_err_Unexpected );
-         p_result.result_info := coalesce( p_result.result_info, 'Unexpected error in ' || cAction_Name );
-         p_result.parameters  := coalesce( p_result.parameters, '{}'::jsonb ) || jsonb_build_object( 'error_info', l_error_Text );
+         l_result.is_success  := false;
+         l_result.result_code := coalesce( l_result.result_code, c_err_Unexpected );
+         l_result.result_info := coalesce( l_result.result_info, 'Unexpected error in ' || cAction_Name );
+         l_result.parameters  := coalesce( l_result.parameters, '{}'::jsonb ) || jsonb_build_object( 'error_info', l_error_Text );
             
       END IF;
 
       /*
          Логируем итоговый exec_result.
-         Наружу exception не пробрасываем.
       */
       CALL MI_logger.log_exec_result(
          p_logger_name   => cLogger,
-         p_result        => p_result,
+         p_result        => l_result,
          p_inf_id        => 8,
          p_action_cd     => 'exception',
-         p_context_value => p_result.result_code,
+         p_context_value => l_result.result_code,
          p_object_name   => cAction_Name
       );
 
