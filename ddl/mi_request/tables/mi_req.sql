@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_req (
       note           text              NULL, 
       ctaxreq_id     varchar(50)       NULL,
       itype          numeric(3)        NULL,
-      i1             numeric(3)        NULL, 
+      i1             numeric(4)        NULL, 
       i2             numeric(3)        NULL,
       i3             numeric(3)        NULL,
       result_code    varchar(100)      NULL,

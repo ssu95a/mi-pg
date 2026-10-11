@@ -637,7 +637,7 @@ CREATE PROCEDURE enter_f (
    in p_inf_id        numeric   default null,
    in p_req_id        numeric   default null,
    in p_itm_Id        numeric   default null,
-   in p_rsp_id         numeric   default null,
+   in p_rsp_id        numeric   default null,
    in p_person_id     numeric   default null,
    in p_icusnum       numeric   default null,
    in p_object_id     numeric   default null,

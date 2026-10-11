@@ -4,6 +4,7 @@ CREATE FUNCTION __init__()
    RETURNS void
 AS
 $init$
+   #export off
 DECLARE
 
    cVersion     CONSTANT varchar(100) := '1.0.1';
@@ -590,7 +591,8 @@ EXCEPTION
             p_sqlstate => ex.returned_sqlstate,
             p_message  => ex.message_text,
             p_detail   => ex.pg_exception_detail,
-            p_hint     => ex.pg_exception_hint
+            p_hint     => ex.pg_exception_hint,
+            p_context  => ex.pg_exception_context
          );
 
       /*
