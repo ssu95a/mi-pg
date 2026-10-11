@@ -126,9 +126,15 @@ end;
 $procedure$
 
 
+<<<<<<< HEAD
 /* Загрузить входной список клиентов, подготовленный mi_0008_api.create_And_Exec. */
 create procedure load_source_clients (
     in p_lsr_id numeric,
+=======
+/* Загрузить входной список клиентов, подготовленный mi_0008_api.prepare_Report. */
+create procedure load_source_clients(
+   in p_lsr_id numeric,
+>>>>>>> 5354edb115d3c739c9e76a7f8527395d30b77fe6
    out p_source_count bigint
 )
 as
@@ -200,8 +206,9 @@ $procedure$
 
 
 /*
- * Публичный технический API для mi_0008_api.create_And_Exec.
- * До вызова create_And_Exec создаёт CUS_PENDING и устанавливает SANITARIUM.
+ * Публичный технический API для mi_0008_api.prepare_Report.
+ * prepare_Report формирует отчёт без отправки в MI.
+ * До вызова prepare_Report создаёт CUS_PENDING и устанавливает SANITARIUM.
  */
 CREATE PROCEDURE sanitize_Cus( 
    in p_lsr_id    numeric, 
@@ -267,7 +274,7 @@ BEGIN
          CALL MI_resultCtx.raise_fail( p_result_Code => c_err_Bad_Stage, p_result_Info => format('LSR %s имеет недопустимую стадию %s для Sanitarium', p_lsr_id, l_stage_cd ) );
       END IF;
 
-      -- mi_0008_api.create_And_Exec создаёт входные CUS_PENDING до вызова Sanitarium.
+      -- mi_0008_api.prepare_Report создаёт входные CUS_PENDING до вызова Sanitarium.
       -- Любая итоговая запись означает, что этот LSR уже обрабатывался.
       IF EXISTS (
          SELECT 1
