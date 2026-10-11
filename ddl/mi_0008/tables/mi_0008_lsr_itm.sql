@@ -1,4 +1,7 @@
--- Протокол обработки клиентов в рамках запуска Sanitarium.
+-- Таблица    : xxi.mi_0008_lsr_itm
+-- Назначение : Доходы физ-лиц. Sanitarium
+-- Описание   : Протокол обработки клиентов в рамках запуска Sanitarium.
+--
 CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr_itm
 (
 -- +---------------------------------------------------------------------------
@@ -13,13 +16,11 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr_itm
       s_icusnum  numeric(12) NOT NULL,
 
     -- Реальный icusnum после обработки связи типа 17.
-    -- Для CUS_MAP всегда заполнен.
-    -- Если замена не требуется: r_icusnum = s_icusnum.
+    -- Для CUS_MAP всегда заполнен. Если замена не требуется: r_icusnum = s_icusnum.
       r_icusnum  numeric(12),
 
     -- CUS_PENDING означает входную запись, ещё не обработанную Sanitarium.
-    -- CUS_MAP означает, что клиент прошёл Sanitarium и допущен
-    -- к расчёту. Остальные значения являются кодами отказа.
+    -- CUS_MAP означает, что клиент прошёл Sanitarium и допущен к расчёту. Остальные значения являются кодами отказа.
       result_code varchar(50) NOT NULL,
 
       result_info text,
@@ -35,59 +36,58 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr_itm
    CONSTRAINT fk_mi_0008_lsr_itm_lsr FOREIGN KEY (lsr_id) REFERENCES xxi.mi_0008_lsr (lsr_id) ON DELETE CASCADE,
 
    -- CHECK
-    -- PostgreSQL, в отличие от Oracle, отличает '' от NULL.
-    CONSTRAINT ck_mi_0008_lsr_itm_result_code CHECK (btrim(result_code) <> ''),
+   -- PostgreSQL, в отличие от Oracle, отличает '' от NULL.
+   CONSTRAINT ck_mi_0008_lsr_itm_result_code CHECK (btrim(result_code) <> ''),
 
-    -- Каждая разрешающая запись должна однозначно указывать, реального клиента.
-    CONSTRAINT ck_mi_0008_lsr_itm_cus_map CHECK ( result_code <> 'CUS_MAP' OR r_icusnum IS NOT NULL ),
+   -- Каждая разрешающая запись должна однозначно указывать, реального клиента.
+   CONSTRAINT ck_mi_0008_lsr_itm_cus_map CHECK ( result_code <> 'CUS_MAP' OR r_icusnum IS NOT NULL ),
 
-    -- До выполнения Sanitarium реальный клиент ещё не определён.
-    CONSTRAINT ck_mi_0008_lsr_itm__pending CHECK ( result_code <> 'CUS_PENDING' OR r_icusnum IS NULL )
+   -- До выполнения Sanitarium реальный клиент ещё не определён.
+   CONSTRAINT ck_mi_0008_lsr_itm__pending CHECK ( result_code <> 'CUS_PENDING' OR r_icusnum IS NULL )
 )
 TABLESPACE users
 ;
 
 
 -- Для одного исходного клиента в рамках LSR допускается не более одной рабочей
--- записи: mi_0008_api.create_And_Exec создаёт CUS_PENDING,
--- Sanitarium обновляет её результатом.
+-- записи: mi_0008_api.create_And_Exec создаёт CUS_PENDING, Sanitarium обновляет её результатом.
 --
--- INCLUDE позволяет получать решение Sanitarium непосредственно из индекса
--- при соединении с результатом расчёта.
+-- INCLUDE позволяет получать решение Sanitarium непосредственно из индекса при соединении с результатом расчёта.
 create unique index if not exists 
-   ux_mi_0008_lsr_itm__source ON xxi.mi_0008_lsr_itm( lsr_id, s_icusnum)
-      INCLUDE (r_icusnum, result_code)
-         TABLESPACE indexes;
-
--- Просмотр протокола запуска, выборка отказов и поддержка FK при удалении LSR.
-create index if not exists ix_mi_0008_lsr_itm_lsr_result 
-       on xxi.mi_0008_lsr_itm (lsr_id, result_code, s_icusnum) 
+   ux_mi_0008_lsr_itm__source on xxi.mi_0008_lsr_itm( lsr_id, s_icusnum)
+      include (r_icusnum, result_code)
          tablespace indexes
 ;
 
-alter sequence xxi.s_mi_0008_lsr_itm
-      owned by xxi.mi_0008_lsr_itm.lsr_itm_id
+-- Просмотр протокола запуска, выборка отказов и поддержка FK при удалении LSR.
+create index if not exists ix_mi_0008_lsr_itm_lsr_result 
+   on xxi.mi_0008_lsr_itm (lsr_id, result_code, s_icusnum) 
+      tablespace indexes
 ;
 
-ALTER TABLE xxi.mi_0008_lsr_itm 
-      OWNER TO "XXI"
+alter sequence xxi.s_mi_0008_lsr_itm
+   owned by xxi.mi_0008_lsr_itm.lsr_itm_id
+;
+
+alter table xxi.mi_0008_lsr_itm 
+   OWNER TO "XXI"
 ;
 
 COMMENT ON TABLE xxi.mi_0008_lsr_itm IS
-    'MI-edo. Доходы физических лиц. Протокол обработки клиентов в рамках LSR. '
-    'Хранит входной список клиентов, отображение исходного клиента в реального '
-    'клиента и причины отклонения клиентов Sanitarium.'
+   'MI-edo. Доходы физических лиц. Протокол обработки клиентов в рамках LSR. '
+   'Хранит входной список клиентов, отображение исходного клиента в реального '
+   'клиента и причины отклонения клиентов Sanitarium.'
 ;
 
-COMMENT ON COLUMN xxi.mi_0008_lsr_itm.lsr_itm_id IS
+comment on column xxi.mi_0008_lsr_itm.lsr_itm_id is
    'PK. Идентификатор записи протокола Sanitarium.'
 ;
 
-COMMENT ON COLUMN xxi.mi_0008_lsr_itm.lsr_id IS
+comment on column xxi.mi_0008_lsr_itm.lsr_id is
    'FK на xxi.mi_0008_lsr. Идентификатор процесса подготовки данных.'
 ;
 
-COMMENT ON COLUMN xxi.mi_0008_lsr_itm.s_icusnum IS
+comment on column xxi.mi_0008_lsr_itm.s_icusnum is
    'Исходный идентификатор клиента, подготовленный mi_0008_api.create_And_Exec.'
 ;
 

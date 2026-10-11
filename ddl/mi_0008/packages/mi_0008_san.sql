@@ -127,8 +127,8 @@ $procedure$
 
 
 /* Загрузить входной список клиентов, подготовленный mi_0008_api.create_And_Exec. */
-create procedure load_source_clients(
-   in p_lsr_id numeric,
+create procedure load_source_clients (
+    in p_lsr_id numeric,
    out p_source_count bigint
 )
 as
@@ -144,6 +144,7 @@ begin
    GET DIAGNOSTICS p_source_count = ROW_COUNT;
 
    ANALYZE pg_temp.mi_0008_san_source;
+
 end;
 $procedure$
 
@@ -582,7 +583,6 @@ BEGIN
    p_ires_code := ret_OK;
 
 EXCEPTION
-
    WHEN OTHERS THEN
    DECLARE
       ex TS.T_StackedDiagnostics;
@@ -599,8 +599,7 @@ EXCEPTION
           l_error_Text := TS.WhenOthersError( cAction_Name, ex);
 
          /*
-            Любая ошибка, ожидаемая или неожиданная,
-            превращается в MI_resultCtx.exec_Result.
+            Любая ошибка, ожидаемая или неожиданная, превращается в MI_resultCtx.exec_Result.
          */
          l_result := MI_resultCtx.from_exception (
             p_sqlstate => ex.returned_sqlstate,
@@ -611,8 +610,7 @@ EXCEPTION
          );
 
       /*
-         Если это не наше структурированное MI001-исключение,
-         добавим технический контекст.
+         Если это не наше структурированное MI001-исключение, добавим технический контекст.
       */
       IF ex.returned_sqlstate IS DISTINCT FROM 'MI001' THEN
 
