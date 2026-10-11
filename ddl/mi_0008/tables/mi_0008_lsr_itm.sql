@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr_itm
 
       lsr_id     numeric(12) NOT NULL,
 
-    -- Исходный icusnum, полученный от депозитного модуля.
+    -- Исходный icusnum, подготовленный бизнес-пакетом mi_0008_api.
       s_icusnum  numeric(12) NOT NULL,
 
     -- Реальный icusnum после обработки связи типа 17.
@@ -17,9 +17,9 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr_itm
     -- Если замена не требуется: r_icusnum = s_icusnum.
       r_icusnum  numeric(12),
 
+    -- CUS_PENDING означает входную запись, ещё не обработанную Sanitarium.
     -- CUS_MAP означает, что клиент прошёл Sanitarium и допущен
-    -- к расчёту. Остальные значения являются кодами отказа
-    -- или диагностическими событиями.
+    -- к расчёту. Остальные значения являются кодами отказа.
       result_code varchar(50) NOT NULL,
 
       result_info text,
@@ -39,22 +39,24 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr_itm
     CONSTRAINT ck_mi_0008_lsr_itm_result_code CHECK (btrim(result_code) <> ''),
 
     -- Каждая разрешающая запись должна однозначно указывать, реального клиента.
-    CONSTRAINT ck_mi_0008_lsr_itm_cus_map CHECK ( result_code <> 'CUS_MAP' OR r_icusnum IS NOT NULL )
+    CONSTRAINT ck_mi_0008_lsr_itm_cus_map CHECK ( result_code <> 'CUS_MAP' OR r_icusnum IS NOT NULL ),
+
+    -- До выполнения Sanitarium реальный клиент ещё не определён.
+    CONSTRAINT ck_mi_0008_lsr_itm__pending CHECK ( result_code <> 'CUS_PENDING' OR r_icusnum IS NULL )
 )
 TABLESPACE users
 ;
 
 
--- Для одного исходного клиента в рамках LSR допустимо
--- не более одного итогового отображения.
+-- Для одного исходного клиента в рамках LSR допускается не более одной рабочей
+-- записи: бизнес-пакет создаёт CUS_PENDING, Sanitarium обновляет её результатом.
 --
--- INCLUDE позволяет получать r_icusnum непосредственно из индекса
--- при соединении с результатом депозитного расчёта.
+-- INCLUDE позволяет получать решение Sanitarium непосредственно из индекса
+-- при соединении с результатом расчёта.
 create unique index if not exists 
-   ux_mi_0008_lsr_itm_cus_map ON xxi.mi_0008_lsr_itm( lsr_id, s_icusnum) 
-      INCLUDE (r_icusnum) 
-         TABLESPACE indexes 
-            WHERE result_code = 'CUS_MAP';
+   ux_mi_0008_lsr_itm__source ON xxi.mi_0008_lsr_itm( lsr_id, s_icusnum)
+      INCLUDE (r_icusnum, result_code)
+         TABLESPACE indexes;
 
 -- Просмотр протокола запуска, выборка отказов и поддержка FK при удалении LSR.
 create index if not exists ix_mi_0008_lsr_itm_lsr_result 
@@ -72,8 +74,8 @@ ALTER TABLE xxi.mi_0008_lsr_itm
 
 COMMENT ON TABLE xxi.mi_0008_lsr_itm IS
     'MI-edo. Доходы физических лиц. Протокол обработки клиентов в рамках LSR. '
-    'Хранит разрешённые отображения исходного клиента в реального клиента '
-    'и причины отклонения клиентов Sanitarium.'
+    'Хранит входной список клиентов, отображение исходного клиента в реального '
+    'клиента и причины отклонения клиентов Sanitarium.'
 ;
 
 COMMENT ON COLUMN xxi.mi_0008_lsr_itm.lsr_itm_id IS
@@ -85,7 +87,7 @@ COMMENT ON COLUMN xxi.mi_0008_lsr_itm.lsr_id IS
 ;
 
 COMMENT ON COLUMN xxi.mi_0008_lsr_itm.s_icusnum IS
-   'Исходный идентификатор клиента, полученный от депозитного модуля.'
+   'Исходный идентификатор клиента, подготовленный бизнес-пакетом mi_0008_api.'
 ;
 
 COMMENT ON COLUMN xxi.mi_0008_lsr_itm.r_icusnum IS
@@ -93,7 +95,7 @@ COMMENT ON COLUMN xxi.mi_0008_lsr_itm.r_icusnum IS
 ;
 
 COMMENT ON COLUMN xxi.mi_0008_lsr_itm.result_code IS
-   'Код решения Sanitarium. CUS_MAP означает, что клиент допущен к расчёту; остальные значения содержат коды отказа или диагностики.'
+   'Состояние/решение Sanitarium: CUS_PENDING — ожидает проверки, CUS_MAP — допущен к расчёту; остальные значения содержат коды отказа.'
 ;
 
 COMMENT ON COLUMN xxi.mi_0008_lsr_itm.result_info IS
@@ -108,6 +110,6 @@ COMMENT ON COLUMN xxi.mi_0008_lsr_itm.created_at IS
    'Фактическое время создания записи протокола.'
 ;
 
-COMMENT ON INDEX xxi.ux_mi_0008_lsr_itm_cus_map IS
-   'Не более одного отображения s_icusnum в r_icusnum в рамках одного LSR.'
+COMMENT ON INDEX xxi.ux_mi_0008_lsr_itm__source IS
+   'Одна рабочая запись исходного клиента в рамках одного LSR.'
 ;

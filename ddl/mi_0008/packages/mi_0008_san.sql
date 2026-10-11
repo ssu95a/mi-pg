@@ -1,3 +1,5 @@
+-- Проверки клиентов для вида сведений 0008.
+-- Пакет не получает исходные данные расчёта и не управляет стадиями LSR.
 create or replace package mi_0008_san
 
 CREATE FUNCTION __init__()
@@ -12,17 +14,16 @@ DECLARE
    cPkg_Name    CONSTANT varchar(20 ) := 'mi_0008_san'; 
    cLogger      CONSTANT varchar(20 ) := 'mi.0008'; 
 
-   cLock_Name   CONSTANT varchar(20 ) := 'mi_0008_auto'; 
-
    ret_OK       CONSTANT int4 := 0;
    ret_FAIL     CONSTANT int4 := -1;
 
    c_link_type_17       constant numeric(3)  := 17;
+   c_result_cus_pending constant varchar(50) := 'CUS_PENDING';
 
    c_err_Not_Found      CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#LSR_NOT_FOUND';
    c_err_Bad_Status     CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#BAD_STATUS';
    c_err_Bad_Stage      CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#BAD_STAGE';
-   c_err_Already_Exists CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#ALREADY_EXISTS';
+   c_err_Already_Processed CONSTANT varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#ALREADY_PROCESSED';
    c_err_Unexpected     constant varchar(200) := 'MI_0008_SAN.SANITIZE_CUS#UNEXPECTED';
 
 BEGIN
@@ -125,31 +126,39 @@ end;
 $procedure$
 
 
-/* */
-create procedure fill_temp_tables(
-    in p_iyear numeric,
-   out p_source_count bigint,
+/* Загрузить входной список клиентов, подготовленный бизнес-пакетом. */
+create procedure load_source_clients(
+   in p_lsr_id numeric,
+   out p_source_count bigint
+)
+as
+$procedure$
+   #private
+begin
+   INSERT INTO pg_temp.mi_0008_san_source (s_icusnum)
+   SELECT i.s_icusnum
+     FROM xxi.mi_0008_lsr_itm AS i
+    WHERE i.lsr_id = p_lsr_id
+      AND i.result_code = c_result_cus_pending;
+
+   GET DIAGNOSTICS p_source_count = ROW_COUNT;
+
+   ANALYZE pg_temp.mi_0008_san_source;
+end;
+$procedure$
+
+
+/* Загрузить единый снимок активного графа связей типа 17. */
+create procedure load_link_graph(
    out p_graph_node_count bigint
 )
 as
 $procedure$
    #private
 begin
-   ---------------------------------------------------------------------------
-   -- 1. Clients produced by the deposit calculation for the current year.
-   ---------------------------------------------------------------------------
-   INSERT INTO pg_temp.mi_0008_san_source (s_icusnum)
-   SELECT DISTINCT d.icusnum
-     FROM xxi.dj_v_prc_to_client AS d
-    WHERE d.iyear = p_iyear
-      AND d.icusnum  IS NOT NULL;
-
-   GET DIAGNOSTICS p_source_count = ROW_COUNT;
-
-   ANALYZE pg_temp.mi_0008_san_source;
 
    ---------------------------------------------------------------------------
-   -- 2. One consistent snapshot of the complete active graph for link 17.
+   -- One consistent snapshot of the complete active graph for link 17.
    --
    -- LEGACY: date_begin is intentionally not checked. The Oracle logic only
    -- checked date_end. TODO: semantics to verify before changing this rule.
@@ -185,12 +194,14 @@ begin
 
    ANALYZE pg_temp.mi_0008_san_edge;
    ANALYZE pg_temp.mi_0008_san_node;
-
 end;
 $procedure$
 
 
-/* */
+/*
+ * Публичный технический API для mi_0008_api.
+ * До вызова бизнес-пакет создаёт CUS_PENDING и устанавливает SANITARIUM.
+ */
 CREATE PROCEDURE sanitize_Cus( 
    in p_lsr_id    numeric, 
   out p_ires_code int4,
@@ -198,13 +209,11 @@ CREATE PROCEDURE sanitize_Cus(
 )
 AS 
 $procedure$
-   #private
 DECLARE
 
    cAction_Name CONSTANT varchar(50) := cPkg_Name || '.sanitize_Cus';
 
    c_status_running        constant varchar(12) := 'RUNNING';
-   c_stage_source_calc     constant varchar(20) := 'SOURCE_CALC';
    c_stage_sanitarium      constant varchar(20) := 'SANITARIUM';
 
    c_result_cus_map        constant varchar(50) := 'CUS_MAP';
@@ -213,12 +222,11 @@ DECLARE
    c_result_cus_not_found  constant varchar(50) := 'SAN_CUS_NOT_FOUND';
 
 
-   l_iyear           numeric;
    l_status_cd       varchar(12);
    l_stage_cd        varchar(20);
 
    l_source_count          bigint;
-   l_inserted_count        bigint;
+   l_updated_count         bigint;
    l_graph_node_count      bigint;
    l_affected_count        bigint;
    v_frontier_count        bigint;
@@ -227,17 +235,20 @@ DECLARE
 
 BEGIN
 
-   CALL MI_logger.enter_f( cLogger, cAction_Name, p_inf_Id => 8 );
+   CALL MI_logger.enter_f(
+      p_logger_name   => cLogger,
+      p_function_name => cAction_Name,
+      p_inf_id        => 8,
+      p_object_id     => p_lsr_id
+   );
 
    p_ires_code := ret_FAIL;
    p_cres_info := null;
 
       -- 1. Проверка и блокировка LSR.
-      SELECT lsr.iyear,
-             lsr.status_cd,
+      SELECT lsr.status_cd,
              lsr.stage_cd
-        INTO l_iyear,
-             l_status_cd,
+        INTO l_status_cd,
              l_stage_cd
          FROM xxi.mi_0008_lsr lsr
         WHERE lsr.lsr_id = p_lsr_id
@@ -247,35 +258,37 @@ BEGIN
          CALL MI_resultCtx.raise_fail( p_result_Code => c_err_Not_Found, p_result_Info => format('LSR %s не существует', p_lsr_id ) );
       END IF;
 
-      IF l_status_cd <> 'RUNNING' THEN
+      IF l_status_cd <> c_status_running THEN
          CALL MI_resultCtx.raise_fail( p_result_Code => c_err_Bad_Status, p_result_Info => format('LSR %s имеет недопустимый статус %s', p_lsr_id, l_status_cd ) );
       END IF;
 
-      IF l_stage_cd <> 'SOURCE_CALC' THEN
+      IF l_stage_cd <> c_stage_sanitarium THEN
          CALL MI_resultCtx.raise_fail( p_result_Code => c_err_Bad_Stage, p_result_Info => format('LSR %s имеет недопустимую стадию %s для Sanitarium', p_lsr_id, l_stage_cd ) );
       END IF;
 
-      -- Повторное выполнение для того же LSR не маскируем.
+      -- Бизнес-пакет создаёт входные CUS_PENDING до вызова Sanitarium.
+      -- Любая итоговая запись означает, что этот LSR уже обрабатывался.
       IF EXISTS (
          SELECT 1
             FROM xxi.mi_0008_lsr_itm item
            WHERE item.lsr_id = p_lsr_id
+             AND item.result_code <> c_result_cus_pending
          )
       THEN
-         CALL MI_resultCtx.raise_fail( p_result_Code => c_err_Already_Exists, p_result_Info => format( 'Для LSR %s уже существуют записи Sanitarium', p_lsr_id  ) );
+         CALL MI_resultCtx.raise_fail( p_result_Code => c_err_Already_Processed, p_result_Info => format( 'Для LSR %s уже существуют результаты Sanitarium', p_lsr_id  ) );
       END IF;
-
-       -- Run!
-
-       UPDATE xxi.mi_0008_lsr
-          SET stage_cd = 'SANITARIUM'
-        WHERE
-              lsr_id = p_lsr_id;
 
        -- 2. Временные рабочие таблицы текущей сессии. Удаляются при COMMIT/ROLLBACK.
        call mi_0008_san.create_temp_tables();
 
-       call mi_0008_san.fill_temp_tables( l_iyear, l_source_count, l_graph_node_count);
+       call mi_0008_san.load_source_clients( p_lsr_id, l_source_count );
+
+       IF l_source_count = 0 THEN
+          p_ires_code := ret_OK;
+          RETURN;
+       END IF;
+
+       call mi_0008_san.load_link_graph( l_graph_node_count );
 
 
       ---------------------------------------------------------------------------
@@ -503,65 +516,67 @@ BEGIN
         FROM mapped_client AS m
         LEFT JOIN xxi."CUS" AS c
           ON c.icusnum = m.r_icusnum
-   )
-   INSERT INTO xxi.mi_0008_lsr_itm
+   ),
+   decision AS
    (
-      lsr_id,
-      s_icusnum,
-      r_icusnum,
-      result_code,
-      result_info,
-      result_data
+      SELECT c.s_icusnum,
+             c.r_icusnum,
+             CASE
+                WHEN c.graph_result_code IS NOT NULL
+                THEN c.graph_result_code
+                WHEN NOT c.cus_exists
+                THEN c_result_cus_not_found
+                ELSE c_result_cus_map
+             END AS result_code,
+             CASE c.graph_result_code
+                WHEN c_result_cycle THEN
+                   'Компонента активных связей типа 17 содержит цикл'
+                WHEN c_result_multi_root THEN
+                   'Ациклическая компонента активных связей типа 17 имеет несколько корней'
+                ELSE
+                   CASE
+                      WHEN NOT c.cus_exists
+                      THEN format(
+                         'Канонический клиент %s отсутствует в CUS',
+                         c.r_icusnum
+                      )
+                      ELSE NULL
+                   END
+             END AS result_info,
+             CASE
+                WHEN c.graph_result_code IS NOT NULL THEN
+                   jsonb_build_object(
+                      'link_type',    c_link_type_17,
+                      'component_id', c.component_id,
+                      'node_count',   c.node_count,
+                      'root_count',   c.root_count
+                   )::text
+                WHEN NOT c.cus_exists THEN
+                   jsonb_build_object(
+                      'missing_icusnum', c.r_icusnum
+                   )::text
+                ELSE NULL
+             END AS result_data
+        FROM checked_client AS c
    )
-   SELECT p_lsr_id,
-          c.s_icusnum,
-          c.r_icusnum,
-          CASE
-             WHEN c.graph_result_code IS NOT NULL
-             THEN c.graph_result_code
-             WHEN NOT c.cus_exists
-             THEN c_result_cus_not_found
-             ELSE c_result_cus_map
-          END AS result_code,
-          CASE c.graph_result_code
-             WHEN c_result_cycle THEN
-                'Компонента активных связей типа 17 содержит цикл'
-             WHEN c_result_multi_root THEN
-                'Ациклическая компонента активных связей типа 17 имеет несколько корней'
-             ELSE
-                CASE
-                   WHEN NOT c.cus_exists
-                   THEN format(
-                      'Канонический клиент %s отсутствует в CUS',
-                      c.r_icusnum
-                   )
-                   ELSE NULL
-                END
-          END AS result_info,
-          CASE
-             WHEN c.graph_result_code IS NOT NULL THEN
-                jsonb_build_object(
-                   'link_type',    c_link_type_17,
-                   'component_id', c.component_id,
-                   'node_count',   c.node_count,
-                   'root_count',   c.root_count
-                )::text
-             WHEN NOT c.cus_exists THEN
-                jsonb_build_object(
-                   'missing_icusnum', c.r_icusnum
-                )::text
-             ELSE NULL
-          END AS result_data
-     FROM checked_client AS c;
+   UPDATE xxi.mi_0008_lsr_itm AS item
+      SET r_icusnum   = d.r_icusnum,
+          result_code = d.result_code,
+          result_info = d.result_info,
+          result_data = d.result_data
+     FROM decision AS d
+    WHERE item.lsr_id = p_lsr_id
+      AND item.s_icusnum = d.s_icusnum
+      AND item.result_code = c_result_cus_pending;
 
-   GET DIAGNOSTICS l_inserted_count = ROW_COUNT;
+   GET DIAGNOSTICS l_updated_count = ROW_COUNT;
 
-   IF l_inserted_count <> l_source_count THEN
+   IF l_updated_count <> l_source_count THEN
       RAISE EXCEPTION
-         'sanitize_cus: result cardinality mismatch for LSR %: source %, inserted %',
+         'sanitize_cus: result cardinality mismatch for LSR %: source %, updated %',
          p_lsr_id,
          l_source_count,
-         l_inserted_count;
+         l_updated_count;
    END IF;
 
    p_ires_code := ret_OK;
@@ -602,8 +617,8 @@ EXCEPTION
       IF ex.returned_sqlstate IS DISTINCT FROM 'MI001' THEN
 
          l_result.is_success  := false;
-         l_result.result_code := coalesce( l_result.result_code, c_err_Unexpected );
-         l_result.result_info := coalesce( l_result.result_info, 'Unexpected error in ' || cAction_Name );
+         l_result.result_code := c_err_Unexpected;
+         l_result.result_info := 'Unexpected error in ' || cAction_Name;
          l_result.parameters  := coalesce( l_result.parameters, '{}'::jsonb ) || jsonb_build_object( 'error_info', l_error_Text );
             
       END IF;
@@ -617,7 +632,8 @@ EXCEPTION
          p_inf_id        => 8,
          p_action_cd     => 'exception',
          p_context_value => l_result.result_code,
-         p_object_name   => cAction_Name
+         p_object_name   => cAction_Name,
+         p_object_id     => p_lsr_id
       );
 
       raise;
