@@ -658,7 +658,9 @@ BEGIN
             p_itm_id
          );
 
-         IF l_found THEN
+         IF l_found
+            AND coalesce(p_iState, -1) > 0
+         THEN
             
             p_res_code    := ret_OK;
             p_result_info := null;
