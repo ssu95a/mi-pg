@@ -1,4 +1,4 @@
-create or replace package mi_0007_api
+CREATE OR REPLACE PACKAGE mi_0007_api
 
 CREATE FUNCTION __init__()
    RETURNS void
@@ -6,20 +6,20 @@ AS
 $init$
 DECLARE
 
-   cVersion  CONSTANT varchar(100) := '1.0.1';
+   cVersion  CONSTANT varchar(20) := '1.0.1';
 
-   cPkg_Name CONSTANT varchar(20 ) := 'mi_0007_Api';
-   cLogger   CONSTANT varchar(20 ) := 'mi.0007';
+   cPkg_Name CONSTANT varchar(20) := 'mi_0007_Api';
+   cLogger   CONSTANT varchar(20) := 'mi.0007';
 
-   ret_OK    Constant int4 := 0;
-   ret_FAIL  Constant int4 := -1;
+   ret_OK    CONSTANT int4 := 0;
+   ret_FAIL  CONSTANT int4 := -1;
 
-   cInitiator_Slf CONSTANT NUMERIC := -1;
+   cInitiator_Slf CONSTANT numeric := -1;
 
    g_PsrtRf_Id numeric := null;
 
 BEGIN
-   raise debug 'Package "%" - % - initialized', cPkg_Name, cVersion;
+   RAISE DEBUG 'Package "%" - % - initialized', cPkg_Name, cVersion;
 END;
 $init$
 
@@ -40,26 +40,39 @@ $function$
 /* Код типа ДУЛ паспорт РФ */
 CREATE FUNCTION get_PassportRF_Id()
    RETURNS
-      NUMERIC
+      numeric
 AS
 $function$
    #package
    #private
 BEGIN
 
-   if g_PsrtRf_Id is not null then
+   IF g_PsrtRf_Id is not null THEN
       return g_PsrtRf_Id;
-   end if;
+   END IF;
 
    SELECT pud.ipudid
      INTO g_PsrtRf_Id
      FROM pud
-    WHERE IPUDINT_CODE = 1;
+    WHERE 
+          ipudint_code = 1;
 
    IF NOT FOUND THEN
 
-      CALL mi_logger.error( cLogger, 'Не задан ID типа документа для паспорта РФ. Не установлено поле IPUDINT_CODE в 1 в таблице PUD.',
-                            NULL::numeric, NULL::numeric, NULL::varchar, 'get_PassportRF_Id', NULL::varchar, cPkg_Name, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric );
+      CALL mi_logger.error (
+         cLogger,
+         'Не задан ID типа документа для паспорта РФ. Не установлено поле IPUDINT_CODE в 1 в таблице PUD.',
+         NULL::numeric, 
+         NULL::numeric, 
+         NULL::varchar, 
+         'get_PassportRF_Id', 
+         NULL::varchar, 
+         cPkg_Name, 
+         NULL::numeric, 
+         NULL::numeric, 
+         NULL::numeric, 
+         NULL::numeric 
+      );
 
       RAISE EXCEPTION USING
             ERRCODE = 'MI',
@@ -69,7 +82,6 @@ BEGIN
    CALL MI_logger.info( cLogger, 'ID типа документа для паспорта РФ: ' || g_PsrtRf_Id,
                         NULL::numeric, NULL::numeric, NULL::varchar, 'get_PassportRF_Id', NULL::varchar, cPkg_Name, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric );
 
-
    RETURN g_PsrtRf_Id;
 
 END;
@@ -78,20 +90,18 @@ $function$
 
 /* */
 CREATE FUNCTION build_Json_Person (
-   in p_icusnum     NUMERIC,
-   in p_last_name   varchar,
-   in p_first_name  varchar,
-   in p_middle_name varchar,
-   in p_birth_date  date,
-   in p_doc_series  varchar,
-   in p_doc_number  varchar,
-   in p_doc_issue_date date,
-   in p_region_code varchar
+   IN p_icusnum     numeric,
+   IN p_last_name   varchar,
+   IN p_first_name  varchar,
+   IN p_middle_name varchar,
+   IN p_birth_date  date,
+   IN p_doc_series  varchar,
+   IN p_doc_number  varchar,
+   IN p_doc_issue_date date,
+   IN p_region_code varchar
 )
    RETURNS
       jsonb
-   LANGUAGE
-      plPGsql
 AS
 $function$
    #package
@@ -123,19 +133,17 @@ $function$
    Создать item 0007
 */
 CREATE FUNCTION create_Item (
-   in p_req_id    NUMERIC,
-   in p_person_id NUMERIC
+   IN p_req_id    numeric,
+   IN p_person_id numeric
 )
    RETURNS
-      NUMERIC
-   LANGUAGE
-      plPGsql
+      numeric
 AS
 $function$
    #package
    #private
 DECLARE
-   l_itm_id NUMERIC;
+   l_itm_id numeric;
 BEGIN
 
    l_itm_id := mi_request_Api.next_Itm_Id( );
@@ -163,12 +171,10 @@ $function$
    Создать request для 0007
 */
 CREATE FUNCTION create_Request (
-   in p_inf_Id NUMERIC DEFAULT 74::NUMERIC
+   IN p_inf_Id numeric DEFAULT 74::numeric
 )
    RETURNS
-      NUMERIC
-   LANGUAGE
-      plPGsql
+      numeric
 AS
 $function$
    #package
@@ -183,19 +189,17 @@ $function$
    Главная функция создания request 0007
 */
 CREATE FUNCTION create_Person_Item (
-   in p_json_person jsonb
+   IN p_json_person jsonb
 )
    RETURNS
-      NUMERIC
-   LANGUAGE
-      plPGsql
+      numeric
 AS
 $function$
    #package
 DECLARE
-   l_person_id NUMERIC;
-   l_req_id    NUMERIC;
-   l_itm_id    NUMERIC;
+   l_person_id numeric;
+   l_req_id    numeric;
+   l_itm_id    numeric;
 BEGIN
 
    l_person_id := mi_person_Api.get_Or_Create(
@@ -221,26 +225,24 @@ $function$
    icusnum приходит отдельно от json payload
 */
 CREATE FUNCTION create_Person_Item (
-   in p_icusnum     NUMERIC,
-   in p_json_person jsonb,
-   in p_inf_Id      NUMERIC DEFAULT 74::NUMERIC
+   IN p_icusnum     numeric,
+   IN p_json_person jsonb,
+   IN p_inf_Id      numeric DEFAULT 74::numeric
 )
    RETURNS
-      NUMERIC
-   LANGUAGE
-      plPGsql
+      numeric
 AS
 $function$
    #package
 DECLARE
-   l_person_id NUMERIC;
-   l_req_id    NUMERIC;
-   l_itm_id    NUMERIC;
+   l_person_id numeric;
+   l_req_id    numeric;
+   l_itm_id    numeric;
 BEGIN
 
    l_person_id := MI_person_Api.get_Or_Create (
       p_inf_Id,
-      p_icusnum::NUMERIC,
+      p_icusnum::numeric,
       p_json_person::jsonb
    );
 
@@ -259,11 +261,11 @@ $function$
 
 /* Проверка атрибутов клиента, для создания записи запроса по паспортам */
 CREATE FUNCTION check_Attrs (
-   in p_last_name    varchar,
-   in p_first_name   varchar,
-   in p_middle_name  varchar,
-   in p_doc_ser      varchar,
-   in p_doc_num      varchar
+   IN p_last_name    varchar,
+   IN p_first_name   varchar,
+   IN p_middle_name  varchar,
+   IN p_doc_ser      varchar,
+   IN p_doc_num      varchar
 )
    RETURNS
       VARCHAR
@@ -329,27 +331,27 @@ $function$
 
 /* */
 CREATE PROCEDURE has_Entry_Set (
-   in  p_inf_id        numeric,
-   in  p_icusnum       numeric,
-   in  p_last_name     varchar,
-   in  p_first_name    varchar,
-   in  p_middle_name   varchar,
-   in  p_doc_num       varchar,
-   in  p_doc_ser       varchar,
-   in  p_doc_issue_date date,
-   in  p_birth_date    date,
-   in  p_n_day         numeric,
-   out p_found         boolean,
-   out p_iState        numeric,
-   out p_req_id        numeric,
-   out p_itm_id        numeric
+   IN  p_inf_id        numeric,
+   IN  p_icusnum       numeric,
+   IN  p_last_name     varchar,
+   IN  p_first_name    varchar,
+   IN  p_middle_name   varchar,
+   IN  p_doc_num       varchar,
+   IN  p_doc_ser       varchar,
+   IN  p_doc_issue_date date,
+   IN  p_birth_date    date,
+   IN  p_n_day         numeric,
+   OUT p_found         boolean,
+   OUT p_iState        numeric,
+   OUT p_req_id        numeric,
+   OUT p_itm_id        numeric
 )
 AS
 $procedure$
    #private
    #package
 DECLARE
-   cPsrtRf constant numeric := MI_0007_api.get_PassportRF_Id();
+   cPsrtRf CONSTANT numeric := MI_0007_api.get_PassportRF_Id();
 BEGIN
 
    p_found  := false;
@@ -389,18 +391,18 @@ $procedure$
 
 /* Запрос в таблицу на наличии, записи с ручной установкой валидности */
 CREATE PROCEDURE has_Manual_Set (
-   in  p_icusnum        numeric,
-   in  p_last_name      varchar,
-   in  p_first_name     varchar,
-   in  p_middle_name    varchar,
-   in  p_doc_num        varchar,
-   in  p_doc_ser        varchar,
-   in  p_doc_issue_date date,
-   in  p_n_day          numeric,
-   out p_found          boolean,
-   out p_iState         numeric,
-   out p_req_id         numeric,
-   out p_itm_id         numeric
+   IN  p_icusnum        numeric,
+   IN  p_last_name      varchar,
+   IN  p_first_name     varchar,
+   IN  p_middle_name    varchar,
+   IN  p_doc_num        varchar,
+   IN  p_doc_ser        varchar,
+   IN  p_doc_issue_date date,
+   IN  p_n_day          numeric,
+   OUT p_found          boolean,
+   OUT p_iState         numeric,
+   OUT p_req_id         numeric,
+   OUT p_itm_id         numeric
 )
 AS
 $procedure$
@@ -426,33 +428,33 @@ $procedure$
 
 /* Создает новый запрос, и если надо отправляет в MI */
 CREATE PROCEDURE create_And_Exec (
-   in  p_inf_id          numeric,
+   IN  p_inf_id          numeric,
 
-   in  p_icusnum         numeric,
-   in  p_last_name       varchar,
-   in  p_first_name      varchar,
-   in  p_middle_name     varchar,
-   in  p_birth_date      date,
-   in  p_doc_ser         varchar,
-   in  p_doc_num         varchar,
-   in  p_doc_issue_date  date,
-   in  p_region_code     varchar,
+   IN  p_icusnum         numeric,
+   IN  p_last_name       varchar,
+   IN  p_first_name      varchar,
+   IN  p_middle_name     varchar,
+   IN  p_birth_date      date,
+   IN  p_doc_ser         varchar,
+   IN  p_doc_num         varchar,
+   IN  p_doc_issue_date  date,
+   IN  p_region_code     varchar,
 
-   in  p_time_out        numeric,
-   in  p_do_send         boolean,
+   IN  p_time_out        numeric,
+   IN  p_do_send         boolean,
 
-   out p_res_code        int4,
-   out p_req_id          numeric,
-   out p_itm_id          numeric,
-   out p_iState          numeric,
-   out p_result_info     varchar
+   OUT p_res_code        int4,
+   OUT p_req_id          numeric,
+   OUT p_itm_id          numeric,
+   OUT p_iState          numeric,
+   OUT p_result_info     varchar
 )
 AS
 $procedure$
    #package
 DECLARE
 
-   cAction_Name  constant varchar(50) :=  cPkg_Name || '.create_And_Exec';
+   cAction_Name  CONSTANT varchar(50) :=  cPkg_Name || '.create_And_Exec';
 
    l_inf_id      numeric := coalesce( p_inf_id, 74::numeric );
    l_n_day       numeric;
@@ -478,7 +480,7 @@ BEGIN
 
    CALL MI_logger.enter_f( p_logger_name => cLogger, p_function_name => cAction_Name, p_inf_id => p_inf_id, p_icusnum => p_icusnum );
 
-   begin
+   BEGIN
 
       l_check_msg := mi_0007_Api.check_Attrs (
          p_last_name,
@@ -606,11 +608,11 @@ BEGIN
 
    DECLARE
       l_result  mi_resultctx.exec_result;
-   begin
+   BEGIN
 
       IF p_do_send THEN
 
-         call MI_MBus.send_Request( p_req_id, l_result );
+         CALL MI_MBus.send_Request( p_req_id, l_result );
 
          IF coalesce( p_time_out, 0 ) > 0 THEN
             PERFORM pg_sleep(p_time_out);
@@ -626,14 +628,14 @@ BEGIN
 
       END IF;
 
-      if p_res_code = ret_OK then
+      if p_res_code = ret_OK THEN
 
       SELECT coalesce( v.ires_code, r.status_cd )
         INTO p_iState
         FROM xxi.v_mi_0007 v inner join xxi.mi_req r on v.req_Id = r.req_Id
        WHERE v.itm_id = p_itm_id;
 
-      end if;
+      END IF;
 
       -- CALL mi_logger.info( cLogger, 'create_And_Exec completed', l_inf_id, p_req_id, NULL::varchar, NULL::text, NULL::varchar, cAction_Name, l_person_id, p_icusnum, p_itm_id, NULL::numeric );
       CALL MI_logger.info(
@@ -679,21 +681,21 @@ $procedure$
 
 /* Создание запроса для конкретного cus атрибуты подтягиваются из справочника */
 CREATE PROCEDURE create_And_Exec(
-   in  p_inf_id       numeric,
-   in  p_icusnum      numeric,
-   in  p_time_out     numeric,
-   in  p_do_send      boolean,
-   out p_res_code     int4,
-   out p_req_id       numeric,
-   out p_itm_id       numeric,
-   out p_iState       numeric,
-   out p_result_info  varchar
+   IN  p_inf_id       numeric,
+   IN  p_icusnum      numeric,
+   IN  p_time_out     numeric,
+   IN  p_do_send      boolean,
+   OUT p_res_code     int4,
+   OUT p_req_id       numeric,
+   OUT p_itm_id       numeric,
+   OUT p_iState       numeric,
+   OUT p_result_info  varchar
 )
 AS
 $procedure$
    #package
 DECLARE
-   cAction_Name  constant varchar(30) := 'create_and_exec.2';
+   cAction_Name CONSTANT varchar(30) := 'create_and_exec.2';
 
    cPsrtRf numeric := MI_0007_api.get_PassportRF_Id();
 
@@ -774,28 +776,29 @@ $procedure$
 
 /* Создает запрос для 75 вида сведений - ручная установка */
 CREATE PROCEDURE create_75_Person_Item(
-   in  p_icusnum         numeric,
-   in  p_last_name       varchar,
-   in  p_first_name      varchar,
-   in  p_middle_name     varchar,
-   in  p_doc_ser         varchar,
-   in  p_doc_num         varchar,
-   in  p_doc_issue_date  date,
-   in  p_birth_date      date,
-   in  p_region_code     varchar,
-   out p_res_code        int4,
-   out p_res_info        varchar
+   IN  p_icusnum         numeric,
+   IN  p_last_name       varchar,
+   IN  p_first_name      varchar,
+   IN  p_middle_name     varchar,
+   IN  p_doc_ser         varchar,
+   IN  p_doc_num         varchar,
+   IN  p_doc_issue_date  date,
+   IN  p_birth_date      date,
+   IN  p_region_code     varchar,
+   OUT p_res_code        int4,
+   OUT p_res_info        varchar
 )
 AS
 $procedure$
    #package
 DECLARE
-   cAction_Name        CONSTANT varchar(20) := 'create_75_item';
 
-   l_json_person       jsonb;
-   l_person_id         numeric;
-   l_req_id            numeric;
-   l_itm_id            numeric;
+   cAction_Name  CONSTANT varchar(20) := cPkg_Name || '.create_75_item';
+
+   l_json_person jsonb;
+   l_person_id   numeric;
+   l_req_id      numeric;
+   l_itm_id      numeric;
 
 BEGIN
 
@@ -893,18 +896,18 @@ $procedure$
 
 /* Создание запроса с позициями на основе маркера в "CUS" */
 CREATE PROCEDURE create_Person_Items_By_Marker (
-    in p_marker_id      numeric,
-   out p_req_id         numeric,
-   out p_created_count  int4,
-   out p_res_Code       int4,
-   out p_res_Info       varchar
+    IN p_marker_id      numeric,
+   OUT p_req_id         numeric,
+   OUT p_created_count  int4,
+   OUT p_res_Code       int4,
+   OUT p_res_Info       varchar
 )
 AS
 $procedure$
    #package
 DECLARE
-   cAction_Name   constant varchar(20) := 'create_items_batch';
-   cInf_Id        constant numeric     := 74::NUMERIC;
+   cAction_Name   CONSTANT varchar(20) := 'create_items_batch';
+   cInf_Id        CONSTANT numeric     := 74::numeric;
    r              record;
    l_has_rows     boolean;
 
@@ -1032,8 +1035,8 @@ $procedure$
 
 
 CREATE FUNCTION map_Item_Result (
-   in p_itm_Id  numeric,
-   in p_payload jsonb
+   IN p_itm_Id  numeric,
+   IN p_payload jsonb
 )
 RETURNS
    MI_Item_Result_Api.Item_Result
@@ -1047,7 +1050,7 @@ BEGIN
    l_doc_status := NULLIF(p_payload ->> 'docStatus', '')::numeric;
 
    IF l_doc_status IS NULL THEN
-      RAISE EXCEPTION 'docStatus is null in successful payload';
+      RAISE EXCEPTION 'docStatus is null IN successful payload';
    END IF;
 
    l_result.ires_code := l_doc_status;
@@ -1060,21 +1063,21 @@ $function$
 
 /* */
 CREATE PROCEDURE apply_Item_Result (
-   in  p_request_uuid      uuid,
-   in  p_message_uuid      uuid,
-   in  p_item_uuid         uuid,
+   IN  p_request_uuid      uuid,
+   IN  p_message_uuid      uuid,
+   IN  p_item_uuid         uuid,
 
-   in  p_response_kind     int4,
+   IN  p_response_kind     int4,
 
-   in  p_response_code     varchar,
-   in  p_response_info     varchar,
-   in  p_response_details  text,
-   in  p_response_time     timestamptz,
+   IN  p_response_code     varchar,
+   IN  p_response_info     varchar,
+   IN  p_response_details  text,
+   IN  p_response_time     timestamptz,
 
-   in  p_payload_text      text,
+   IN  p_payload_text      text,
 
-   out p_ret_code          int4,
-   out p_ret_info          varchar
+   OUT p_ret_code          int4,
+   OUT p_ret_info          varchar
 )
 AS
 $procedure$
