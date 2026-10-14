@@ -246,7 +246,9 @@ BEGIN
       p_json_person::jsonb
    );
 
-   l_req_id := mi_0007_Api.create_Request( );
+   l_req_id := mi_0007_Api.create_Request (
+      p_inf_Id => p_inf_Id 
+   );
 
    l_itm_id := mi_0007_Api.create_Item(
       p_req_id    => l_req_id,
