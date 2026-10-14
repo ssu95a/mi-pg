@@ -679,20 +679,26 @@ BEGIN
       IF l_inf_id = 75 THEN
 
          CALL mi_0007_Api.create_75_Person_Item (
-            p_icusnum,
-            p_last_name,
-            p_first_name,
-            p_middle_name,
-            p_doc_ser,
-            p_doc_num,
-            p_doc_issue_date,
-            p_birth_date,
-            p_region_code,
-            l_res_code_75,
-            l_res_info_75
+            p_icusnum        => p_icusnum,
+            p_last_name      => p_last_name,
+            p_first_name     => p_first_name,
+            p_middle_name    => p_middle_name,
+            p_doc_ser        => p_doc_ser,
+            p_doc_num        => p_doc_num,
+            p_doc_issue_date => p_doc_issue_date,
+            p_birth_date     => p_birth_date,
+            p_region_code    => p_region_code,
+
+            p_res_code       => l_res_code_75,
+            p_req_id         => l_req_id,
+            p_itm_id         => l_itm_id,
+            p_res_info       => l_res_info_75
          );
 
          p_res_code    := l_res_code_75;
+         p_req_id      := l_req_id;
+         p_itm_id      := l_itm_id;
+         p_iState      := 300;
          p_result_info := l_res_info_75;
 
          RETURN;
@@ -939,7 +945,7 @@ END;
 $procedure$
 
 
-/* Создает запрос для 75 вида сведений - ручная установка */
+/* Создает новый результат для 75 вида сведений - ручная установка */
 CREATE PROCEDURE create_75_Person_Item(
    IN  p_icusnum         numeric,
    IN  p_last_name       varchar,
@@ -950,66 +956,63 @@ CREATE PROCEDURE create_75_Person_Item(
    IN  p_doc_issue_date  date,
    IN  p_birth_date      date,
    IN  p_region_code     varchar,
+
    OUT p_res_code        int4,
+   OUT p_req_id          numeric,
+   OUT p_itm_id          numeric,
    OUT p_res_info        varchar
 )
 AS
 $procedure$
    #package
 DECLARE
-
-   cAction_Name  CONSTANT varchar(100) := cPkg_Name || '.create_75_item';
+   cAction_Name CONSTANT varchar(100) := cPkg_Name || '.create_75_Person_Item';
 
    l_json_person jsonb;
    l_person_id   numeric;
-   l_req_id      numeric;
-   l_itm_id      numeric;
 
 BEGIN
 
    p_res_code := ret_Fail;
+   p_req_id   := NULL;
+   p_itm_id   := NULL;
    p_res_info := NULL;
 
-   l_json_person := mi_0007_Api.build_json_person (
-      p_icusnum::numeric,
-      p_last_name::varchar,
-      p_first_name::varchar,
-      p_middle_name::varchar,
-      p_birth_date::date,
-      p_doc_ser::varchar,
-      p_doc_num::varchar,
-      p_doc_issue_date::date,
-      p_region_code::varchar
+   /*
+    * Если управление дошло сюда, has_Manual_Set уже проверил,
+    * что подходящего действующего результата 75 / state=300 нет.
+    * Поэтому всегда создаём новый manual request.
+    */
+   l_json_person := mi_0007_Api.build_Json_Person(
+      p_icusnum,
+      p_last_name,
+      p_first_name,
+      p_middle_name,
+      p_birth_date,
+      p_doc_ser,
+      p_doc_num,
+      p_doc_issue_date,
+      p_region_code
    );
 
-   l_person_id := mi_person_Api.get_Or_Create (
+   l_person_id := mi_person_Api.get_Or_Create(
       75::numeric,
       l_json_person
    );
 
    /*
-     Последний request для inf_id = 75, нет - создаём новый СРАЗУ в status = 1
-   */
-   SELECT r.req_id
-     INTO l_req_id
-     FROM xxi.mi_req r
-    WHERE r.inf_id = 75::numeric
-    ORDER BY r.created_at DESC,
-             r.req_id DESC
-    LIMIT 1;
+    * Для нового manual result всегда создаётся новый request.
+    * Повторное использование существующего результата выполняется
+    * выше, через has_Manual_Set.
+    */
+   p_req_id := mi_Request_Api.create_Request(
+      p_inf_id    => 75::numeric,
+      p_status_cd => 1::numeric
+   );
 
-   IF NOT FOUND THEN
+   p_itm_id := mi_request_Api.next_Itm_Id();
 
-      l_req_id := mi_Request_Api.create_Request (
-         p_inf_id    => 75::numeric,
-         p_status_cd =>  1::numeric
-      );
-
-   END IF;
-
-   l_itm_id := mi_request_Api.next_Itm_Id( );
-
-   INSERT INTO xxi.mi_0007 (
+   INSERT INTO xxi.mi_0007(
       itm_id,
       req_id,
       person_id,
@@ -1018,23 +1021,23 @@ BEGIN
       tres_time
    )
    VALUES(
-      l_itm_id,
-      l_req_id,
+      p_itm_id,
+      p_req_id,
       l_person_id,
       clock_timestamp(),
       300::numeric,
       clock_timestamp()
    );
 
-   p_res_code := 0;
-   p_res_info := 'Создан item 75. req_id=' || l_req_id || ', itm_id=' || l_itm_id;
+   p_res_code := ret_OK;
+   p_res_info := 'Создан item 75. req_id=' || p_req_id || ', itm_id=' || p_itm_id;
 
    CALL mi_logger.info(
       p_logger_name  => cLogger,
       p_message_text => 'create_75_Person_Item completed',
       p_inf_id       => 75,
-      p_req_id       => l_req_id,
-      p_itm_Id       => l_itm_id,
+      p_req_id       => p_req_id,
+      p_itm_Id       => p_itm_id,
       p_details_text => p_res_info,
       p_action_cd    => cAction_Name,
       p_object_name  => cPkg_Name,
@@ -1047,26 +1050,30 @@ EXCEPTION
       DECLARE
          ex TS.T_StackedDiagnostics;
       BEGIN
-        GET STACKED DIAGNOSTICS
+
+         GET STACKED DIAGNOSTICS
             ex.RETURNED_SQLSTATE    = RETURNED_SQLSTATE,
             ex.MESSAGE_TEXT         = MESSAGE_TEXT,
             ex.PG_EXCEPTION_DETAIL  = PG_EXCEPTION_DETAIL,
             ex.PG_EXCEPTION_HINT    = PG_EXCEPTION_HINT,
             ex.PG_EXCEPTION_CONTEXT = PG_EXCEPTION_CONTEXT;
 
-            CALL mi_logger.error(
-               p_logger_name  => cLogger,
-               p_message_text => cAction_Name || ' failed',
-               p_inf_id       => 75,
-               p_req_id       => l_req_id,
-               p_details_text => TS.WhenOthersError( cPkg_Name || '.' || cAction_Name, ex ),
-               p_action_cd    => 'exception',
-               p_object_name  => cPkg_Name
-            );
+         CALL mi_logger.error(
+            p_logger_name  => cLogger,
+            p_message_text => cAction_Name || ' failed',
+            p_inf_id       => 75,
+            p_req_id       => p_req_id,
+            p_itm_Id       => p_itm_id,
+            p_details_text => TS.WhenOthersError(cAction_Name, ex),
+            p_action_cd    => 'exception',
+            p_object_name  => cPkg_Name,
+            p_person_id    => l_person_id,
+            p_icusnum      => p_icusnum
+         );
 
       END;
 
-   RAISE;
+      RAISE;
 
 END;
 $procedure$
