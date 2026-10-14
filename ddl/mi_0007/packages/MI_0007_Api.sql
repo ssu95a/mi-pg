@@ -53,7 +53,7 @@ BEGIN
 
    SELECT pud.ipudid
      INTO g_PsrtRf_Id
-     FROM pud
+     FROM xxi.pud
     WHERE 
           ipudint_code = 1;
 
@@ -362,7 +362,7 @@ BEGIN
           v.req_id,
           v.itm_id
      INTO p_iState, p_req_id, p_itm_id
-     FROM xxi.v_mi_0007 v inner join xxi.mi_req r on r.req_Id = v.req_Id
+     FROM xxi.v_mi_0007 v inner JOIN xxi.mi_req r on r.req_Id = v.req_Id
     WHERE upper(v.last_name ) = upper( p_last_name )
       AND upper(v.first_name) = upper( p_first_name)
       AND (p_middle_name IS NULL OR upper(v.middle_name) = upper(p_middle_name))
@@ -425,6 +425,69 @@ END;
 $procedure$
 
 
+
+/*
+ * Создаёт person/request/item MI_0007 в текущей транзакции.
+ * Не фиксирует транзакцию и не отправляет запрос.
+ */
+CREATE PROCEDURE create_Request_Core(
+   IN  p_inf_id          numeric,
+
+   IN  p_icusnum         numeric,
+
+   IN  p_last_name       varchar,
+   IN  p_first_name      varchar,
+   IN  p_middle_name     varchar,
+
+   IN  p_birth_date      date,
+
+   IN  p_doc_ser         varchar,
+   IN  p_doc_num         varchar,
+   IN  p_doc_issue_date  date,
+   IN  p_region_code     varchar,
+
+   OUT p_person_id       numeric,
+   OUT p_req_id          numeric,
+   OUT p_itm_id          numeric
+)
+AS
+$procedure$
+   #package
+   #private
+DECLARE
+   l_json_person jsonb;
+BEGIN
+
+   l_json_person := mi_0007_Api.build_Json_Person(
+      p_icusnum,
+      p_last_name,
+      p_first_name,
+      p_middle_name,
+      p_birth_date,
+      p_doc_ser,
+      p_doc_num,
+      p_doc_issue_date,
+      p_region_code
+   );
+
+   p_person_id := mi_person_Api.get_Or_Create(
+      p_inf_id,
+      l_json_person
+   );
+
+   p_req_id := mi_0007_Api.create_Request(
+      p_inf_id
+   );
+
+   p_itm_id := mi_0007_Api.create_Item(
+      p_req_id,
+      p_person_id
+   );
+
+END;
+$procedure$
+
+
 /* Создает новый запрос, и если надо отправляет в MI */
 CREATE PROCEDURE create_And_Exec (
    IN  p_inf_id          numeric,
@@ -457,8 +520,9 @@ DECLARE
 
    l_inf_id      numeric := coalesce( p_inf_id, 74::numeric );
    l_n_day       numeric;
-   l_json_person jsonb;
+
    l_person_id   numeric;
+
    l_check_msg   varchar;
 
    l_req_id      numeric;
@@ -490,6 +554,7 @@ BEGIN
       );
 
       IF l_check_msg IS NOT NULL THEN
+
          p_res_code    := ret_Fail;
          p_result_info := l_check_msg;
 
@@ -572,30 +637,21 @@ BEGIN
 
       END IF;
 
-      l_json_person := mi_0007_Api.build_Json_Person (
-         p_icusnum,
-         p_last_name,
-         p_first_name,
-         p_middle_name,
-         p_birth_date,
-         p_doc_ser,
-         p_doc_num,
-         p_doc_issue_date,
-         p_region_code
-      );
+      CALL mi_0007_Api.create_Request_Core(
+         p_inf_id         => l_inf_id,
+         p_icusnum        => p_icusnum,
+         p_last_name      => p_last_name,
+         p_first_name     => p_first_name,
+         p_middle_name    => p_middle_name,
+         p_birth_date     => p_birth_date,
+         p_doc_ser        => p_doc_ser,
+         p_doc_num        => p_doc_num,
+         p_doc_issue_date => p_doc_issue_date,
+         p_region_code    => p_region_code,
 
-      l_person_id := mi_person_Api.get_Or_Create(
-         l_inf_id,
-         l_json_person
-      );
-
-      l_req_id := mi_0007_Api.create_Request(
-         l_inf_id
-      );
-
-      l_itm_id := mi_0007_Api.create_Item(
-         l_req_id,
-         l_person_id
+         p_person_id      => l_person_id,
+         p_req_id         => l_req_id,
+         p_itm_id         => l_itm_id
       );
 
       p_req_id := l_req_id;
@@ -631,12 +687,11 @@ BEGIN
 
       SELECT coalesce( v.ires_code, r.status_cd )
         INTO p_iState
-        FROM xxi.v_mi_0007 v inner join xxi.mi_req r on v.req_Id = r.req_Id
+        FROM xxi.v_mi_0007 v inner JOIN xxi.mi_req r on v.req_Id = r.req_Id
        WHERE v.itm_id = p_itm_id;
 
       END IF;
 
-      -- CALL mi_logger.info( cLogger, 'create_And_Exec completed', l_inf_id, p_req_id, NULL::varchar, NULL::text, NULL::varchar, cAction_Name, l_person_id, p_icusnum, p_itm_id, NULL::numeric );
       CALL MI_logger.info(
          p_logger_name => cLogger,
          p_message_text=> 'create_And_Exec completed',
@@ -715,26 +770,26 @@ BEGIN
    p_iState      := null;
    p_result_info := null;
 
-   SELECT
-         a.ccuslast_name,
-         a.ccusfirst_name,
-         a.ccusmiddle_name,
-         a.dcusbirthday,
-         b.doc_ser,
-         b.doc_num,
-         b.doc_date
+   SELECT a.ccuslast_name,
+          a.ccusfirst_name,
+          a.ccusmiddle_name,
+          a.dcusbirthday,
+          b.doc_ser,
+          b.doc_num,
+          b.doc_date
      INTO
-         l_last_name,
-         l_first_name,
-         l_middle_name,
-         l_birth_date,
-         l_doc_ser,
-         l_doc_num,
-         l_doc_issue_date
-     FROM "CUS" a,
-          cus_docum b
-    WHERE a.icusnum   = b.icusnum
-      AND b.id_doc_tp = cPsrtRf
+          l_last_name,
+          l_first_name,
+          l_middle_name,
+          l_birth_date,
+          l_doc_ser,
+          l_doc_num,
+          l_doc_issue_date
+     FROM xxi."CUS" a
+     JOIN xxi.cus_docum b
+       ON b.icusnum = a.icusnum
+    WHERE
+          b.id_doc_tp = cPsrtRf
       AND a.ccusflag  IN ( '1', '4' ) -- ФЛ и ИП
       AND ( b.doc_period IS NULL OR b.doc_period >= now()::date )
       AND a.icusnum   = p_iCusNum;
@@ -987,24 +1042,23 @@ BEGIN
       p_object_name   => cPkg_Name
    );
 
-   /*
-     Клиенты из marker
-   */
+   /* Клиенты из marker */
    FOR r IN
    (
       SELECT c.icusnum,
-             c.ccuslast_name last_Name,
-             c.ccusfirst_name first_Name,
+             c.ccuslast_name   last_Name,
+             c.ccusfirst_name  first_Name,
              c.ccusmiddle_name middle_Name,
-             c.dcusbirthday birth_date,
-             b.doc_ser doc_ser,
-             b.doc_num doc_num,
-             b.doc_date doc_issue_date,
-             null::varchar AS region_code
+             c.dcusbirthday    birth_date,
+             b.doc_ser         doc_ser,
+             b.doc_num         doc_num,
+             b.doc_date        doc_issue_date,
+             null::varchar     region_code
         FROM xxi.mrk_id m
         JOIN xxi."CUS" c
           ON c.icusnum  = m.idrow
-             join cus_docum b on c.icusnum = b.icusnum
+        JOIN cus_docum b 
+          ON c.icusnum = b.icusnum
        WHERE m.idmarker = p_marker_id )
    LOOP
 
@@ -1122,6 +1176,7 @@ BEGIN
 
 END;
 $function$
+
 
 /* */
 CREATE PROCEDURE apply_Item_Result (
