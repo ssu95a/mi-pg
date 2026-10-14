@@ -40,6 +40,10 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008 (
 )
 TABLESPACE users
 ;
+create index if not exists ix_mi_0008__year_corr_req_cus on xxi.mi_0008 (iyear, icorr, req_id, icusnum) tablespace indexes
+;
+create index if not exists fx_mi_0008__req_id on xxi.mi_0008 (req_id) tablespace indexes
+;
 ALTER TABLE xxi.mi_0008 OWNER TO "XXI"
 ;
 COMMENT ON TABLE xxi.mi_0008 IS 
