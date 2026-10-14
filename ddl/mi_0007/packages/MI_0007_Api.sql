@@ -59,28 +59,25 @@ BEGIN
 
    IF NOT FOUND THEN
 
-      CALL mi_logger.error (
-         cLogger,
-         'Не задан ID типа документа для паспорта РФ. Не установлено поле IPUDINT_CODE в 1 в таблице PUD.',
-         NULL::numeric, 
-         NULL::numeric, 
-         NULL::varchar, 
-         'get_PassportRF_Id', 
-         NULL::varchar, 
-         cPkg_Name, 
-         NULL::numeric, 
-         NULL::numeric, 
-         NULL::numeric, 
-         NULL::numeric 
+      CALL mi_logger.error(
+         p_logger_name  => cLogger,
+         p_message_text => 'Не задан ID типа документа для паспорта РФ. Не установлено поле IPUDINT_CODE в 1 в таблице PUD.',
+         p_action_cd    => 'get_PassportRF_Id',
+         p_object_name  => cPkg_Name
       );
 
       RAISE EXCEPTION USING
             ERRCODE = 'MI',
             MESSAGE = 'Не задан ID типа документа для "Паспорт гражданина РФ". Не установлено поле IPUDINT_CODE в 1 в таблице PUD.';
+
    END IF;
 
-   CALL MI_logger.info( cLogger, 'ID типа документа для паспорта РФ: ' || g_PsrtRf_Id,
-                        NULL::numeric, NULL::numeric, NULL::varchar, 'get_PassportRF_Id', NULL::varchar, cPkg_Name, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric );
+   CALL mi_logger.info(
+      p_logger_name  => cLogger,
+      p_message_text => 'ID типа документа для паспорта РФ: ' || g_PsrtRf_Id,
+      p_action_cd    => 'get_PassportRF_Id',
+      p_object_name  => cPkg_Name
+   );
 
    RETURN g_PsrtRf_Id;
 
@@ -743,11 +740,21 @@ BEGIN
       AND a.icusnum   = p_iCusNum;
 
    IF NOT FOUND THEN
+
       p_res_code    := -1;
       p_result_info := 'Не найден клиент в справочнике по icusnum = ' || p_icusnum;
 
-      CALL mi_logger.info( cLogger, 'create_And_Exec rejected: customer not found', p_inf_id, null::numeric, p_result_info, cAction_Name, 'icusnum=' || p_icusnum::varchar, cPkg_Name,
-                           null::numeric, p_icusnum, null::numeric, null::numeric );
+      CALL mi_logger.info (
+         p_logger_name   => cLogger,
+         p_message_text  => 'create_And_Exec rejected: cus not found',
+         p_inf_id        => p_inf_id,
+         p_details_text  => p_result_info,
+         p_action_cd     => cAction_Name,
+         p_context_value => 'icusnum=' || p_icusnum::varchar,
+         p_object_name   => cPkg_Name,
+         p_icusnum       => p_icusnum
+      );
+
       RETURN;
 
    END IF;
@@ -866,8 +873,18 @@ BEGIN
    p_res_code := 0;
    p_res_info := 'Создан item 75. req_id=' || l_req_id || ', itm_id=' || l_itm_id;
 
-   CALL mi_logger.info( cLogger, 'create_75_Person_Item completed', 75, l_req_id, p_res_info, cAction_Name, NULL::varchar,
-                        cPkg_name, l_person_id, p_icusnum, l_itm_id, NULL::numeric );
+   CALL mi_logger.info(
+      p_logger_name  => cLogger,
+      p_message_text => 'create_75_Person_Item completed',
+      p_inf_id       => 75,
+      p_req_id       => l_req_id,
+      p_itm_Id       => l_itm_id,
+      p_details_text => p_res_info,
+      p_action_cd    => cAction_Name,
+      p_object_name  => cPkg_Name,
+      p_person_id    => l_person_id,
+      p_icusnum      => p_icusnum
+   );
 
 EXCEPTION
    WHEN OTHERS THEN
@@ -881,11 +898,14 @@ EXCEPTION
             ex.PG_EXCEPTION_HINT    = PG_EXCEPTION_HINT,
             ex.PG_EXCEPTION_CONTEXT = PG_EXCEPTION_CONTEXT;
 
-            CALL mi_logger.error (
-                 cLogger,
-                 cAction_Name || ' failed',
-                 75::numeric, l_req_id,
-                 TS.WhenOthersError( cPkg_Name || '.' || cAction_Name, ex ), 'exception', NULL::varchar, cPkg_Name
+            CALL mi_logger.error(
+               p_logger_name  => cLogger,
+               p_message_text => cAction_Name || ' failed',
+               p_inf_id       => 75,
+               p_req_id       => l_req_id,
+               p_details_text => TS.WhenOthersError( cPkg_Name || '.' || cAction_Name, ex ),
+               p_action_cd    => 'exception',
+               p_object_name  => cPkg_Name
             );
 
       END;
@@ -934,10 +954,19 @@ BEGIN
      INTO l_has_rows;
 
    IF NOT l_has_rows THEN
+
       p_res_code := 0;
       p_res_info := 'По marker_id = ' || p_marker_id || ' не найдено помеченных клиентов. Request не создан.';
 
-      CALL mi_logger.info( cLogger, 'create_Person_Items_By_Marker skipped: marker is empty', cInf_Id, NULL::numeric, p_res_info, cAction_Name, 'marker_id=' || p_marker_id::varchar, cPkg_Name );
+      CALL mi_logger.info (
+         p_logger_name   => cLogger,
+         p_message_text  => 'create_Person_Items_By_Marker skipped: marker is empty',
+         p_inf_id        => cInf_Id,
+         p_details_text  => p_res_info,
+         p_action_cd     => cAction_Name,
+         p_context_value => 'marker_id=' || p_marker_id::varchar,
+         p_object_name   => cPkg_Name
+      );
 
       RETURN;
 
@@ -948,7 +977,15 @@ BEGIN
    */
    p_req_id := mi_0007_Api.create_Request( );
 
-   CALL mi_logger.info( cLogger, 'Batch request created', cInf_Id, p_req_id, 'marker_id=' || p_marker_id::varchar, cAction_Name, NULL::varchar, cPkg_Name );
+   CALL mi_logger.info(
+      p_logger_name   => cLogger,
+      p_message_text  => 'Batch request created',
+      p_inf_id        => cInf_Id,
+      p_req_id        => p_req_id,
+      p_action_cd     => cAction_Name,
+      p_context_value => 'marker_id=' || p_marker_id::varchar,
+      p_object_name   => cPkg_Name
+   );
 
    /*
      Клиенты из marker
@@ -995,14 +1032,34 @@ BEGIN
 
       p_created_count := p_created_count + 1;
 
-      CALL mi_logger.debug( cLogger, 'Batch item created', cInf_Id, p_req_id, NULL::varchar, cAction_Name, 'icusnum=' || r.icusnum::varchar, cPkg_Name, l_person_id, r.icusnum, l_itm_id, NULL::numeric );
+      CALL mi_logger.debug (
+         p_logger_name   => cLogger,
+         p_message_text  => 'Batch item created',
+         p_inf_id        => cInf_Id,
+         p_req_id        => p_req_id,
+         p_itm_Id        => l_itm_id,
+         p_action_cd     => cAction_Name,
+         p_context_value => 'icusnum=' || r.icusnum::varchar,
+         p_object_name   => cPkg_Name,
+         p_person_id     => l_person_id,
+         p_icusnum       => r.icusnum
+      );
 
    END LOOP;
 
    p_res_code := ret_OK;
    p_res_info := 'Создан request, req_id=' || p_req_id || ', item_count=' || p_created_count::varchar;
 
-   CALL mi_logger.info( cLogger, 'create_Person_Items_By_Marker completed', cInf_Id, p_req_id, p_res_info, cAction_Name, 'marker_id=' || p_marker_id::varchar, cPkg_Name );
+   CALL mi_logger.info(
+      p_logger_name   => cLogger,
+      p_message_text  => 'create_Person_Items_By_Marker completed',
+      p_inf_id        => cInf_Id,
+      p_req_id        => p_req_id,
+      p_details_text  => p_res_info,
+      p_action_cd     => cAction_Name,
+      p_context_value => 'marker_id=' || p_marker_id::varchar,
+      p_object_name   => cPkg_Name
+   );
 
 EXCEPTION
    WHEN OTHERS THEN
@@ -1018,11 +1075,14 @@ EXCEPTION
 
             p_res_Info := TS.WhenOthersError( cPkg_Name || '.' || cAction_Name, ex );
 
-            CALL mi_logger.error (
-                 cLogger,
-                 cAction_Name || ' failed',
-                 cInf_Id, p_req_id,
-                 p_res_Info, 'exception', NULL::varchar, cPkg_Name
+            CALL mi_logger.error(
+               p_logger_name  => cLogger,
+               p_message_text => cAction_Name || ' failed',
+               p_inf_id       => cInf_Id,
+               p_req_id       => p_req_id,
+               p_details_text => p_res_Info,
+               p_action_cd    => 'exception',
+               p_object_name  => cPkg_Name
             );
 
       END;
