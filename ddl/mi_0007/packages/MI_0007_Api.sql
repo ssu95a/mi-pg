@@ -488,6 +488,58 @@ END;
 $procedure$
 
 
+/*
+ * Создаёт person/request/item MI_0007 в автономной транзакции.
+ * Используется, когда request должен стать виден внешнему XXL-сервису
+ * независимо от транзакции вызывающей стороны.
+ */
+CREATE PROCEDURE create_Request_AT(
+   IN  p_inf_id          numeric,
+   
+   IN  p_icusnum         numeric,
+
+   IN  p_last_name       varchar,
+   IN  p_first_name      varchar,
+   IN  p_middle_name     varchar,
+
+   IN  p_birth_date      date,
+
+   IN  p_doc_ser         varchar,
+   IN  p_doc_num         varchar,
+   IN  p_doc_issue_date  date,
+   IN  p_region_code     varchar,
+
+   OUT p_person_id       numeric,
+   OUT p_req_id          numeric,
+   OUT p_itm_id          numeric
+)
+AS
+$procedure$
+   #package
+   #private
+BEGIN AUTONOMOUS
+
+   CALL mi_0007_Api.create_Request_Core(
+      p_inf_id         => p_inf_id,
+      p_icusnum        => p_icusnum,
+      p_last_name      => p_last_name,
+      p_first_name     => p_first_name,
+      p_middle_name    => p_middle_name,
+      p_birth_date     => p_birth_date,
+      p_doc_ser        => p_doc_ser,
+      p_doc_num        => p_doc_num,
+      p_doc_issue_date => p_doc_issue_date,
+      p_region_code    => p_region_code,
+
+      p_person_id      => p_person_id,
+      p_req_id         => p_req_id,
+      p_itm_id         => p_itm_id
+   );
+
+END;
+$procedure$
+
+
 /* Создает новый запрос, и если надо отправляет в MI */
 CREATE PROCEDURE create_And_Exec (
    IN  p_inf_id          numeric,
@@ -607,9 +659,12 @@ BEGIN
          );
 
          IF l_found THEN
+            
             p_res_code    := ret_OK;
             p_result_info := null;
+
             RETURN;
+
          END IF;
 
       END IF;
@@ -637,29 +692,60 @@ BEGIN
 
       END IF;
 
-      CALL mi_0007_Api.create_Request_Core(
-         p_inf_id         => l_inf_id,
-         p_icusnum        => p_icusnum,
-         p_last_name      => p_last_name,
-         p_first_name     => p_first_name,
-         p_middle_name    => p_middle_name,
-         p_birth_date     => p_birth_date,
-         p_doc_ser        => p_doc_ser,
-         p_doc_num        => p_doc_num,
-         p_doc_issue_date => p_doc_issue_date,
-         p_region_code    => p_region_code,
+      IF p_do_send IS TRUE THEN
 
-         p_person_id      => l_person_id,
-         p_req_id         => l_req_id,
-         p_itm_id         => l_itm_id
-      );
+         /*
+          * Request должен быть доступен XXL из другой DB-сессии.
+          * Фиксируем только MI request/item в автономной транзакции.
+          */
+         CALL mi_0007_Api.create_Request_AT(
+            p_inf_id         => l_inf_id,
+            p_icusnum        => p_icusnum,
+            p_last_name      => p_last_name,
+            p_first_name     => p_first_name,
+            p_middle_name    => p_middle_name,
+            p_birth_date     => p_birth_date,
+            p_doc_ser        => p_doc_ser,
+            p_doc_num        => p_doc_num,
+            p_doc_issue_date => p_doc_issue_date,
+            p_region_code    => p_region_code,
 
-      p_req_id := l_req_id;
-      p_itm_id := l_itm_id;
+            p_person_id      => l_person_id,
+            p_req_id         => l_req_id,
+            p_itm_id         => l_itm_id
+         );
 
-   end;
+      ELSE
 
-   COMMIT;
+         /*
+          * Только создание request.
+          * Транзакцией полностью управляет вызывающая сторона.
+          */
+         CALL mi_0007_Api.create_Request_Core (
+            p_inf_id         => l_inf_id,
+            p_icusnum        => p_icusnum,
+            p_last_name      => p_last_name,
+            p_first_name     => p_first_name,
+            p_middle_name    => p_middle_name,
+            p_birth_date     => p_birth_date,
+            p_doc_ser        => p_doc_ser,
+            p_doc_num        => p_doc_num,
+            p_doc_issue_date => p_doc_issue_date,
+            p_region_code    => p_region_code,
+
+            p_person_id      => l_person_id,
+            p_req_id         => l_req_id,
+            p_itm_id         => l_itm_id
+         );
+
+      END IF;
+   
+   END; -- begin
+
+   
+   p_req_id := l_req_id;
+   p_itm_id := l_itm_id;
+
 
    DECLARE
       l_result  mi_resultctx.exec_result;
@@ -675,10 +761,10 @@ BEGIN
 
          IF l_result.is_success THEN
             p_res_code := RET_OK;
-            p_result_info := coalesce(l_result.result_info, '����������');
+            p_result_info := coalesce(l_result.result_info, 'успешно');
          ELSE
             p_res_code := RET_Fail;
-            p_result_info := coalesce(l_result.result_info, '������ �������� � M-Bus');
+            p_result_info := coalesce(l_result.result_info, 'Ошибка при отправке в M-Bus');
          END IF;
 
       END IF;
@@ -727,7 +813,7 @@ BEGIN
          p_result_info := SQLERRM;
 
          RAISE;
-   end;
+   END;
 
 END;
 $procedure$
