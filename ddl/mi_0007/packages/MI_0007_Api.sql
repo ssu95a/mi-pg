@@ -53,34 +53,31 @@ BEGIN
 
    SELECT pud.ipudid
      INTO g_PsrtRf_Id
-     FROM pud
+     FROM xxi.pud
     WHERE 
           ipudint_code = 1;
 
    IF NOT FOUND THEN
 
-      CALL mi_logger.error (
-         cLogger,
-         'Не задан ID типа документа для паспорта РФ. Не установлено поле IPUDINT_CODE в 1 в таблице PUD.',
-         NULL::numeric, 
-         NULL::numeric, 
-         NULL::varchar, 
-         'get_PassportRF_Id', 
-         NULL::varchar, 
-         cPkg_Name, 
-         NULL::numeric, 
-         NULL::numeric, 
-         NULL::numeric, 
-         NULL::numeric 
+      CALL mi_logger.error(
+         p_logger_name  => cLogger,
+         p_message_text => 'Не задан ID типа документа для паспорта РФ. Не установлено поле IPUDINT_CODE в 1 в таблице PUD.',
+         p_action_cd    => 'get_PassportRF_Id',
+         p_object_name  => cPkg_Name
       );
 
       RAISE EXCEPTION USING
             ERRCODE = 'MI',
             MESSAGE = 'Не задан ID типа документа для "Паспорт гражданина РФ". Не установлено поле IPUDINT_CODE в 1 в таблице PUD.';
+
    END IF;
 
-   CALL MI_logger.info( cLogger, 'ID типа документа для паспорта РФ: ' || g_PsrtRf_Id,
-                        NULL::numeric, NULL::numeric, NULL::varchar, 'get_PassportRF_Id', NULL::varchar, cPkg_Name, NULL::numeric, NULL::numeric, NULL::numeric, NULL::numeric );
+   CALL mi_logger.info(
+      p_logger_name  => cLogger,
+      p_message_text => 'ID типа документа для паспорта РФ: ' || g_PsrtRf_Id,
+      p_action_cd    => 'get_PassportRF_Id',
+      p_object_name  => cPkg_Name
+   );
 
    RETURN g_PsrtRf_Id;
 
@@ -246,7 +243,9 @@ BEGIN
       p_json_person::jsonb
    );
 
-   l_req_id := mi_0007_Api.create_Request( );
+   l_req_id := mi_0007_Api.create_Request (
+      p_inf_Id => p_inf_Id 
+   );
 
    l_itm_id := mi_0007_Api.create_Item(
       p_req_id    => l_req_id,
@@ -332,7 +331,9 @@ $function$
 /* */
 CREATE PROCEDURE has_Entry_Set (
    IN  p_inf_id        numeric,
+   
    IN  p_icusnum       numeric,
+
    IN  p_last_name     varchar,
    IN  p_first_name    varchar,
    IN  p_middle_name   varchar,
@@ -340,7 +341,9 @@ CREATE PROCEDURE has_Entry_Set (
    IN  p_doc_ser       varchar,
    IN  p_doc_issue_date date,
    IN  p_birth_date    date,
+
    IN  p_n_day         numeric,
+
    OUT p_found         boolean,
    OUT p_iState        numeric,
    OUT p_req_id        numeric,
@@ -363,7 +366,7 @@ BEGIN
           v.req_id,
           v.itm_id
      INTO p_iState, p_req_id, p_itm_id
-     FROM xxi.v_mi_0007 v inner join xxi.mi_req r on r.req_Id = v.req_Id
+     FROM xxi.v_mi_0007 v inner JOIN xxi.mi_req r on r.req_Id = v.req_Id
     WHERE upper(v.last_name ) = upper( p_last_name )
       AND upper(v.first_name) = upper( p_first_name)
       AND (p_middle_name IS NULL OR upper(v.middle_name) = upper(p_middle_name))
@@ -426,6 +429,121 @@ END;
 $procedure$
 
 
+
+/*
+ * Создаёт person/request/item MI_0007 в текущей транзакции.
+ * Не фиксирует транзакцию и не отправляет запрос.
+ */
+CREATE PROCEDURE create_Request_Core(
+   IN  p_inf_id          numeric,
+
+   IN  p_icusnum         numeric,
+
+   IN  p_last_name       varchar,
+   IN  p_first_name      varchar,
+   IN  p_middle_name     varchar,
+
+   IN  p_birth_date      date,
+
+   IN  p_doc_ser         varchar,
+   IN  p_doc_num         varchar,
+   IN  p_doc_issue_date  date,
+   IN  p_region_code     varchar,
+
+   OUT p_person_id       numeric,
+   OUT p_req_id          numeric,
+   OUT p_itm_id          numeric
+)
+AS
+$procedure$
+   #package
+   #private
+DECLARE
+   l_json_person jsonb;
+BEGIN
+
+   l_json_person := mi_0007_Api.build_Json_Person(
+      p_icusnum,
+      p_last_name,
+      p_first_name,
+      p_middle_name,
+      p_birth_date,
+      p_doc_ser,
+      p_doc_num,
+      p_doc_issue_date,
+      p_region_code
+   );
+
+   p_person_id := mi_person_Api.get_Or_Create(
+      p_inf_id,
+      l_json_person
+   );
+
+   p_req_id := mi_0007_Api.create_Request(
+      p_inf_id
+   );
+
+   p_itm_id := mi_0007_Api.create_Item(
+      p_req_id,
+      p_person_id
+   );
+
+END;
+$procedure$
+
+
+/*
+ * Создаёт person/request/item MI_0007 в автономной транзакции.
+ * Используется, когда request должен стать виден внешнему XXL-сервису
+ * независимо от транзакции вызывающей стороны.
+ */
+CREATE PROCEDURE create_Request_AT(
+   IN  p_inf_id          numeric,
+   
+   IN  p_icusnum         numeric,
+
+   IN  p_last_name       varchar,
+   IN  p_first_name      varchar,
+   IN  p_middle_name     varchar,
+
+   IN  p_birth_date      date,
+
+   IN  p_doc_ser         varchar,
+   IN  p_doc_num         varchar,
+   IN  p_doc_issue_date  date,
+   IN  p_region_code     varchar,
+
+   OUT p_person_id       numeric,
+   OUT p_req_id          numeric,
+   OUT p_itm_id          numeric
+)
+AS
+$procedure$
+   #package
+   #private
+BEGIN AUTONOMOUS
+
+   CALL mi_0007_Api.create_Request_Core(
+      p_inf_id         => p_inf_id,
+      p_icusnum        => p_icusnum,
+      p_last_name      => p_last_name,
+      p_first_name     => p_first_name,
+      p_middle_name    => p_middle_name,
+      p_birth_date     => p_birth_date,
+      p_doc_ser        => p_doc_ser,
+      p_doc_num        => p_doc_num,
+      p_doc_issue_date => p_doc_issue_date,
+      p_region_code    => p_region_code,
+
+      p_person_id      => p_person_id,
+      p_req_id         => p_req_id,
+      p_itm_id         => p_itm_id
+   );
+
+END;
+$procedure$
+
+
 /* Создает новый запрос, и если надо отправляет в MI */
 CREATE PROCEDURE create_And_Exec (
    IN  p_inf_id          numeric,
@@ -458,8 +576,9 @@ DECLARE
 
    l_inf_id      numeric := coalesce( p_inf_id, 74::numeric );
    l_n_day       numeric;
-   l_json_person jsonb;
+
    l_person_id   numeric;
+
    l_check_msg   varchar;
 
    l_req_id      numeric;
@@ -491,6 +610,7 @@ BEGIN
       );
 
       IF l_check_msg IS NOT NULL THEN
+
          p_res_code    := ret_Fail;
          p_result_info := l_check_msg;
 
@@ -500,7 +620,7 @@ BEGIN
 
       l_n_day := mi_prp.get_Wsp_Property( 7::numeric, 'VALID_PERIOD_DOC_DAYS', '0')::numeric;
 
-      CALL mi_0007_Api.has_Manual_Set(
+      CALL mi_0007_Api.has_Manual_Set (
          p_icusnum,
          p_last_name,
          p_first_name,
@@ -515,7 +635,7 @@ BEGIN
          p_itm_id
       );
 
-      IF l_found THEN
+      IF l_found AND coalesce(p_iState, -1) > 0 THEN
 
          p_res_code    := ret_OK;
          p_result_info := null;
@@ -526,7 +646,8 @@ BEGIN
 
       IF l_inf_id <> 75 THEN
 
-         CALL mi_0007_Api.has_Entry_Set ( 74::numeric,
+         CALL mi_0007_Api.has_Entry_Set  (
+            74::numeric,
             p_icusnum,
             p_last_name,
             p_first_name,
@@ -542,10 +663,15 @@ BEGIN
             p_itm_id
          );
 
-         IF l_found THEN
+         IF l_found
+            AND coalesce(p_iState, -1) > 0
+         THEN
+            
             p_res_code    := ret_OK;
             p_result_info := null;
+
             RETURN;
+
          END IF;
 
       END IF;
@@ -553,58 +679,86 @@ BEGIN
       IF l_inf_id = 75 THEN
 
          CALL mi_0007_Api.create_75_Person_Item (
-            p_icusnum,
-            p_last_name,
-            p_first_name,
-            p_middle_name,
-            p_doc_ser,
-            p_doc_num,
-            p_doc_issue_date,
-            p_birth_date,
-            p_region_code,
-            l_res_code_75,
-            l_res_info_75
+            p_icusnum        => p_icusnum,
+            p_last_name      => p_last_name,
+            p_first_name     => p_first_name,
+            p_middle_name    => p_middle_name,
+            p_doc_ser        => p_doc_ser,
+            p_doc_num        => p_doc_num,
+            p_doc_issue_date => p_doc_issue_date,
+            p_birth_date     => p_birth_date,
+            p_region_code    => p_region_code,
+
+            p_res_code       => l_res_code_75,
+            p_req_id         => l_req_id,
+            p_itm_id         => l_itm_id,
+            p_res_info       => l_res_info_75
          );
 
          p_res_code    := l_res_code_75;
+         p_req_id      := l_req_id;
+         p_itm_id      := l_itm_id;
+         p_iState      := 300;
          p_result_info := l_res_info_75;
 
          RETURN;
 
       END IF;
 
-      l_json_person := mi_0007_Api.build_Json_Person (
-         p_icusnum,
-         p_last_name,
-         p_first_name,
-         p_middle_name,
-         p_birth_date,
-         p_doc_ser,
-         p_doc_num,
-         p_doc_issue_date,
-         p_region_code
-      );
+      IF p_do_send IS TRUE THEN
 
-      l_person_id := mi_person_Api.get_Or_Create(
-         l_inf_id,
-         l_json_person
-      );
+         /*
+          * Request должен быть доступен XXL из другой DB-сессии.
+          * Фиксируем только MI request/item в автономной транзакции.
+          */
+         CALL mi_0007_Api.create_Request_AT(
+            p_inf_id         => l_inf_id,
+            p_icusnum        => p_icusnum,
+            p_last_name      => p_last_name,
+            p_first_name     => p_first_name,
+            p_middle_name    => p_middle_name,
+            p_birth_date     => p_birth_date,
+            p_doc_ser        => p_doc_ser,
+            p_doc_num        => p_doc_num,
+            p_doc_issue_date => p_doc_issue_date,
+            p_region_code    => p_region_code,
 
-      l_req_id := mi_0007_Api.create_Request(
-         l_inf_id
-      );
+            p_person_id      => l_person_id,
+            p_req_id         => l_req_id,
+            p_itm_id         => l_itm_id
+         );
 
-      l_itm_id := mi_0007_Api.create_Item(
-         l_req_id,
-         l_person_id
-      );
+      ELSE
 
-      p_req_id := l_req_id;
-      p_itm_id := l_itm_id;
+         /*
+          * Только создание request.
+          * Транзакцией полностью управляет вызывающая сторона.
+          */
+         CALL mi_0007_Api.create_Request_Core (
+            p_inf_id         => l_inf_id,
+            p_icusnum        => p_icusnum,
+            p_last_name      => p_last_name,
+            p_first_name     => p_first_name,
+            p_middle_name    => p_middle_name,
+            p_birth_date     => p_birth_date,
+            p_doc_ser        => p_doc_ser,
+            p_doc_num        => p_doc_num,
+            p_doc_issue_date => p_doc_issue_date,
+            p_region_code    => p_region_code,
 
-   end;
+            p_person_id      => l_person_id,
+            p_req_id         => l_req_id,
+            p_itm_id         => l_itm_id
+         );
 
-   COMMIT;
+      END IF;
+   
+   END; -- begin
+
+   
+   p_req_id := l_req_id;
+   p_itm_id := l_itm_id;
+
 
    DECLARE
       l_result  mi_resultctx.exec_result;
@@ -620,32 +774,35 @@ BEGIN
 
          IF l_result.is_success THEN
             p_res_code := RET_OK;
-            p_result_info := coalesce(l_result.result_info, '����������');
+            p_result_info := coalesce(l_result.result_info, 'успешно');
          ELSE
             p_res_code := RET_Fail;
-            p_result_info := coalesce(l_result.result_info, '������ �������� � M-Bus');
+            p_result_info := coalesce(l_result.result_info, 'Ошибка при отправке в M-Bus');
          END IF;
 
-      END IF;
+      ELSE
+
+         p_res_code := ret_OK;
+
+      END IF; -- do_Send
 
       if p_res_code = ret_OK THEN
 
-      SELECT coalesce( v.ires_code, r.status_cd )
-        INTO p_iState
-        FROM xxi.v_mi_0007 v inner join xxi.mi_req r on v.req_Id = r.req_Id
-       WHERE v.itm_id = p_itm_id;
-
+         SELECT coalesce( v.ires_code, r.status_cd )
+           INTO p_iState
+           FROM xxi.v_mi_0007 v 
+           JOIN xxi.mi_req r ON v.req_Id = r.req_Id
+          WHERE 
+                v.itm_id = p_itm_id;
       END IF;
 
-      -- CALL mi_logger.info( cLogger, 'create_And_Exec completed', l_inf_id, p_req_id, NULL::varchar, NULL::text, NULL::varchar, cAction_Name, l_person_id, p_icusnum, p_itm_id, NULL::numeric );
-      CALL MI_logger.info(
+      CALL MI_logger.info (
          p_logger_name => cLogger,
          p_message_text=> 'create_And_Exec completed',
-         p_inf_id => l_inf_id,
-         p_req_id => p_req_id,
-         p_icusnum => p_icusnum
+         p_inf_id      => l_inf_id,
+         p_req_id      => p_req_id,
+         p_icusnum     => p_icusnum
       );
-
 
    EXCEPTION
 
@@ -673,7 +830,7 @@ BEGIN
          p_result_info := SQLERRM;
 
          RAISE;
-   end;
+   END;
 
 END;
 $procedure$
@@ -682,9 +839,12 @@ $procedure$
 /* Создание запроса для конкретного cus атрибуты подтягиваются из справочника */
 CREATE PROCEDURE create_And_Exec(
    IN  p_inf_id       numeric,
+
    IN  p_icusnum      numeric,
+
    IN  p_time_out     numeric,
    IN  p_do_send      boolean,
+
    OUT p_res_code     int4,
    OUT p_req_id       numeric,
    OUT p_itm_id       numeric,
@@ -716,36 +876,47 @@ BEGIN
    p_iState      := null;
    p_result_info := null;
 
-   SELECT
-         a.ccuslast_name,
-         a.ccusfirst_name,
-         a.ccusmiddle_name,
-         a.dcusbirthday,
-         b.doc_ser,
-         b.doc_num,
-         b.doc_date
-     INTO
-         l_last_name,
-         l_first_name,
-         l_middle_name,
-         l_birth_date,
-         l_doc_ser,
-         l_doc_num,
-         l_doc_issue_date
-     FROM "CUS" a,
-          cus_docum b
-    WHERE a.icusnum   = b.icusnum
+   SELECT a.ccuslast_name,
+          a.ccusfirst_name,
+          a.ccusmiddle_name,
+          a.dcusbirthday,
+          b.doc_ser,
+          b.doc_num,
+          b.doc_date
+     INTO l_last_name,
+          l_first_name,
+          l_middle_name,
+          l_birth_date,
+          l_doc_ser,
+          l_doc_num,
+          l_doc_issue_date
+     FROM xxi."CUS" a
+     JOIN xxi.cus_docum b
+       ON b.icusnum = a.icusnum
+    WHERE a.icusnum = p_iCusNum
+      AND a.ccusflag IN ('1', '4')
       AND b.id_doc_tp = cPsrtRf
-      AND a.ccusflag  IN ( '1', '4' ) -- ФЛ и ИП
-      AND ( b.doc_period IS NULL OR b.doc_period >= now()::date )
-      AND a.icusnum   = p_iCusNum;
+      AND (b.doc_period IS NULL OR b.doc_period >= CURRENT_DATE)
+    ORDER BY (b.pref = 'Y') DESC, b.doc_date DESC NULLS LAST, b.id_doc DESC
+    LIMIT 1;
+
 
    IF NOT FOUND THEN
-      p_res_code    := -1;
-      p_result_info := 'Не найден клиент в справочнике по icusnum = ' || p_icusnum;
 
-      CALL mi_logger.info( cLogger, 'create_And_Exec rejected: customer not found', p_inf_id, null::numeric, p_result_info, cAction_Name, 'icusnum=' || p_icusnum::varchar, cPkg_Name,
-                           null::numeric, p_icusnum, null::numeric, null::numeric );
+      p_res_code    := -1;
+      p_result_info :=  'Не найден CUS или действующий паспорт РФ по icusnum = ' || p_icusnum;
+
+      CALL mi_logger.info (
+         p_logger_name   => cLogger,
+         p_message_text  => 'create_And_Exec rejected: cus not found',
+         p_inf_id        => p_inf_id,
+         p_details_text  => p_result_info,
+         p_action_cd     => cAction_Name,
+         p_context_value => 'icusnum=' || p_icusnum::varchar,
+         p_object_name   => cPkg_Name,
+         p_icusnum       => p_icusnum
+      );
+
       RETURN;
 
    END IF;
@@ -774,7 +945,7 @@ END;
 $procedure$
 
 
-/* Создает запрос для 75 вида сведений - ручная установка */
+/* Создает новый результат для 75 вида сведений - ручная установка */
 CREATE PROCEDURE create_75_Person_Item(
    IN  p_icusnum         numeric,
    IN  p_last_name       varchar,
@@ -785,66 +956,63 @@ CREATE PROCEDURE create_75_Person_Item(
    IN  p_doc_issue_date  date,
    IN  p_birth_date      date,
    IN  p_region_code     varchar,
+
    OUT p_res_code        int4,
+   OUT p_req_id          numeric,
+   OUT p_itm_id          numeric,
    OUT p_res_info        varchar
 )
 AS
 $procedure$
    #package
 DECLARE
-
-   cAction_Name  CONSTANT varchar(100) := cPkg_Name || '.create_75_item';
+   cAction_Name CONSTANT varchar(100) := cPkg_Name || '.create_75_Person_Item';
 
    l_json_person jsonb;
    l_person_id   numeric;
-   l_req_id      numeric;
-   l_itm_id      numeric;
 
 BEGIN
 
    p_res_code := ret_Fail;
+   p_req_id   := NULL;
+   p_itm_id   := NULL;
    p_res_info := NULL;
 
-   l_json_person := mi_0007_Api.build_json_person (
-      p_icusnum::numeric,
-      p_last_name::varchar,
-      p_first_name::varchar,
-      p_middle_name::varchar,
-      p_birth_date::date,
-      p_doc_ser::varchar,
-      p_doc_num::varchar,
-      p_doc_issue_date::date,
-      p_region_code::varchar
+   /*
+    * Если управление дошло сюда, has_Manual_Set уже проверил,
+    * что подходящего действующего результата 75 / state=300 нет.
+    * Поэтому всегда создаём новый manual request.
+    */
+   l_json_person := mi_0007_Api.build_Json_Person(
+      p_icusnum,
+      p_last_name,
+      p_first_name,
+      p_middle_name,
+      p_birth_date,
+      p_doc_ser,
+      p_doc_num,
+      p_doc_issue_date,
+      p_region_code
    );
 
-   l_person_id := mi_person_Api.get_Or_Create (
+   l_person_id := mi_person_Api.get_Or_Create(
       75::numeric,
       l_json_person
    );
 
    /*
-     Последний request для inf_id = 75, нет - создаём новый СРАЗУ в status = 1
-   */
-   SELECT r.req_id
-     INTO l_req_id
-     FROM xxi.mi_req r
-    WHERE r.inf_id = 75::numeric
-    ORDER BY r.created_at DESC,
-             r.req_id DESC
-    LIMIT 1;
+    * Для нового manual result всегда создаётся новый request.
+    * Повторное использование существующего результата выполняется
+    * выше, через has_Manual_Set.
+    */
+   p_req_id := mi_Request_Api.create_Request(
+      p_inf_id    => 75::numeric,
+      p_status_cd => 1::numeric
+   );
 
-   IF NOT FOUND THEN
+   p_itm_id := mi_request_Api.next_Itm_Id();
 
-      l_req_id := mi_Request_Api.create_Request (
-         p_inf_id    => 75::numeric,
-         p_status_cd =>  1::numeric
-      );
-
-   END IF;
-
-   l_itm_id := mi_request_Api.next_Itm_Id( );
-
-   INSERT INTO xxi.mi_0007 (
+   INSERT INTO xxi.mi_0007(
       itm_id,
       req_id,
       person_id,
@@ -853,42 +1021,59 @@ BEGIN
       tres_time
    )
    VALUES(
-      l_itm_id,
-      l_req_id,
+      p_itm_id,
+      p_req_id,
       l_person_id,
       clock_timestamp(),
       300::numeric,
       clock_timestamp()
    );
 
-   p_res_code := 0;
-   p_res_info := 'Создан item 75. req_id=' || l_req_id || ', itm_id=' || l_itm_id;
+   p_res_code := ret_OK;
+   p_res_info := 'Создан item 75. req_id=' || p_req_id || ', itm_id=' || p_itm_id;
 
-   CALL mi_logger.info( cLogger, 'create_75_Person_Item completed', 75, l_req_id, p_res_info, cAction_Name, NULL::varchar,
-                        cPkg_name, l_person_id, p_icusnum, l_itm_id, NULL::numeric );
+   CALL mi_logger.info(
+      p_logger_name  => cLogger,
+      p_message_text => 'create_75_Person_Item completed',
+      p_inf_id       => 75,
+      p_req_id       => p_req_id,
+      p_itm_Id       => p_itm_id,
+      p_details_text => p_res_info,
+      p_action_cd    => cAction_Name,
+      p_object_name  => cPkg_Name,
+      p_person_id    => l_person_id,
+      p_icusnum      => p_icusnum
+   );
 
 EXCEPTION
    WHEN OTHERS THEN
       DECLARE
          ex TS.T_StackedDiagnostics;
       BEGIN
-        GET STACKED DIAGNOSTICS
+
+         GET STACKED DIAGNOSTICS
             ex.RETURNED_SQLSTATE    = RETURNED_SQLSTATE,
             ex.MESSAGE_TEXT         = MESSAGE_TEXT,
             ex.PG_EXCEPTION_DETAIL  = PG_EXCEPTION_DETAIL,
             ex.PG_EXCEPTION_HINT    = PG_EXCEPTION_HINT,
             ex.PG_EXCEPTION_CONTEXT = PG_EXCEPTION_CONTEXT;
 
-            CALL mi_logger.error (
-                 cLogger,
-                 cAction_Name || ' failed',
-                 75::numeric, l_req_id,
-                 TS.WhenOthersError( cPkg_Name || '.' || cAction_Name, ex ), 'exception', NULL::varchar, cPkg_Name
-            );
+         CALL mi_logger.error(
+            p_logger_name  => cLogger,
+            p_message_text => cAction_Name || ' failed',
+            p_inf_id       => 75,
+            p_req_id       => p_req_id,
+            p_itm_Id       => p_itm_id,
+            p_details_text => TS.WhenOthersError(cAction_Name, ex),
+            p_action_cd    => 'exception',
+            p_object_name  => cPkg_Name,
+            p_person_id    => l_person_id,
+            p_icusnum      => p_icusnum
+         );
 
       END;
 
-   RAISE;
+      RAISE;
 
 END;
 $procedure$
@@ -897,7 +1082,9 @@ $procedure$
 /* Создание запроса с позициями на основе маркера в "CUS" */
 CREATE PROCEDURE create_Person_Items_By_Marker (
     IN p_marker_id      numeric,
+
    OUT p_req_id         numeric,
+
    OUT p_created_count  int4,
    OUT p_res_Code       int4,
    OUT p_res_Info       varchar
@@ -906,8 +1093,10 @@ AS
 $procedure$
    #package
 DECLARE
-   cAction_Name   CONSTANT varchar(20) := 'create_items_batch';
-   cInf_Id        CONSTANT numeric     := 74::numeric;
+   
+   cAction_Name   CONSTANT varchar(100) := cPkg_Name || '.create_Person_Items_By_Marker';
+   cInf_Id        CONSTANT numeric      := 74::numeric;
+
    r              record;
    l_has_rows     boolean;
 
@@ -932,42 +1121,73 @@ BEGIN
      INTO l_has_rows;
 
    IF NOT l_has_rows THEN
+
       p_res_code := 0;
       p_res_info := 'По marker_id = ' || p_marker_id || ' не найдено помеченных клиентов. Request не создан.';
 
-      CALL mi_logger.info( cLogger, 'create_Person_Items_By_Marker skipped: marker is empty', cInf_Id, NULL::numeric, p_res_info, cAction_Name, 'marker_id=' || p_marker_id::varchar, cPkg_Name );
+      CALL mi_logger.info (
+         p_logger_name   => cLogger,
+         p_message_text  => 'create_Person_Items_By_Marker skipped: marker is empty',
+         p_inf_id        => cInf_Id,
+         p_details_text  => p_res_info,
+         p_action_cd     => cAction_Name,
+         p_context_value => 'marker_id=' || p_marker_id::varchar,
+         p_object_name   => cPkg_Name
+      );
 
       RETURN;
 
    END IF;
 
-   /*
-     Новый request для всей batch-операции
-   */
-   p_req_id := mi_0007_Api.create_Request( );
 
-   CALL mi_logger.info( cLogger, 'Batch request created', cInf_Id, p_req_id, 'marker_id=' || p_marker_id::varchar, cAction_Name, NULL::varchar, cPkg_Name );
-
-   /*
-     Клиенты из marker
-   */
-   FOR r IN
-   (
-      SELECT c.icusnum,
-             c.ccuslast_name last_Name,
-             c.ccusfirst_name first_Name,
-             c.ccusmiddle_name middle_Name,
-             c.dcusbirthday birth_date,
-             b.doc_ser doc_ser,
-             b.doc_num doc_num,
-             b.doc_date doc_issue_date,
-             null::varchar AS region_code
-        FROM xxi.mrk_id m
-        JOIN xxi."CUS" c
-          ON c.icusnum  = m.idrow
-             join cus_docum b on c.icusnum = b.icusnum
-       WHERE m.idmarker = p_marker_id )
+   /* Клиенты из marker */
+      FOR r IN (
+         SELECT c.icusnum,
+                c.ccuslast_name   AS last_name,
+                c.ccusfirst_name  AS first_name,
+                c.ccusmiddle_name AS middle_name,
+                c.dcusbirthday    AS birth_date,
+                d.doc_ser,
+                d.doc_num,
+                d.doc_date        AS doc_issue_date,
+                NULL::varchar     AS region_code
+           FROM xxi.mrk_id m
+           JOIN xxi."CUS" c
+             ON c.icusnum = m.idrow
+           JOIN LATERAL
+           (
+              SELECT b.doc_ser,
+                     b.doc_num,
+                     b.doc_date
+                FROM xxi.cus_docum b
+               WHERE b.icusnum = c.icusnum
+                 AND b.id_doc_tp = mi_0007_api.get_PassportRF_Id()
+                 AND (b.doc_period IS NULL OR b.doc_period >= CURRENT_DATE)
+               ORDER BY (b.pref = 'Y') DESC, b.doc_date DESC NULLS LAST, b.id_doc DESC
+               LIMIT 1
+           ) d
+             ON true
+          WHERE m.idmarker = p_marker_id
+            AND c.ccusflag IN ('1', '4')
+   )
    LOOP
+
+      IF p_req_id is null THEN
+
+         /* Новый request для всей batch-операции */
+         p_req_id := mi_0007_Api.create_Request( cInf_Id );
+
+         CALL mi_logger.info(
+            p_logger_name   => cLogger,
+            p_message_text  => 'Batch request created',
+            p_inf_id        => cInf_Id,
+            p_req_id        => p_req_id,
+            p_action_cd     => cAction_Name,
+            p_context_value => 'marker_id=' || p_marker_id::varchar,
+            p_object_name   => cPkg_Name
+         );
+
+      END IF;
 
       l_json_person := mi_0007_Api.build_json_person (
          r.icusnum::numeric,
@@ -993,14 +1213,53 @@ BEGIN
 
       p_created_count := p_created_count + 1;
 
-      CALL mi_logger.debug( cLogger, 'Batch item created', cInf_Id, p_req_id, NULL::varchar, cAction_Name, 'icusnum=' || r.icusnum::varchar, cPkg_Name, l_person_id, r.icusnum, l_itm_id, NULL::numeric );
+      CALL mi_logger.debug (
+         p_logger_name   => cLogger,
+         p_message_text  => 'Batch item created',
+         p_inf_id        => cInf_Id,
+         p_req_id        => p_req_id,
+         p_itm_Id        => l_itm_id,
+         p_action_cd     => cAction_Name,
+         p_context_value => 'icusnum=' || r.icusnum::varchar,
+         p_object_name   => cPkg_Name,
+         p_person_id     => l_person_id,
+         p_icusnum       => r.icusnum
+      );
 
    END LOOP;
+
+   IF p_req_id IS NULL THEN
+
+      p_res_code := ret_OK;
+      p_res_info := 'По marker_id = ' || p_marker_id || ' не найдено клиентов с действующим паспортом РФ. Request не создан.';
+
+      CALL mi_logger.info(
+         p_logger_name   => cLogger,
+         p_message_text  => 'create_Person_Items_By_Marker skipped: no valid passport',
+         p_inf_id        => cInf_Id,
+         p_details_text  => p_res_info,
+         p_action_cd     => cAction_Name,
+         p_context_value => 'marker_id=' || p_marker_id::varchar,
+         p_object_name   => cPkg_Name
+      );
+
+      RETURN;
+
+   END IF;
 
    p_res_code := ret_OK;
    p_res_info := 'Создан request, req_id=' || p_req_id || ', item_count=' || p_created_count::varchar;
 
-   CALL mi_logger.info( cLogger, 'create_Person_Items_By_Marker completed', cInf_Id, p_req_id, p_res_info, cAction_Name, 'marker_id=' || p_marker_id::varchar, cPkg_Name );
+   CALL mi_logger.info(
+      p_logger_name   => cLogger,
+      p_message_text  => 'create_Person_Items_By_Marker completed',
+      p_inf_id        => cInf_Id,
+      p_req_id        => p_req_id,
+      p_details_text  => p_res_info,
+      p_action_cd     => cAction_Name,
+      p_context_value => 'marker_id=' || p_marker_id::varchar,
+      p_object_name   => cPkg_Name
+   );
 
 EXCEPTION
    WHEN OTHERS THEN
@@ -1016,11 +1275,14 @@ EXCEPTION
 
             p_res_Info := TS.WhenOthersError( cPkg_Name || '.' || cAction_Name, ex );
 
-            CALL mi_logger.error (
-                 cLogger,
-                 cAction_Name || ' failed',
-                 cInf_Id, p_req_id,
-                 p_res_Info, 'exception', NULL::varchar, cPkg_Name
+            CALL mi_logger.error(
+               p_logger_name  => cLogger,
+               p_message_text => cAction_Name || ' failed',
+               p_inf_id       => cInf_Id,
+               p_req_id       => p_req_id,
+               p_details_text => p_res_Info,
+               p_action_cd    => 'exception',
+               p_object_name  => cPkg_Name
             );
 
       END;
@@ -1060,6 +1322,7 @@ BEGIN
 
 END;
 $function$
+
 
 /* */
 CREATE PROCEDURE apply_Item_Result (
