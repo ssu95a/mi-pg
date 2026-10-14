@@ -1075,7 +1075,9 @@ $procedure$
 /* Создание запроса с позициями на основе маркера в "CUS" */
 CREATE PROCEDURE create_Person_Items_By_Marker (
     IN p_marker_id      numeric,
+
    OUT p_req_id         numeric,
+
    OUT p_created_count  int4,
    OUT p_res_Code       int4,
    OUT p_res_Info       varchar
@@ -1084,8 +1086,10 @@ AS
 $procedure$
    #package
 DECLARE
-   cAction_Name   CONSTANT varchar(20) := 'create_items_batch';
-   cInf_Id        CONSTANT numeric     := 74::numeric;
+   
+   cAction_Name   CONSTANT varchar(100) := cPkg_Name || '.create_Person_Items_By_Marker';
+   cInf_Id        CONSTANT numeric      := 74::numeric;
+
    r              record;
    l_has_rows     boolean;
 
@@ -1128,40 +1132,55 @@ BEGIN
 
    END IF;
 
-   /*
-     Новый request для всей batch-операции
-   */
-   p_req_id := mi_0007_Api.create_Request( );
-
-   CALL mi_logger.info(
-      p_logger_name   => cLogger,
-      p_message_text  => 'Batch request created',
-      p_inf_id        => cInf_Id,
-      p_req_id        => p_req_id,
-      p_action_cd     => cAction_Name,
-      p_context_value => 'marker_id=' || p_marker_id::varchar,
-      p_object_name   => cPkg_Name
-   );
 
    /* Клиенты из marker */
-   FOR r IN
-   (
-      SELECT c.icusnum,
-             c.ccuslast_name   last_Name,
-             c.ccusfirst_name  first_Name,
-             c.ccusmiddle_name middle_Name,
-             c.dcusbirthday    birth_date,
-             b.doc_ser         doc_ser,
-             b.doc_num         doc_num,
-             b.doc_date        doc_issue_date,
-             null::varchar     region_code
-        FROM xxi.mrk_id m
-        JOIN xxi."CUS" c
-          ON c.icusnum  = m.idrow
-        JOIN cus_docum b 
-          ON c.icusnum = b.icusnum
-       WHERE m.idmarker = p_marker_id )
+      FOR r IN (
+         SELECT c.icusnum,
+                c.ccuslast_name   AS last_name,
+                c.ccusfirst_name  AS first_name,
+                c.ccusmiddle_name AS middle_name,
+                c.dcusbirthday    AS birth_date,
+                d.doc_ser,
+                d.doc_num,
+                d.doc_date        AS doc_issue_date,
+                NULL::varchar     AS region_code
+           FROM xxi.mrk_id m
+           JOIN xxi."CUS" c
+             ON c.icusnum = m.idrow
+           JOIN LATERAL
+           (
+              SELECT b.doc_ser,
+                     b.doc_num,
+                     b.doc_date
+                FROM xxi.cus_docum b
+               WHERE b.icusnum = c.icusnum
+                 AND b.id_doc_tp = mi_0007_api.get_PassportRF_Id()
+                 AND (b.doc_period IS NULL OR b.doc_period >= CURRENT_DATE)
+               ORDER BY (b.pref = 'Y') DESC, b.doc_date DESC NULLS LAST, b.id_doc DESC
+               LIMIT 1
+           ) d
+             ON true
+          WHERE m.idmarker = p_marker_id
+            AND c.ccusflag IN ('1', '4')
+   )
    LOOP
+
+      IF p_req_id is null THEN
+
+         /* Новый request для всей batch-операции */
+         p_req_id := mi_0007_Api.create_Request( cInf_Id );
+
+         CALL mi_logger.info(
+            p_logger_name   => cLogger,
+            p_message_text  => 'Batch request created',
+            p_inf_id        => cInf_Id,
+            p_req_id        => p_req_id,
+            p_action_cd     => cAction_Name,
+            p_context_value => 'marker_id=' || p_marker_id::varchar,
+            p_object_name   => cPkg_Name
+         );
+
+      END IF;
 
       l_json_person := mi_0007_Api.build_json_person (
          r.icusnum::numeric,
