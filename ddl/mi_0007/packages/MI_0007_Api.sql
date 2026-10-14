@@ -1221,6 +1221,25 @@ BEGIN
 
    END LOOP;
 
+   IF p_req_id IS NULL THEN
+
+      p_res_code := ret_OK;
+      p_res_info := 'По marker_id = ' || p_marker_id || ' не найдено клиентов с действующим паспортом РФ. Request не создан.';
+
+      CALL mi_logger.info(
+         p_logger_name   => cLogger,
+         p_message_text  => 'create_Person_Items_By_Marker skipped: no valid passport',
+         p_inf_id        => cInf_Id,
+         p_details_text  => p_res_info,
+         p_action_cd     => cAction_Name,
+         p_context_value => 'marker_id=' || p_marker_id::varchar,
+         p_object_name   => cPkg_Name
+      );
+
+      RETURN;
+
+   END IF;
+
    p_res_code := ret_OK;
    p_res_info := 'Создан request, req_id=' || p_req_id || ', item_count=' || p_created_count::varchar;
 
