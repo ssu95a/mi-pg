@@ -13,7 +13,7 @@ AS
 $init$
 DECLARE
 
-   cVersion     CONSTANT varchar(100) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
+   cVersion     CONSTANT varchar(100) := '$Id: {1.0.2} {15.10.2026} Sukhotina$';
 
    cPkg_Name    CONSTANT varchar(20 ) := 'MI_Item_Result_Api'; 
    cLogger      CONSTANT varchar(20 ) := 'mi.req.itm'; 
@@ -124,7 +124,9 @@ CREATE PROCEDURE apply_Item_Result (
    in p_payload_text      text,
 
   out p_ret_code          int4,
-  out p_ret_info          varchar
+  out p_ret_info          varchar,
+  
+   in p_payload_type      varchar DEFAULT 'json'
 )
 AS 
 $procedure$
@@ -139,7 +141,9 @@ DECLARE
 
    l_current_message_uuid uuid;
 
-   l_payload              jsonb;
+   l_payload_type         varchar;
+   l_payload_json         jsonb;
+   l_payload_xml          xml;
    l_item_Result          MI_Item_Result_Api.item_Result;
 
    l_row_Count            int4;
@@ -152,6 +156,8 @@ BEGIN
 
    p_ret_code := ret_Fail;
    p_ret_info := NULL;
+
+   l_payload_type := lower(coalesce(nullif(btrim(p_payload_type), ''), 'json'));
 
    IF p_request_uuid IS NULL THEN
       p_ret_info := 'p_request_uuid is null';
@@ -181,7 +187,12 @@ BEGIN
    if p_response_kind not in (ret_OK,ret_Fail) then
       p_ret_info := 'unsupported p_response_kind: ' || p_response_kind;
       RETURN;
-   end if;   
+   end if;
+
+   if l_payload_type not in ('json','xml','text') then
+      p_ret_info := 'unsupported p_payload_type: ' || l_payload_type || ' (supported: json, xml, text)';
+      RETURN;
+   end if;
 
    EXECUTE format(
       $sql$
@@ -237,31 +248,85 @@ BEGIN
          RETURN;
       END IF;
 
-      -- разбор PayLoad
-      call MI_Item_Result_Api.parse_Json_Payload( p_payload_text, l_payload, p_ret_code, p_ret_info );
-      
-      if p_ret_code <> ret_OK then
-         RETURN;
-      end if;
+      IF l_payload_type = 'json' THEN
 
+         -- разбор PayLoad
+         call MI_Item_Result_Api.parse_Json_Payload( p_payload_text, l_payload_json, p_ret_code, p_ret_info );
 
-      -- мапинг pyload 
-      BEGIN
+         if p_ret_code <> ret_OK then
+            RETURN;
+         end if;
 
-         EXECUTE format( 'SELECT * FROM %s($1,$2)', p_payload_Mapper )
-            INTO l_item_Result
-           USING l_itm_Id, l_payload;
+         -- маппинг payload
+         BEGIN
 
+            EXECUTE format( 'SELECT * FROM %s($1,$2)', p_payload_Mapper )
+               INTO l_item_Result
+              USING l_itm_Id, l_payload_json;
+
+            EXCEPTION
+               WHEN others THEN
+                  GET STACKED DIAGNOSTICS
+                      p_ret_info = MESSAGE_TEXT;
+
+                  p_ret_info := 'successful payload business mapping failed: ' || p_ret_info;
+
+            RETURN;
+
+         END;
+
+      ELSIF l_payload_type = 'xml' THEN
+
+         -- Проверка на валидность XML и приведение к типу xml
+         BEGIN
+            l_payload_xml := p_payload_text::xml;
          EXCEPTION
             WHEN others THEN
                GET STACKED DIAGNOSTICS
                    p_ret_info = MESSAGE_TEXT;
 
-               p_ret_info := 'successful payload business mapping failed: ' || p_ret_info;
+               p_ret_info := 'p_payload_text is not valid XML: ' || p_ret_info;
+               RETURN;
+         END;
 
-         RETURN;
+         -- маппинг payload
+         BEGIN
 
-      END;
+            EXECUTE format( 'SELECT * FROM %s($1,$2)', p_payload_Mapper )
+               INTO l_item_Result
+              USING l_itm_Id, l_payload_xml;
+
+            EXCEPTION
+               WHEN others THEN
+                  GET STACKED DIAGNOSTICS
+                      p_ret_info = MESSAGE_TEXT;
+
+                  p_ret_info := 'successful payload business mapping failed: ' || p_ret_info;
+
+            RETURN;
+
+         END;
+
+      ELSE -- text: передаём как есть, без обертки и без проверок
+
+         BEGIN
+
+            EXECUTE format( 'SELECT * FROM %s($1,$2)', p_payload_Mapper )
+               INTO l_item_Result
+              USING l_itm_Id, p_payload_text;
+
+            EXCEPTION
+               WHEN others THEN
+                  GET STACKED DIAGNOSTICS
+                      p_ret_info = MESSAGE_TEXT;
+
+                  p_ret_info := 'successful payload business mapping failed: ' || p_ret_info;
+
+            RETURN;
+
+         END;
+
+      END IF;
 
    ELSE -- p_response_kind = ret_FAIL
 
@@ -327,7 +392,6 @@ BEGIN
 
 END;
 $procedure$
-
 ; -- end_of_Package
 
 COMMENT ON SCHEMA MI_Item_Result_Api IS 'Package MI_Item_Result_Api {$Id$}'
