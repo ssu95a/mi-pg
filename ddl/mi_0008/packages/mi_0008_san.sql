@@ -164,8 +164,7 @@ BEGIN
       EXIT WHEN l_affected_count = 0;
 
       IF l_component_pass > p_graph_node_count THEN
-         RAISE EXCEPTION
-            'Component propagation did not converge';
+         RAISE EXCEPTION 'Component propagation did not converge';
       END IF;
 
    END LOOP;
@@ -654,75 +653,30 @@ END;
 $procedure$
 
 
-/*
- * Проверяет данные итоговых корневых клиентов после collapse_To_Roots.
- *
- * Процедура не читает историю отчёта и не принимает решений по icorr.
- * Она изменяет только санитарные поля аккумулятора и протокол LSR.
- * Отсутствие гражданства после fallback из ДУЛ логируется, но не является
- * причиной отклонения клиента.
- */
-CREATE PROCEDURE validate_Root_Cus(
-   IN  p_lsr_id        numeric,
-   IN  p_inf_id        numeric,
+
+/* */
+CREATE PROCEDURE apply_Root_Validation(
    IN  p_iyear         numeric,
    IN  p_launch_itype  numeric,
    IN  p_irsn_corr     numeric,
    IN  p_ireq_kind     numeric,
-   OUT p_ires_code     int4,
-   OUT p_cres_info     varchar
+
+   OUT p_root_count     bigint,
+   OUT p_reject_count   bigint,
+   OUT p_citizen_warn   bigint
 )
 AS
 $procedure$
    #package
+   #private
 DECLARE
-   cAction_Name CONSTANT varchar(50) := cPkg_Name || '.sanitize_Root_Cus';
-
-   l_root_count      bigint;
-   l_reject_count    bigint;
-   l_updated_count   bigint;
-   l_citizen_warn    bigint;
+   l_updated_count bigint;
 BEGIN
 
-   p_ires_code := ret_FAIL;
-   p_cres_info := NULL;
+   p_root_count   := 0;
+   p_reject_count := 0;
+   p_citizen_warn := 0;
 
-   CALL mi_0008_san.assert_Run (
-      p_lsr_id         => p_lsr_id,
-      p_expected_stage => 'SANITARIUM'
-   );
-
-   CALL MI_logger.enter_f (
-      p_logger_name   => cLogger,
-      p_function_name => cAction_Name,
-      p_inf_id        => p_inf_id,
-      p_object_id     => p_lsr_id
-   );
-
-
-   SELECT count(*)
-     INTO l_root_count
-     FROM pg_temp.mi_0008_acc_tmp AS a
-    WHERE a.san_result_code IS NULL;
-
-   IF l_root_count = 0 THEN
-      p_ires_code := ret_OK;
-      p_cres_info := 'Sanitarium root validation: no clients';
-
-      CALL MI_logger.exit_f(
-         p_logger_name  => cLogger,
-         p_message_text => p_cres_info,
-         p_inf_id       => p_inf_id,
-         p_object_id    => p_lsr_id
-      );
-      RETURN;
-   END IF;
-
-   /*
-    * Выбор ДУЛ соответствует Oracle:
-    *   1. последний preferred-документ;
-    *   2. если его тип не распознан — последний действующий non-preferred.
-    */
    WITH roots AS MATERIALIZED
    (
       SELECT a.s_icusnum AS icusnum
@@ -732,12 +686,15 @@ BEGIN
    person_data AS MATERIALIZED
    (
       SELECT r.icusnum,
-             (c.icusnum IS NOT NULL) AS cus_exists,
+             c.icusnum IS NOT NULL AS cus_exists,
+
              NULLIF(btrim(c.ccusnumnal), '') AS inn,
              c.dcusbirthday::date AS birth_date,
 
-             coalesce(pref_doc.doc_type_id, alt_doc.doc_type_id)
-                AS doc_type_id,
+             coalesce(
+                pref_doc.doc_type_id,
+                alt_doc.doc_type_id
+             ) AS doc_type_id,
 
              CASE
                 WHEN pref_doc.doc_type_id IS NOT NULL
@@ -745,8 +702,10 @@ BEGIN
                 ELSE alt_doc.doc_issue_date
              END AS doc_issue_date,
 
-             coalesce(cus_country.cdigital, doc_country.cdigital)
-                AS ctzn_country_code
+             coalesce(
+                cus_country.cdigital,
+                doc_country.cdigital
+             ) AS ctzn_country_code
 
         FROM roots AS r
 
@@ -756,19 +715,28 @@ BEGIN
         LEFT JOIN LATERAL
         (
            SELECT CASE
-                  WHEN btrim(p.cpudcode9) ~ '^[0-9]{1,3}$' THEN btrim(p.cpudcode9)::numeric(3) ELSE NULL::numeric(3)
+                     WHEN btrim(p.cpudcode9) ~ '^[0-9]{1,3}$'
+                        THEN btrim(p.cpudcode9)::numeric(3)
+                     ELSE NULL::numeric(3)
                   END AS doc_type_id,
+
                   d.doc_date::date AS doc_issue_date,
                   d.doc_cnt
+
              FROM xxi.cus_docum AS d
+
              LEFT JOIN xxi.pud AS p
                ON p.ipudid = d.id_doc_tp
+
             WHERE d.icusnum = r.icusnum
               AND d.pref = 'Y'
+
             ORDER BY d.doc_date DESC NULLS LAST,
                      d.id_doc DESC
+
             LIMIT 1
-        ) AS pref_doc ON true
+        ) AS pref_doc
+          ON true
 
         LEFT JOIN LATERAL
         (
@@ -777,18 +745,25 @@ BEGIN
                         THEN btrim(p.cpudcode9)::numeric(3)
                      ELSE NULL::numeric(3)
                   END AS doc_type_id,
+
                   d.doc_date::date AS doc_issue_date,
                   d.doc_cnt
+
              FROM xxi.cus_docum AS d
+
              LEFT JOIN xxi.pud AS p
                ON p.ipudid = d.id_doc_tp
+
             WHERE d.icusnum = r.icusnum
               AND coalesce(d.pref, 'N') = 'N'
               AND coalesce(d.doc_period, CURRENT_DATE) >= CURRENT_DATE
+
             ORDER BY d.doc_date DESC NULLS LAST,
                      d.id_doc DESC
+
             LIMIT 1
-        ) AS alt_doc ON true
+        ) AS alt_doc
+          ON true
 
         LEFT JOIN LATERAL
         (
@@ -796,7 +771,8 @@ BEGIN
              FROM xxi.ok_sm AS k
             WHERE k.calfa_2 = c.ccuscountry1
             LIMIT 1
-        ) AS cus_country ON true
+        ) AS cus_country
+          ON true
 
         LEFT JOIN LATERAL
         (
@@ -809,11 +785,13 @@ BEGIN
                      ELSE alt_doc.doc_cnt
                   END
             LIMIT 1
-        ) AS doc_country ON true
+        ) AS doc_country
+          ON true
    ),
    decision AS MATERIALIZED
    (
       SELECT p.*,
+
              CASE
                 WHEN NOT p.cus_exists
                    THEN c_result_not_found
@@ -827,7 +805,8 @@ BEGIN
                  AND extract(year FROM p.doc_issue_date) > p_iyear
                    THEN c_result_doc_after
 
-                WHEN p.inn IS NULL OR length(p.inn) > 12
+                WHEN p.inn IS NULL
+                  OR length(p.inn) > 12
                    THEN c_result_bad_inn
 
                 WHEN p.birth_date IS NULL
@@ -835,66 +814,98 @@ BEGIN
 
                 ELSE NULL
              END::varchar(50) AS result_code
+
         FROM person_data AS p
    ),
    updated AS
    (
       UPDATE pg_temp.mi_0008_acc_tmp AS a
-         SET r_icusnum = d.icusnum,
+         SET r_icusnum       = d.icusnum,
              san_result_code = d.result_code,
+
              san_result_info =
                 CASE d.result_code
                    WHEN c_result_not_found
                       THEN 'Клиент не найден в справочнике CUS'
+
                    WHEN c_result_no_doc
                       THEN 'Отсутствует действующий ДУЛ или не распознан его тип'
+
                    WHEN c_result_doc_after
                       THEN format(
                          'ДУЛ выдан после отчётного периода: дата=%s, год=%s',
                          d.doc_issue_date,
                          p_iyear
                       )
+
                    WHEN c_result_bad_inn
                       THEN 'Некорректный ИНН: значение отсутствует или длина превышает 12'
+
                    WHEN c_result_no_birth
                       THEN 'Не задана дата рождения'
+
                    ELSE d.result_code
                 END,
-             san_result_data = jsonb_strip_nulls(
-                jsonb_build_object(
-                   'stage', 'ROOT_VALIDATION',
-                   'doc_issue_date', d.doc_issue_date,
-                   'report_year', p_iyear
-                )
-             )::text
+
+             san_result_data =
+                jsonb_strip_nulls(
+                   jsonb_build_object(
+                      'stage',          'ROOT_VALIDATION',
+                      'doc_issue_date', d.doc_issue_date,
+                      'report_year',    p_iyear
+                   )
+                )::text
+
         FROM decision AS d
+
        WHERE a.s_icusnum = d.icusnum
          AND d.result_code IS NOT NULL
+
       RETURNING a.s_icusnum
    )
    SELECT count(*),
-          count(*) FILTER (WHERE d.result_code IS NOT NULL),
+
+          count(*) FILTER (
+             WHERE d.result_code IS NOT NULL
+          ),
+
           count(*) FILTER (
              WHERE d.result_code IS NULL
                AND d.ctzn_country_code IS NULL
           ),
+
           (SELECT count(*) FROM updated)
-     INTO l_root_count,
-          l_reject_count,
-          l_citizen_warn,
+
+     INTO p_root_count,
+          p_reject_count,
+          p_citizen_warn,
           l_updated_count
+
      FROM decision AS d;
 
-   IF l_updated_count <> l_reject_count THEN
+   IF l_updated_count <> p_reject_count THEN
       CALL MI_resultCtx.raise_fail(
          p_result_code => 'MI_0008_SAN#ROOT_CARDINALITY',
          p_result_info => format(
             'Expected %s rejected roots, updated %s',
-            l_reject_count,
+            p_reject_count,
             l_updated_count
          )
       );
    END IF;
+
+END;
+$procedure$
+
+
+CREATE PROCEDURE persist_Root_Diagnostics(
+   IN p_lsr_id numeric
+)
+AS
+$procedure$
+   #package
+   #private
+BEGIN
 
    INSERT INTO xxi.mi_0008_lsr_itm
    (
@@ -926,9 +937,19 @@ BEGIN
           result_info = EXCLUDED.result_info,
           result_data = EXCLUDED.result_data;
 
-   /*
-    Если несколько исходных клиентов были сведены к отклонённому корню, итоговая причина заменяет их промежуточный результат CUS_MAP.
-   */
+END;
+$procedure$
+
+
+CREATE PROCEDURE propagate_Root_Rejections(
+   IN p_lsr_id numeric
+)
+AS
+$procedure$
+   #package
+   #private
+BEGIN
+
    UPDATE xxi.mi_0008_lsr_itm AS item
       SET result_code = root.san_result_code,
           result_info = format(
@@ -949,6 +970,78 @@ BEGIN
              c_result_no_doc,
              c_result_doc_after
           );
+
+END;
+$procedure$
+
+
+/*
+ * Проверяет данные итоговых корневых клиентов после collapse_To_Roots.
+ *
+ * Процедура не читает историю отчёта и не принимает решений по icorr.
+ * Она изменяет только санитарные поля аккумулятора и протокол LSR.
+ * Отсутствие гражданства после fallback из ДУЛ логируется, но не является
+ * причиной отклонения клиента.
+ */
+CREATE PROCEDURE validate_Root_Cus(
+   IN  p_lsr_id        numeric,
+   IN  p_inf_id        numeric,
+   IN  p_iyear         numeric,
+   IN  p_launch_itype  numeric,
+   IN  p_irsn_corr     numeric,
+   IN  p_ireq_kind     numeric,
+   OUT p_ires_code     int4,
+   OUT p_cres_info     varchar
+)
+AS
+$procedure$
+   #package
+DECLARE
+   cAction_Name CONSTANT varchar(50) := cPkg_Name || '.validate_Root_Cus';
+
+   l_root_count      bigint;
+   l_reject_count    bigint;
+   l_citizen_warn    bigint;
+BEGIN
+
+   p_ires_code := ret_FAIL;
+   p_cres_info := NULL;
+
+   CALL mi_0008_san.assert_Run (
+      p_lsr_id         => p_lsr_id,
+      p_expected_stage => 'SANITARIUM'
+   );
+
+   CALL MI_logger.enter_f (
+      p_logger_name   => cLogger,
+      p_function_name => cAction_Name,
+      p_inf_id        => p_inf_id,
+      p_object_id     => p_lsr_id
+   );
+
+
+   CALL mi_0008_san.apply_Root_Validation (
+      p_iyear         => p_iyear,
+      p_launch_itype  => p_launch_itype,
+      p_irsn_corr     => p_irsn_corr,
+      p_ireq_kind     => p_ireq_kind,
+
+      p_root_count    => l_root_count,
+      p_reject_count  => l_reject_count,
+      p_citizen_warn  => l_citizen_warn
+   );
+   
+   IF l_root_count = 0 THEN
+      p_ires_code := ret_OK;
+      p_cres_info := 'Sanitarium root validation: no clients';
+
+      CALL MI_logger.exit_f(...);
+      RETURN;
+   END IF;   
+
+   CALL persist_Root_Diagnostics(p_lsr_id);
+
+   CALL propagate_Root_Rejections(p_lsr_id);
 
    IF l_citizen_warn > 0 THEN
 
