@@ -24,7 +24,7 @@ END;
 $init$
 
 
-/* Ð’ÐµÑ€ÑÐ¸Ñ */
+/* Âåðñèÿ */
 CREATE FUNCTION get_Version()
    RETURNS
       varchar
@@ -37,7 +37,7 @@ END;
 $function$
 
 
-/* ÐšÐ¾Ð´ Ñ‚Ð¸Ð¿Ð° Ð”Ð£Ð› Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚ Ð Ð¤ */
+/* Êîä òèïà ÄÓË ïàñïîðò ÐÔ */
 CREATE FUNCTION get_PassportRF_Id()
    RETURNS
       numeric
@@ -61,20 +61,20 @@ BEGIN
 
       CALL mi_logger.error(
          p_logger_name  => cLogger,
-         p_message_text => 'ÐÐµ Ð·Ð°Ð´Ð°Ð½ ID Ñ‚Ð¸Ð¿Ð° Ð´Ð¾ÐºÑƒÐ¼ÐµÐ½Ñ‚Ð° Ð´Ð»Ñ Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚Ð° Ð Ð¤. ÐÐµ ÑƒÑÑ‚Ð°Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ Ð¿Ð¾Ð»Ðµ IPUDINT_CODE Ð² 1 Ð² Ñ‚Ð°Ð±Ð»Ð¸Ñ†Ðµ PUD.',
+         p_message_text => 'Íå çàäàí ID òèïà äîêóìåíòà äëÿ ïàñïîðòà ÐÔ. Íå óñòàíîâëåíî ïîëå IPUDINT_CODE â 1 â òàáëèöå PUD.',
          p_action_cd    => 'get_PassportRF_Id',
          p_object_name  => cPkg_Name
       );
 
       RAISE EXCEPTION USING
             ERRCODE = 'MI',
-            MESSAGE = 'ÐÐµ Ð·Ð°Ð´Ð°Ð½ ID Ñ‚Ð¸Ð¿Ð° Ð´Ð¾ÐºÑƒÐ¼ÐµÐ½Ñ‚Ð° Ð´Ð»Ñ "ÐŸÐ°ÑÐ¿Ð¾Ñ€Ñ‚ Ð³Ñ€Ð°Ð¶Ð´Ð°Ð½Ð¸Ð½Ð° Ð Ð¤". ÐÐµ ÑƒÑÑ‚Ð°Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ Ð¿Ð¾Ð»Ðµ IPUDINT_CODE Ð² 1 Ð² Ñ‚Ð°Ð±Ð»Ð¸Ñ†Ðµ PUD.';
+            MESSAGE = 'Íå çàäàí ID òèïà äîêóìåíòà äëÿ "Ïàñïîðò ãðàæäàíèíà ÐÔ". Íå óñòàíîâëåíî ïîëå IPUDINT_CODE â 1 â òàáëèöå PUD.';
 
    END IF;
 
    CALL mi_logger.info(
       p_logger_name  => cLogger,
-      p_message_text => 'ID Ñ‚Ð¸Ð¿Ð° Ð´Ð¾ÐºÑƒÐ¼ÐµÐ½Ñ‚Ð° Ð´Ð»Ñ Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚Ð° Ð Ð¤: ' || g_PsrtRf_Id,
+      p_message_text => 'ID òèïà äîêóìåíòà äëÿ ïàñïîðòà ÐÔ: ' || g_PsrtRf_Id,
       p_action_cd    => 'get_PassportRF_Id',
       p_object_name  => cPkg_Name
    );
@@ -127,7 +127,7 @@ $function$
 
 
 /*
-   Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ item 0007
+   Ñîçäàòü item 0007
 */
 CREATE FUNCTION create_Item (
    IN p_req_id    numeric,
@@ -165,7 +165,7 @@ $function$
 
 
 /*
-   Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ request Ð´Ð»Ñ 0007
+   Ñîçäàòü request äëÿ 0007
 */
 CREATE FUNCTION create_Request (
    IN p_inf_Id numeric DEFAULT 74::numeric
@@ -183,7 +183,7 @@ $function$
 
 
 /*
-   Ð“Ð»Ð°Ð²Ð½Ð°Ñ Ñ„ÑƒÐ½ÐºÑ†Ð¸Ñ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ñ request 0007
+   Ãëàâíàÿ ôóíêöèÿ ñîçäàíèÿ request 0007
 */
 CREATE FUNCTION create_Person_Item (
    IN p_json_person jsonb
@@ -218,8 +218,8 @@ $function$
 
 
 /*
-   ÐŸÐµÑ€ÐµÐ³Ñ€ÑƒÐ·ÐºÐ°:
-   icusnum Ð¿Ñ€Ð¸Ñ…Ð¾Ð´Ð¸Ñ‚ Ð¾Ñ‚Ð´ÐµÐ»ÑŒÐ½Ð¾ Ð¾Ñ‚ json payload
+   Ïåðåãðóçêà:
+   icusnum ïðèõîäèò îòäåëüíî îò json payload
 */
 CREATE FUNCTION create_Person_Item (
    IN p_icusnum     numeric,
@@ -258,7 +258,7 @@ END;
 $function$
 
 
-/* ÐŸÑ€Ð¾Ð²ÐµÑ€ÐºÐ° Ð°Ñ‚Ñ€Ð¸Ð±ÑƒÑ‚Ð¾Ð² ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð°, Ð´Ð»Ñ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ñ Ð·Ð°Ð¿Ð¸ÑÐ¸ Ð·Ð°Ð¿Ñ€Ð¾ÑÐ° Ð¿Ð¾ Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚Ð°Ð¼ */
+/* Ïðîâåðêà àòðèáóòîâ êëèåíòà, äëÿ ñîçäàíèÿ çàïèñè çàïðîñà ïî ïàñïîðòàì */
 CREATE FUNCTION check_Attrs (
    IN p_last_name    varchar,
    IN p_first_name   varchar,
@@ -276,50 +276,50 @@ DECLARE
    l_msg varchar;
 BEGIN
    IF p_last_name IS NULL THEN
-      l_msg := ', Ð¤Ð°Ð¼Ð¸Ð»Ð¸Ñ';
+      l_msg := ', Ôàìèëèÿ';
    END IF;
 
    IF p_first_name IS NULL THEN
-      l_msg := coalesce(l_msg, '') || ', Ð˜Ð¼Ñ';
+      l_msg := coalesce(l_msg, '') || ', Èìÿ';
    END IF;
 
    IF p_doc_ser IS NULL THEN
-      l_msg := coalesce(l_msg, '') || ', Ð¡ÐµÑ€Ð¸Ñ Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚Ð°';
+      l_msg := coalesce(l_msg, '') || ', Ñåðèÿ ïàñïîðòà';
    END IF;
 
    IF p_doc_num IS NULL THEN
-      l_msg := coalesce(l_msg, '') || ', ÐÐ¾Ð¼ÐµÑ€ Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚Ð°';
+      l_msg := coalesce(l_msg, '') || ', Íîìåð ïàñïîðòà';
    END IF;
 
    IF l_msg IS NOT NULL THEN
-      RETURN 'Ð¡Ð¾Ð·Ð´Ð°Ð½Ð¸Ðµ Ð·Ð°Ð¿Ð¸ÑÐ¸ Ð½Ðµ Ð²Ð¾Ð·Ð¼Ð¾Ð¶Ð½Ð¾, Ð½Ðµ Ð·Ð°Ð´Ð°Ð½Ñ‹ Ð¾Ð±ÑÐ·Ð°Ñ‚ÐµÐ»ÑŒÐ½Ñ‹Ðµ Ð°Ñ‚Ñ€Ð¸Ð±ÑƒÑ‚Ñ‹: ' || substr(l_msg, 3);
+      RETURN 'Ñîçäàíèå çàïèñè íå âîçìîæíî, íå çàäàíû îáÿçàòåëüíûå àòðèáóòû: ' || substr(l_msg, 3);
    END IF;
 
    IF regexp_replace(coalesce(p_doc_ser, ''), '\s+', '', 'g') !~ '^\d{4}$' THEN
-      RETURN 'Ð¡Ð¾Ð·Ð´Ð°Ð½Ð¸Ðµ Ð·Ð°Ð¿Ð¸ÑÐ¸ Ð½Ðµ Ð²Ð¾Ð·Ð¼Ð¾Ð¶Ð½Ð¾: Ð½Ðµ ÐºÐ¾Ñ€Ñ€ÐµÐºÑ‚Ð½Ð¾Ðµ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ðµ ÑÐµÑ€Ð¸Ð¸ Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚Ð° - "' || coalesce(p_doc_ser, '') || '". Ð¢Ñ€ÐµÐ±ÑƒÐµÑ‚ÑÑ 4 Ñ†Ð¸Ñ„Ñ€Ñ‹.';
+      RETURN 'Ñîçäàíèå çàïèñè íå âîçìîæíî: íå êîððåêòíîå çíà÷åíèå ñåðèè ïàñïîðòà - "' || coalesce(p_doc_ser, '') || '". Òðåáóåòñÿ 4 öèôðû.';
    END IF;
 
    IF regexp_replace(coalesce(p_doc_num, ''), '\s+', '', 'g') !~ '^\d{6}$' THEN
-      RETURN 'Ð¡Ð¾Ð·Ð´Ð°Ð½Ð¸Ðµ Ð·Ð°Ð¿Ð¸ÑÐ¸ Ð½Ðµ Ð²Ð¾Ð·Ð¼Ð¾Ð¶Ð½Ð¾: Ð½Ðµ ÐºÐ¾Ñ€Ñ€ÐµÐºÑ‚Ð½Ð¾Ðµ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ðµ Ð½Ð¾Ð¼ÐµÑ€Ð° Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚Ð° - "'|| coalesce(p_doc_num, '') || '". Ð¢Ñ€ÐµÐ±ÑƒÐµÑ‚ÑÑ 6 Ñ†Ð¸Ñ„Ñ€.';
+      RETURN 'Ñîçäàíèå çàïèñè íå âîçìîæíî: íå êîððåêòíîå çíà÷åíèå íîìåðà ïàñïîðòà - "'|| coalesce(p_doc_num, '') || '". Òðåáóåòñÿ 6 öèôð.';
    END IF;
 
-   IF p_last_name !~ '^[Ð-Ð¯Ð°-ÑÐÑ‘\-\s,.]{1,100}$' THEN
-      RETURN 'Ð¡Ð¾Ð·Ð´Ð°Ð½Ð¸Ðµ Ð·Ð°Ð¿Ð¸ÑÐ¸ Ð½Ðµ Ð²Ð¾Ð·Ð¼Ð¾Ð¶Ð½Ð¾: Ð½Ðµ ÐºÐ¾Ñ€Ñ€ÐµÐºÑ‚Ð½Ð¾Ðµ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ðµ Ð¤Ð°Ð¼Ð¸Ð»Ð¸Ð¸ - "'
+   IF p_last_name !~ '^[À-ßà-ÿ¨¸\-\s,.]{1,100}$' THEN
+      RETURN 'Ñîçäàíèå çàïèñè íå âîçìîæíî: íå êîððåêòíîå çíà÷åíèå Ôàìèëèè - "'
              || p_last_name
-             || '". Ð ÑƒÑÑÐºÐ¸Ð¹ Ñ‚ÐµÐºÑÑ‚, Ð´Ð»Ð¸Ð½Ð¾Ð¹ Ð´Ð¾ 100 ÑÐ¸Ð¼Ð²Ð¾Ð»Ð¾Ð², Ñ‚Ð¸Ñ€Ðµ, Ñ†Ð¸Ñ„Ñ€Ñ‹ Ð½Ðµ Ð´Ð¾Ð¿ÑƒÑÐºÐ°ÑŽÑ‚ÑÑ.';
+             || '". Ðóññêèé òåêñò, äëèíîé äî 100 ñèìâîëîâ, òèðå, öèôðû íå äîïóñêàþòñÿ.';
    END IF;
 
-   IF p_first_name !~ '^[Ð-Ð¯Ð°-ÑÐÑ‘\-\s,.]{1,100}$' THEN
-      RETURN 'Ð¡Ð¾Ð·Ð´Ð°Ð½Ð¸Ðµ Ð·Ð°Ð¿Ð¸ÑÐ¸ Ð½Ðµ Ð²Ð¾Ð·Ð¼Ð¾Ð¶Ð½Ð¾: Ð½Ðµ ÐºÐ¾Ñ€Ñ€ÐµÐºÑ‚Ð½Ð¾Ðµ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ðµ Ð˜Ð¼ÐµÐ½Ð¸ - "'
+   IF p_first_name !~ '^[À-ßà-ÿ¨¸\-\s,.]{1,100}$' THEN
+      RETURN 'Ñîçäàíèå çàïèñè íå âîçìîæíî: íå êîððåêòíîå çíà÷åíèå Èìåíè - "'
              || p_first_name
-             || '". Ð ÑƒÑÑÐºÐ¸Ð¹ Ñ‚ÐµÐºÑÑ‚, Ð´Ð»Ð¸Ð½Ð¾Ð¹ Ð´Ð¾ 100 ÑÐ¸Ð¼Ð²Ð¾Ð»Ð¾Ð², Ñ‚Ð¸Ñ€Ðµ, Ñ†Ð¸Ñ„Ñ€Ñ‹ Ð½Ðµ Ð´Ð¾Ð¿ÑƒÑÐºÐ°ÑŽÑ‚ÑÑ.';
+             || '". Ðóññêèé òåêñò, äëèíîé äî 100 ñèìâîëîâ, òèðå, öèôðû íå äîïóñêàþòñÿ.';
    END IF;
 
    IF p_middle_name IS NOT NULL
-      AND p_middle_name !~ '^[Ð-Ð¯Ð°-ÑÐÑ‘\-\s,.]{1,100}$' THEN
-      RETURN 'Ð¡Ð¾Ð·Ð´Ð°Ð½Ð¸Ðµ Ð·Ð°Ð¿Ð¸ÑÐ¸ Ð½Ðµ Ð²Ð¾Ð·Ð¼Ð¾Ð¶Ð½Ð¾: Ð½Ðµ ÐºÐ¾Ñ€Ñ€ÐµÐºÑ‚Ð½Ð¾Ðµ Ð·Ð½Ð°Ñ‡ÐµÐ½Ð¸Ðµ ÐžÑ‚Ñ‡ÐµÑÑ‚Ð²Ð° - "'
+      AND p_middle_name !~ '^[À-ßà-ÿ¨¸\-\s,.]{1,100}$' THEN
+      RETURN 'Ñîçäàíèå çàïèñè íå âîçìîæíî: íå êîððåêòíîå çíà÷åíèå Îò÷åñòâà - "'
              || p_middle_name
-             || '". Ð ÑƒÑÑÐºÐ¸Ð¹ Ñ‚ÐµÐºÑÑ‚, Ð´Ð»Ð¸Ð½Ð¾Ð¹ Ð´Ð¾ 100 ÑÐ¸Ð¼Ð²Ð¾Ð»Ð¾Ð², Ñ‚Ð¸Ñ€Ðµ, Ñ†Ð¸Ñ„Ñ€Ñ‹ Ð½Ðµ Ð´Ð¾Ð¿ÑƒÑÐºÐ°ÑŽÑ‚ÑÑ.';
+             || '". Ðóññêèé òåêñò, äëèíîé äî 100 ñèìâîëîâ, òèðå, öèôðû íå äîïóñêàþòñÿ.';
    END IF;
 
    RETURN NULL;
@@ -392,7 +392,7 @@ END;
 $procedure$
 
 
-/* Ð—Ð°Ð¿Ñ€Ð¾Ñ Ð² Ñ‚Ð°Ð±Ð»Ð¸Ñ†Ñƒ Ð½Ð° Ð½Ð°Ð»Ð¸Ñ‡Ð¸Ð¸, Ð·Ð°Ð¿Ð¸ÑÐ¸ Ñ Ñ€ÑƒÑ‡Ð½Ð¾Ð¹ ÑƒÑÑ‚Ð°Ð½Ð¾Ð²ÐºÐ¾Ð¹ Ð²Ð°Ð»Ð¸Ð´Ð½Ð¾ÑÑ‚Ð¸ */
+/* Çàïðîñ â òàáëèöó íà íàëè÷èè, çàïèñè ñ ðó÷íîé óñòàíîâêîé âàëèäíîñòè */
 CREATE PROCEDURE has_Manual_Set (
    IN  p_icusnum        numeric,
    IN  p_last_name      varchar,
@@ -431,8 +431,8 @@ $procedure$
 
 
 /*
- * Ð¡Ð¾Ð·Ð´Ð°Ñ‘Ñ‚ person/request/item MI_0007 Ð² Ñ‚ÐµÐºÑƒÑ‰ÐµÐ¹ Ñ‚Ñ€Ð°Ð½Ð·Ð°ÐºÑ†Ð¸Ð¸.
- * ÐÐµ Ñ„Ð¸ÐºÑÐ¸Ñ€ÑƒÐµÑ‚ Ñ‚Ñ€Ð°Ð½Ð·Ð°ÐºÑ†Ð¸ÑŽ Ð¸ Ð½Ðµ Ð¾Ñ‚Ð¿Ñ€Ð°Ð²Ð»ÑÐµÑ‚ Ð·Ð°Ð¿Ñ€Ð¾Ñ.
+ * Ñîçäà¸ò person/request/item MI_0007 â òåêóùåé òðàíçàêöèè.
+ * Íå ôèêñèðóåò òðàíçàêöèþ è íå îòïðàâëÿåò çàïðîñ.
  */
 CREATE PROCEDURE create_Request_Core(
    IN  p_inf_id          numeric,
@@ -493,9 +493,9 @@ $procedure$
 
 
 /*
- * Ð¡Ð¾Ð·Ð´Ð°Ñ‘Ñ‚ person/request/item MI_0007 Ð² Ð°Ð²Ñ‚Ð¾Ð½Ð¾Ð¼Ð½Ð¾Ð¹ Ñ‚Ñ€Ð°Ð½Ð·Ð°ÐºÑ†Ð¸Ð¸.
- * Ð˜ÑÐ¿Ð¾Ð»ÑŒÐ·ÑƒÐµÑ‚ÑÑ, ÐºÐ¾Ð³Ð´Ð° request Ð´Ð¾Ð»Ð¶ÐµÐ½ ÑÑ‚Ð°Ñ‚ÑŒ Ð²Ð¸Ð´ÐµÐ½ Ð²Ð½ÐµÑˆÐ½ÐµÐ¼Ñƒ XXL-ÑÐµÑ€Ð²Ð¸ÑÑƒ
- * Ð½ÐµÐ·Ð°Ð²Ð¸ÑÐ¸Ð¼Ð¾ Ð¾Ñ‚ Ñ‚Ñ€Ð°Ð½Ð·Ð°ÐºÑ†Ð¸Ð¸ Ð²Ñ‹Ð·Ñ‹Ð²Ð°ÑŽÑ‰ÐµÐ¹ ÑÑ‚Ð¾Ñ€Ð¾Ð½Ñ‹.
+ * Ñîçäà¸ò person/request/item MI_0007 â àâòîíîìíîé òðàíçàêöèè.
+ * Èñïîëüçóåòñÿ, êîãäà request äîëæåí ñòàòü âèäåí âíåøíåìó XXL-ñåðâèñó
+ * íåçàâèñèìî îò òðàíçàêöèè âûçûâàþùåé ñòîðîíû.
  */
 CREATE PROCEDURE create_Request_AT(
    IN  p_inf_id          numeric,
@@ -544,7 +544,7 @@ END;
 $procedure$
 
 
-/* Ð¡Ð¾Ð·Ð´Ð°ÐµÑ‚ Ð½Ð¾Ð²Ñ‹Ð¹ Ð·Ð°Ð¿Ñ€Ð¾Ñ, Ð¸ ÐµÑÐ»Ð¸ Ð½Ð°Ð´Ð¾ Ð¾Ñ‚Ð¿Ñ€Ð°Ð²Ð»ÑÐµÑ‚ Ð² MI */
+/* Ñîçäàåò íîâûé çàïðîñ, è åñëè íàäî îòïðàâëÿåò â MI */
 CREATE PROCEDURE create_And_Exec (
    IN  p_inf_id          numeric,
 
@@ -708,8 +708,8 @@ BEGIN
       IF p_do_send IS TRUE THEN
 
          /*
-          * Request Ð´Ð¾Ð»Ð¶ÐµÐ½ Ð±Ñ‹Ñ‚ÑŒ Ð´Ð¾ÑÑ‚ÑƒÐ¿ÐµÐ½ XXL Ð¸Ð· Ð´Ñ€ÑƒÐ³Ð¾Ð¹ DB-ÑÐµÑÑÐ¸Ð¸.
-          * Ð¤Ð¸ÐºÑÐ¸Ñ€ÑƒÐµÐ¼ Ñ‚Ð¾Ð»ÑŒÐºÐ¾ MI request/item Ð² Ð°Ð²Ñ‚Ð¾Ð½Ð¾Ð¼Ð½Ð¾Ð¹ Ñ‚Ñ€Ð°Ð½Ð·Ð°ÐºÑ†Ð¸Ð¸.
+          * Request äîëæåí áûòü äîñòóïåí XXL èç äðóãîé DB-ñåññèè.
+          * Ôèêñèðóåì òîëüêî MI request/item â àâòîíîìíîé òðàíçàêöèè.
           */
          CALL mi_0007_Api.create_Request_AT(
             p_inf_id         => l_inf_id,
@@ -731,8 +731,8 @@ BEGIN
       ELSE
 
          /*
-          * Ð¢Ð¾Ð»ÑŒÐºÐ¾ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ðµ request.
-          * Ð¢Ñ€Ð°Ð½Ð·Ð°ÐºÑ†Ð¸ÐµÐ¹ Ð¿Ð¾Ð»Ð½Ð¾ÑÑ‚ÑŒÑŽ ÑƒÐ¿Ñ€Ð°Ð²Ð»ÑÐµÑ‚ Ð²Ñ‹Ð·Ñ‹Ð²Ð°ÑŽÑ‰Ð°Ñ ÑÑ‚Ð¾Ñ€Ð¾Ð½Ð°.
+          * Òîëüêî ñîçäàíèå request.
+          * Òðàíçàêöèåé ïîëíîñòüþ óïðàâëÿåò âûçûâàþùàÿ ñòîðîíà.
           */
          CALL mi_0007_Api.create_Request_Core (
             p_inf_id         => l_inf_id,
@@ -774,10 +774,10 @@ BEGIN
 
          IF l_result.is_success THEN
             p_res_code := RET_OK;
-            p_result_info := coalesce(l_result.result_info, 'ÑƒÑÐ¿ÐµÑˆÐ½Ð¾');
+            p_result_info := coalesce(l_result.result_info, 'óñïåøíî');
          ELSE
             p_res_code := RET_Fail;
-            p_result_info := coalesce(l_result.result_info, 'ÐžÑˆÐ¸Ð±ÐºÐ° Ð¿Ñ€Ð¸ Ð¾Ñ‚Ð¿Ñ€Ð°Ð²ÐºÐµ Ð² M-Bus');
+            p_result_info := coalesce(l_result.result_info, 'Îøèáêà ïðè îòïðàâêå â M-Bus');
          END IF;
 
       ELSE
@@ -836,7 +836,7 @@ END;
 $procedure$
 
 
-/* Ð¡Ð¾Ð·Ð´Ð°Ð½Ð¸Ðµ Ð·Ð°Ð¿Ñ€Ð¾ÑÐ° Ð´Ð»Ñ ÐºÐ¾Ð½ÐºÑ€ÐµÑ‚Ð½Ð¾Ð³Ð¾ cus Ð°Ñ‚Ñ€Ð¸Ð±ÑƒÑ‚Ñ‹ Ð¿Ð¾Ð´Ñ‚ÑÐ³Ð¸Ð²Ð°ÑŽÑ‚ÑÑ Ð¸Ð· ÑÐ¿Ñ€Ð°Ð²Ð¾Ñ‡Ð½Ð¸ÐºÐ° */
+/* Ñîçäàíèå çàïðîñà äëÿ êîíêðåòíîãî cus àòðèáóòû ïîäòÿãèâàþòñÿ èç ñïðàâî÷íèêà */
 CREATE PROCEDURE create_And_Exec(
    IN  p_inf_id       numeric,
 
@@ -904,7 +904,7 @@ BEGIN
    IF NOT FOUND THEN
 
       p_res_code    := -1;
-      p_result_info :=  'ÐÐµ Ð½Ð°Ð¹Ð´ÐµÐ½ CUS Ð¸Ð»Ð¸ Ð´ÐµÐ¹ÑÑ‚Ð²ÑƒÑŽÑ‰Ð¸Ð¹ Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚ Ð Ð¤ Ð¿Ð¾ icusnum = ' || p_icusnum;
+      p_result_info :=  'Íå íàéäåí CUS èëè äåéñòâóþùèé ïàñïîðò ÐÔ ïî icusnum = ' || p_icusnum;
 
       CALL mi_logger.info (
          p_logger_name   => cLogger,
@@ -945,7 +945,7 @@ END;
 $procedure$
 
 
-/* Ð¡Ð¾Ð·Ð´Ð°ÐµÑ‚ Ð½Ð¾Ð²Ñ‹Ð¹ Ñ€ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚ Ð´Ð»Ñ 75 Ð²Ð¸Ð´Ð° ÑÐ²ÐµÐ´ÐµÐ½Ð¸Ð¹ - Ñ€ÑƒÑ‡Ð½Ð°Ñ ÑƒÑÑ‚Ð°Ð½Ð¾Ð²ÐºÐ° */
+/* Ñîçäàåò íîâûé ðåçóëüòàò äëÿ 75 âèäà ñâåäåíèé - ðó÷íàÿ óñòàíîâêà */
 CREATE PROCEDURE create_75_Person_Item(
    IN  p_icusnum         numeric,
    IN  p_last_name       varchar,
@@ -979,9 +979,9 @@ BEGIN
    p_res_info := NULL;
 
    /*
-    * Ð•ÑÐ»Ð¸ ÑƒÐ¿Ñ€Ð°Ð²Ð»ÐµÐ½Ð¸Ðµ Ð´Ð¾ÑˆÐ»Ð¾ ÑÑŽÐ´Ð°, has_Manual_Set ÑƒÐ¶Ðµ Ð¿Ñ€Ð¾Ð²ÐµÑ€Ð¸Ð»,
-    * Ñ‡Ñ‚Ð¾ Ð¿Ð¾Ð´Ñ…Ð¾Ð´ÑÑ‰ÐµÐ³Ð¾ Ð´ÐµÐ¹ÑÑ‚Ð²ÑƒÑŽÑ‰ÐµÐ³Ð¾ Ñ€ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚Ð° 75 / state=300 Ð½ÐµÑ‚.
-    * ÐŸÐ¾ÑÑ‚Ð¾Ð¼Ñƒ Ð²ÑÐµÐ³Ð´Ð° ÑÐ¾Ð·Ð´Ð°Ñ‘Ð¼ Ð½Ð¾Ð²Ñ‹Ð¹ manual request.
+    * Åñëè óïðàâëåíèå äîøëî ñþäà, has_Manual_Set óæå ïðîâåðèë,
+    * ÷òî ïîäõîäÿùåãî äåéñòâóþùåãî ðåçóëüòàòà 75 / state=300 íåò.
+    * Ïîýòîìó âñåãäà ñîçäà¸ì íîâûé manual request.
     */
    l_json_person := mi_0007_Api.build_Json_Person(
       p_icusnum,
@@ -1001,9 +1001,9 @@ BEGIN
    );
 
    /*
-    * Ð”Ð»Ñ Ð½Ð¾Ð²Ð¾Ð³Ð¾ manual result Ð²ÑÐµÐ³Ð´Ð° ÑÐ¾Ð·Ð´Ð°Ñ‘Ñ‚ÑÑ Ð½Ð¾Ð²Ñ‹Ð¹ request.
-    * ÐŸÐ¾Ð²Ñ‚Ð¾Ñ€Ð½Ð¾Ðµ Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ð½Ð¸Ðµ ÑÑƒÑ‰ÐµÑÑ‚Ð²ÑƒÑŽÑ‰ÐµÐ³Ð¾ Ñ€ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚Ð° Ð²Ñ‹Ð¿Ð¾Ð»Ð½ÑÐµÑ‚ÑÑ
-    * Ð²Ñ‹ÑˆÐµ, Ñ‡ÐµÑ€ÐµÐ· has_Manual_Set.
+    * Äëÿ íîâîãî manual result âñåãäà ñîçäà¸òñÿ íîâûé request.
+    * Ïîâòîðíîå èñïîëüçîâàíèå ñóùåñòâóþùåãî ðåçóëüòàòà âûïîëíÿåòñÿ
+    * âûøå, ÷åðåç has_Manual_Set.
     */
    p_req_id := mi_Request_Api.create_Request(
       p_inf_id    => 75::numeric,
@@ -1030,7 +1030,7 @@ BEGIN
    );
 
    p_res_code := ret_OK;
-   p_res_info := 'Ð¡Ð¾Ð·Ð´Ð°Ð½ item 75. req_id=' || p_req_id || ', itm_id=' || p_itm_id;
+   p_res_info := 'Ñîçäàí item 75. req_id=' || p_req_id || ', itm_id=' || p_itm_id;
 
    CALL mi_logger.info(
       p_logger_name  => cLogger,
@@ -1079,7 +1079,7 @@ END;
 $procedure$
 
 
-/* Ð¡Ð¾Ð·Ð´Ð°Ð½Ð¸Ðµ Ð·Ð°Ð¿Ñ€Ð¾ÑÐ° Ñ Ð¿Ð¾Ð·Ð¸Ñ†Ð¸ÑÐ¼Ð¸ Ð½Ð° Ð¾ÑÐ½Ð¾Ð²Ðµ Ð¼Ð°Ñ€ÐºÐµÑ€Ð° Ð² "CUS" */
+/* Ñîçäàíèå çàïðîñà ñ ïîçèöèÿìè íà îñíîâå ìàðêåðà â "CUS" */
 CREATE PROCEDURE create_Person_Items_By_Marker (
     IN p_marker_id      numeric,
 
@@ -1112,7 +1112,7 @@ BEGIN
    p_res_info      := NULL;
 
    /*
-     ÐŸÑ€Ð¾Ð²ÐµÑ€ÐºÐ° marker. Ð•ÑÐ»Ð¸ Ð¿ÑƒÑÑ‚Ð¾Ð¹ - request ÐÐ• ÑÐ¾Ð·Ð´Ð°Ñ‘Ð¼.
+     Ïðîâåðêà marker. Åñëè ïóñòîé - request ÍÅ ñîçäà¸ì.
    */
    SELECT EXISTS (
       SELECT 1
@@ -1123,7 +1123,7 @@ BEGIN
    IF NOT l_has_rows THEN
 
       p_res_code := 0;
-      p_res_info := 'ÐŸÐ¾ marker_id = ' || p_marker_id || ' Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾ Ð¿Ð¾Ð¼ÐµÑ‡ÐµÐ½Ð½Ñ‹Ñ… ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð². Request Ð½Ðµ ÑÐ¾Ð·Ð´Ð°Ð½.';
+      p_res_info := 'Ïî marker_id = ' || p_marker_id || ' íå íàéäåíî ïîìå÷åííûõ êëèåíòîâ. Request íå ñîçäàí.';
 
       CALL mi_logger.info (
          p_logger_name   => cLogger,
@@ -1140,7 +1140,7 @@ BEGIN
    END IF;
 
 
-   /* ÐšÐ»Ð¸ÐµÐ½Ñ‚Ñ‹ Ð¸Ð· marker */
+   /* Êëèåíòû èç marker */
       FOR r IN (
          SELECT c.icusnum,
                 c.ccuslast_name   AS last_name,
@@ -1174,7 +1174,7 @@ BEGIN
 
       IF p_req_id is null THEN
 
-         /* ÐÐ¾Ð²Ñ‹Ð¹ request Ð´Ð»Ñ Ð²ÑÐµÐ¹ batch-Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸ */
+         /* Íîâûé request äëÿ âñåé batch-îïåðàöèè */
          p_req_id := mi_0007_Api.create_Request( cInf_Id );
 
          CALL mi_logger.info(
@@ -1231,7 +1231,7 @@ BEGIN
    IF p_req_id IS NULL THEN
 
       p_res_code := ret_OK;
-      p_res_info := 'ÐŸÐ¾ marker_id = ' || p_marker_id || ' Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÐ»Ð¸ÐµÐ½Ñ‚Ð¾Ð² Ñ Ð´ÐµÐ¹ÑÑ‚Ð²ÑƒÑŽÑ‰Ð¸Ð¼ Ð¿Ð°ÑÐ¿Ð¾Ñ€Ñ‚Ð¾Ð¼ Ð Ð¤. Request Ð½Ðµ ÑÐ¾Ð·Ð´Ð°Ð½.';
+      p_res_info := 'Ïî marker_id = ' || p_marker_id || ' íå íàéäåíî êëèåíòîâ ñ äåéñòâóþùèì ïàñïîðòîì ÐÔ. Request íå ñîçäàí.';
 
       CALL mi_logger.info(
          p_logger_name   => cLogger,
@@ -1248,7 +1248,7 @@ BEGIN
    END IF;
 
    p_res_code := ret_OK;
-   p_res_info := 'Ð¡Ð¾Ð·Ð´Ð°Ð½ request, req_id=' || p_req_id || ', item_count=' || p_created_count::varchar;
+   p_res_info := 'Ñîçäàí request, req_id=' || p_req_id || ', item_count=' || p_created_count::varchar;
 
    CALL mi_logger.info(
       p_logger_name   => cLogger,
@@ -1370,6 +1370,74 @@ BEGIN
 END;
 $procedure$
 
+
+/*
+   Âîçâðàùàåò ñòàòóñ çàïðîñà ïî ïðîâåðêå ÄÓËà ôèç ëèöà
+   Êîä âîçâðàòà:
+   -3 - çàïðîñ åùå îáðàáàòûâàåòñÿ â óäàëåííîì ñåðâèñå
+   -2 - çàïðîñ ñ òàêèì ID íå íàéäåí
+   -1 - çàïðîñ îáðàáîòàí, íî âåðíóëñÿ ñ îøèáêîé
+    0 - çàïðîñ ñîçäàí, íî íå îòïðàâëÿëñÿ â óäàëåííûé ñåðâèñ
+    1 - çàïðîñ óñïåøíî îáðàáîòàí, äàííûå ïîäòâåðæäåíû
+    ...
+   ïðî÷èå êîäû, áîëüøå 300, çàïðîñ óñïåøíî îáîðàáîòàí,
+   íî ïîëó÷åí êîä îáðàáîòêè
+
+   p_entryId - ýòî itmId èç mi_0007!
+*/
+CREATE FUNCTION get_Entry_State (
+   p_entryId IN numeric
+)
+   RETURNS
+      int4
+AS
+$function$
+   #package
+DECLARE
+
+   l_ret      int4;
+
+   l_status   numeric;
+   l_res_code numeric;
+
+BEGIN
+
+   SELECT r.status_cd, 
+          m.ires_code
+     INTO l_status,
+          l_res_code
+     FROM xxi.mi_0007 m
+     JOIN xxi.mi_req  r
+       ON m.req_Id = r.req_Id
+    WHERE 
+          m.itm_id = p_entryId;
+
+   IF l_res_code IS NULL THEN
+      l_ret := -2;
+   ELSE
+      IF l_status = -1 THEN
+         l_ret := -1;
+      ELSIF l_status = 0 THEN
+         l_ret := 0;
+      ELSIF l_status = 1 THEN
+         l_ret := COALESCE( l_res_code, 1 )::int4;
+      ELSE
+         l_ret := -3;
+      END IF;
+   END IF;
+
+   CALL mi_logger.info (
+      p_logger_name   => cLogger,
+      p_message_text  => 'mi_0007_api.get_Entry_State äëÿ itm_Id = ' || p_entryId || ' return: ' || l_ret,
+      p_itm_id        => p_entryId,
+      p_object_name   => cPkg_Name,
+      p_context_value => 'ret=' || l_ret
+   );
+
+   RETURN l_ret;
+
+END;
+$function$
 
 /* end_Of_Package */
 ;
