@@ -164,8 +164,7 @@ BEGIN
       EXIT WHEN l_affected_count = 0;
 
       IF l_component_pass > p_graph_node_count THEN
-         RAISE EXCEPTION
-            'Component propagation did not converge';
+         RAISE EXCEPTION 'Component propagation did not converge';
       END IF;
 
    END LOOP;
@@ -1021,26 +1020,6 @@ BEGIN
    );
 
 
-   SELECT count(*)
-     INTO l_root_count
-     FROM pg_temp.mi_0008_acc_tmp AS a
-    WHERE a.san_result_code IS NULL;
-
-   IF l_root_count = 0 THEN
-      p_ires_code := ret_OK;
-      p_cres_info := 'Sanitarium root validation: no clients';
-
-      CALL MI_logger.exit_f(
-         p_logger_name  => cLogger,
-         p_message_text => p_cres_info,
-         p_inf_id       => p_inf_id,
-         p_object_id    => p_lsr_id
-      );
-
-      RETURN;
-
-   END IF;
-
    CALL mi_0008_san.apply_Root_Validation (
       p_iyear         => p_iyear,
       p_launch_itype  => p_launch_itype,
@@ -1052,6 +1031,13 @@ BEGIN
       p_citizen_warn  => l_citizen_warn
    );
    
+   IF l_root_count = 0 THEN
+      p_ires_code := ret_OK;
+      p_cres_info := 'Sanitarium root validation: no clients';
+
+      CALL MI_logger.exit_f(...);
+      RETURN;
+   END IF;   
 
    CALL persist_Root_Diagnostics(p_lsr_id);
 
