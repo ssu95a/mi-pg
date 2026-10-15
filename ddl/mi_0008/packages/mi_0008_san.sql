@@ -676,7 +676,7 @@ AS
 $procedure$
    #package
 DECLARE
-   cAction_Name CONSTANT varchar(50) := cPkg_Name || '.sanitize_Root_Cus';
+   cAction_Name CONSTANT varchar(50) := cPkg_Name || '.validate_Root_Cus';
 
    l_root_count      bigint;
    l_reject_count    bigint;
