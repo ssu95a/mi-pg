@@ -492,33 +492,24 @@ END;
 $procedure$
 
 
-/*
- * Public technical entry point used by mi_0008_api.prepare_Rep changed here.
- */
-CREATE PROCEDURE resolve_Cus (
-   IN  p_lsr_id    numeric,
-   IN  p_inf_id    numeric,
-   OUT p_ires_code int4,
-   OUT p_cres_info varchar
+/* */
+CREATE PROCEDURE assert_Run(
+   IN p_lsr_id          numeric,
+   IN p_expected_stage  varchar
 )
 AS
 $procedure$
    #package
+   #private
 DECLARE
-   cAction_Name CONSTANT varchar(50) := cPkg_Name || '.sanitize_Cus';
-
-   l_status_cd        varchar(12);
-   l_stage_cd         varchar(20);
-   l_source_count     bigint;
-   l_graph_node_count bigint;
-   l_special_count    bigint;
-   l_reject_count     bigint;
+   l_status_cd varchar(12);
+   l_stage_cd  varchar(20);
 BEGIN
-   p_ires_code := ret_FAIL;
-   p_cres_info := NULL;
 
-   SELECT l.status_cd, l.stage_cd
-     INTO l_status_cd, l_stage_cd
+   SELECT l.status_cd,
+          l.stage_cd
+     INTO l_status_cd,
+          l_stage_cd
      FROM xxi.mi_0008_lsr AS l
     WHERE l.lsr_id = p_lsr_id
       FOR UPDATE;
@@ -530,26 +521,67 @@ BEGIN
       );
    END IF;
 
+   IF l_status_cd <> 'RUNNING' THEN
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_SAN#BAD_STATUS',
+         p_result_info => format(
+            'LSR %s has status %s',
+            p_lsr_id,
+            l_status_cd
+         )
+      );
+   END IF;
+
+   IF l_stage_cd <> p_expected_stage THEN
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_SAN#BAD_STAGE',
+         p_result_info => format(
+            'LSR %s has stage %s, expected %s',
+            p_lsr_id,
+            l_stage_cd,
+            p_expected_stage
+         )
+      );
+   END IF;
+
+END;
+$procedure$
+
+/*
+ * Public technical entry point used by mi_0008_api.prepare_Report.
+ */
+CREATE PROCEDURE resolve_Cus (
+   IN  p_lsr_id    numeric,
+   IN  p_inf_id    numeric,
+   OUT p_ires_code int4,
+   OUT p_cres_info varchar
+)
+AS
+$procedure$
+   #package
+DECLARE
+   cAction_Name CONSTANT varchar(50) := cPkg_Name || '.resolve_Cus';
+
+   l_source_count     bigint;
+   l_graph_node_count bigint;
+   l_special_count    bigint;
+   l_reject_count     bigint;
+BEGIN
+
+   p_ires_code := ret_FAIL;
+   p_cres_info := NULL;
+
+   CALL mi_0008_san.assert_Run(
+      p_lsr_id         => p_lsr_id,
+      p_expected_stage => 'SANITARIUM'
+   );
+
    CALL MI_logger.enter_f(
       p_logger_name   => cLogger,
       p_function_name => cAction_Name,
       p_inf_id        => p_inf_id,
       p_object_id     => p_lsr_id
    );
-
-   IF l_status_cd <> 'RUNNING' THEN
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_SAN#BAD_STATUS',
-         p_result_info => format('LSR %s has status %s', p_lsr_id, l_status_cd)
-      );
-   END IF;
-
-   IF l_stage_cd <> 'SANITARIUM' THEN
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_SAN#BAD_STAGE',
-         p_result_info => format('LSR %s has stage %s', p_lsr_id, l_stage_cd)
-      );
-   END IF;
 
    SELECT count(*) INTO l_source_count
      FROM pg_temp.mi_0008_acc_tmp;
@@ -630,7 +662,7 @@ $procedure$
  * Отсутствие гражданства после fallback из ДУЛ логируется, но не является
  * причиной отклонения клиента.
  */
-CREATE PROCEDURE sanitize_Root_Cus(
+CREATE PROCEDURE validate_Root_Cus(
    IN  p_lsr_id        numeric,
    IN  p_inf_id        numeric,
    IN  p_iyear         numeric,
@@ -646,49 +678,27 @@ $procedure$
 DECLARE
    cAction_Name CONSTANT varchar(50) := cPkg_Name || '.sanitize_Root_Cus';
 
-   l_status_cd       varchar(12);
-   l_stage_cd        varchar(20);
    l_root_count      bigint;
    l_reject_count    bigint;
    l_updated_count   bigint;
    l_citizen_warn    bigint;
 BEGIN
+
    p_ires_code := ret_FAIL;
    p_cres_info := NULL;
 
-   SELECT l.status_cd, l.stage_cd
-     INTO l_status_cd, l_stage_cd
-     FROM xxi.mi_0008_lsr AS l
-    WHERE l.lsr_id = p_lsr_id
-      FOR UPDATE;
+   CALL mi_0008_san.assert_Run (
+      p_lsr_id         => p_lsr_id,
+      p_expected_stage => 'SANITARIUM'
+   );
 
-   IF NOT FOUND THEN
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_SAN#RUN_NOT_FOUND',
-         p_result_info => format('LSR %s does not exist', p_lsr_id)
-      );
-   END IF;
-
-   CALL MI_logger.enter_f(
+   CALL MI_logger.enter_f (
       p_logger_name   => cLogger,
       p_function_name => cAction_Name,
       p_inf_id        => p_inf_id,
       p_object_id     => p_lsr_id
    );
 
-   IF l_status_cd <> 'RUNNING' THEN
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_SAN#BAD_STATUS',
-         p_result_info => format('LSR %s has status %s', p_lsr_id, l_status_cd)
-      );
-   END IF;
-
-   IF l_stage_cd <> 'SANITARIUM' THEN
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_SAN#BAD_STAGE',
-         p_result_info => format('LSR %s has stage %s', p_lsr_id, l_stage_cd)
-      );
-   END IF;
 
    SELECT count(*)
      INTO l_root_count
