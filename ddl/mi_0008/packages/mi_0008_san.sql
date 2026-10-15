@@ -182,91 +182,284 @@ AS
 $procedure$
    #package
    #private
+DECLARE
+   l_frontier_count bigint;
+   l_kahn_pass      bigint := 0;
 BEGIN
-      ------------------------------------------------------------------------
-      -- Cycle detection by Kahn topological removal.  A node left behind
-      -- marks its entire weak component as cyclic.
-      ------------------------------------------------------------------------
-      WITH degree_by_node AS
+
+   IF p_graph_node_count = 0 THEN
+      RETURN;
+   END IF;
+
+   WITH degree_by_node AS
+   (
+      SELECT e.c_icusnum AS icusnum,
+             count(*) AS in_degree
+        FROM pg_temp.mi_0008_san_edge AS e
+       GROUP BY e.c_icusnum
+   )
+   UPDATE pg_temp.mi_0008_san_node AS n
+      SET in_degree      = d.in_degree,
+          work_in_degree = d.in_degree
+     FROM degree_by_node AS d
+    WHERE n.icusnum = d.icusnum;
+
+   LOOP
+      l_kahn_pass := l_kahn_pass + 1;
+
+      TRUNCATE TABLE pg_temp.mi_0008_san_frontier;
+
+      INSERT INTO pg_temp.mi_0008_san_frontier (icusnum)
+      SELECT n.icusnum
+        FROM pg_temp.mi_0008_san_node AS n
+       WHERE NOT n.is_removed
+         AND n.work_in_degree = 0;
+
+      GET DIAGNOSTICS l_frontier_count = ROW_COUNT;
+
+      EXIT WHEN l_frontier_count = 0;
+
+      WITH removed_edges AS
       (
-         SELECT e.c_icusnum AS icusnum, count(*) AS in_degree
+         SELECT e.c_icusnum AS icusnum,
+                count(*) AS edge_count
            FROM pg_temp.mi_0008_san_edge AS e
+           JOIN pg_temp.mi_0008_san_frontier AS f
+             ON f.icusnum = e.p_icusnum
+           JOIN pg_temp.mi_0008_san_node AS c
+             ON c.icusnum = e.c_icusnum
+          WHERE NOT c.is_removed
           GROUP BY e.c_icusnum
       )
       UPDATE pg_temp.mi_0008_san_node AS n
-         SET in_degree = d.in_degree,
-             work_in_degree = d.in_degree
-        FROM degree_by_node AS d
-       WHERE n.icusnum = d.icusnum;
-
-      LOOP
-         l_kahn_pass := l_kahn_pass + 1;
-         TRUNCATE TABLE pg_temp.mi_0008_san_frontier;
-
-         INSERT INTO pg_temp.mi_0008_san_frontier (icusnum)
-         SELECT n.icusnum
-           FROM pg_temp.mi_0008_san_node AS n
-          WHERE NOT n.is_removed
-            AND n.work_in_degree = 0;
-
-         GET DIAGNOSTICS l_frontier_count = ROW_COUNT;
-         EXIT WHEN l_frontier_count = 0;
-
-         WITH removed_edges AS
-         (
-            SELECT e.c_icusnum AS icusnum, count(*) AS edge_count
-              FROM pg_temp.mi_0008_san_edge AS e
-              JOIN pg_temp.mi_0008_san_frontier AS f
-                ON f.icusnum = e.p_icusnum
-              JOIN pg_temp.mi_0008_san_node AS c
-                ON c.icusnum = e.c_icusnum
-             WHERE NOT c.is_removed
-             GROUP BY e.c_icusnum
-         )
-         UPDATE pg_temp.mi_0008_san_node AS n
-            SET work_in_degree = n.work_in_degree - r.edge_count
-           FROM removed_edges AS r
-          WHERE n.icusnum = r.icusnum
-            AND NOT n.is_removed;
-
-         UPDATE pg_temp.mi_0008_san_node AS n
-            SET is_removed = true
-           FROM pg_temp.mi_0008_san_frontier AS f
-          WHERE n.icusnum = f.icusnum;
-
-         IF l_kahn_pass > l_graph_node_count THEN
-            RAISE EXCEPTION 'Cycle analysis did not converge for LSR %', p_lsr_id;
-         END IF;
-      END LOOP;
-
-      INSERT INTO pg_temp.mi_0008_san_component
-      (
-         component_id, node_count, root_count, root_icusnum, has_cycle
-      )
-      SELECT n.component_id,
-             count(*),
-             count(*) FILTER (WHERE n.in_degree = 0),
-             min(n.icusnum) FILTER (WHERE n.in_degree = 0),
-             bool_or(NOT n.is_removed)
-        FROM pg_temp.mi_0008_san_node AS n
-       GROUP BY n.component_id;
+         SET work_in_degree = n.work_in_degree - r.edge_count
+        FROM removed_edges AS r
+       WHERE n.icusnum = r.icusnum
+         AND NOT n.is_removed;
 
       UPDATE pg_temp.mi_0008_san_node AS n
-         SET r_icusnum = CASE
-                            WHEN NOT c.has_cycle AND c.root_count = 1
-                            THEN c.root_icusnum
-                            ELSE NULL
-                         END,
-             graph_result_code = CASE
-                                    WHEN c.has_cycle THEN c_result_cycle
-                                    WHEN c.root_count <> 1 THEN c_result_multi_root
-                                    ELSE NULL
-                                 END
-        FROM pg_temp.mi_0008_san_component AS c
-       WHERE c.component_id = n.component_id;
-   END IF;
+         SET is_removed = true
+        FROM pg_temp.mi_0008_san_frontier AS f
+       WHERE n.icusnum = f.icusnum;
 
-end;
+      IF l_kahn_pass > p_graph_node_count THEN
+         RAISE EXCEPTION
+            'Cycle analysis did not converge';
+      END IF;
+   END LOOP;
+
+   INSERT INTO pg_temp.mi_0008_san_component
+   (
+      component_id,
+      node_count,
+      root_count,
+      root_icusnum,
+      has_cycle
+   )
+   SELECT n.component_id,
+          count(*),
+          count(*) FILTER (WHERE n.in_degree = 0),
+          min(n.icusnum) FILTER (WHERE n.in_degree = 0),
+          bool_or(NOT n.is_removed)
+     FROM pg_temp.mi_0008_san_node AS n
+    GROUP BY n.component_id;
+
+   UPDATE pg_temp.mi_0008_san_node AS n
+      SET r_icusnum =
+             CASE
+                WHEN NOT c.has_cycle AND c.root_count = 1
+                   THEN c.root_icusnum
+                ELSE NULL
+             END,
+          graph_result_code =
+             CASE
+                WHEN c.has_cycle
+                   THEN c_result_cycle
+                WHEN c.root_count <> 1
+                   THEN c_result_multi_root
+                ELSE NULL
+             END
+     FROM pg_temp.mi_0008_san_component AS c
+    WHERE c.component_id = n.component_id;
+
+END;
+$procedure$
+
+
+CREATE PROCEDURE apply_Cus_Mapping(
+   OUT p_special_count bigint,
+   OUT p_reject_count  bigint
+)
+AS
+$procedure$
+   #package
+   #private
+BEGIN
+
+   p_special_count := 0;
+   p_reject_count  := 0;
+
+   WITH mapped AS
+   (
+      SELECT a.s_icusnum,
+             n.component_id,
+             c.node_count,
+             c.root_count,
+             n.graph_result_code,
+
+             CASE
+                WHEN n.graph_result_code IS NULL
+                   THEN coalesce(n.r_icusnum, a.s_icusnum)
+                ELSE NULL
+             END AS canonical_icusnum
+
+        FROM pg_temp.mi_0008_acc_tmp AS a
+
+        LEFT JOIN pg_temp.mi_0008_san_node AS n
+          ON n.icusnum = a.s_icusnum
+
+        LEFT JOIN pg_temp.mi_0008_san_component AS c
+          ON c.component_id = n.component_id
+   ),
+   checked AS
+   (
+      SELECT m.*,
+             cus.icusnum IS NOT NULL AS canonical_exists
+
+        FROM mapped AS m
+
+        LEFT JOIN xxi."CUS" AS cus
+          ON cus.icusnum = m.canonical_icusnum
+   ),
+   decision AS
+   (
+      SELECT x.s_icusnum,
+
+             CASE
+                WHEN x.graph_result_code IS NOT NULL
+                   THEN NULL
+
+                WHEN NOT x.canonical_exists
+                   THEN x.canonical_icusnum
+
+                WHEN x.canonical_icusnum IS DISTINCT FROM x.s_icusnum
+                   THEN x.canonical_icusnum
+
+                ELSE NULL
+             END AS r_icusnum,
+
+             CASE
+                WHEN x.graph_result_code IS NOT NULL
+                   THEN x.graph_result_code
+
+                WHEN NOT x.canonical_exists
+                   THEN c_result_not_found
+
+                WHEN x.canonical_icusnum IS DISTINCT FROM x.s_icusnum
+                   THEN c_result_cus_map
+
+                ELSE NULL
+             END AS result_code,
+
+             CASE x.graph_result_code
+                WHEN c_result_cycle
+                   THEN 'Active relation-17 component contains a cycle'
+
+                WHEN c_result_multi_root
+                   THEN 'Active relation-17 component has multiple roots'
+
+                ELSE
+                   CASE
+                      WHEN NOT x.canonical_exists
+                         THEN format(
+                            'Canonical client %s is absent from CUS',
+                            x.canonical_icusnum
+                         )
+                      ELSE NULL
+                   END
+             END AS result_info,
+
+             CASE
+                WHEN x.graph_result_code IS NOT NULL THEN
+                   jsonb_build_object(
+                      'link_type',    c_link_type_17,
+                      'component_id', x.component_id,
+                      'node_count',   x.node_count,
+                      'root_count',   x.root_count
+                   )::text
+
+                WHEN NOT x.canonical_exists THEN
+                   jsonb_build_object(
+                      'missing_icusnum', x.canonical_icusnum
+                   )::text
+
+                WHEN x.canonical_icusnum IS DISTINCT FROM x.s_icusnum THEN
+                   jsonb_build_object(
+                      'link_type', c_link_type_17
+                   )::text
+
+                ELSE NULL
+             END AS result_data
+
+        FROM checked AS x
+   )
+   UPDATE pg_temp.mi_0008_acc_tmp AS a
+      SET r_icusnum       = d.r_icusnum,
+          san_result_code = d.result_code,
+          san_result_info = d.result_info,
+          san_result_data = d.result_data
+     FROM decision AS d
+    WHERE a.s_icusnum = d.s_icusnum
+      AND d.result_code IS NOT NULL;
+
+   GET DIAGNOSTICS p_special_count = ROW_COUNT;
+
+   SELECT count(*)
+     INTO p_reject_count
+     FROM pg_temp.mi_0008_acc_tmp AS a
+    WHERE a.san_result_code IS NOT NULL
+      AND a.san_result_code <> c_result_cus_map;
+
+END;
+$procedure$
+
+
+/* */
+CREATE PROCEDURE write_Diagnostics(
+   IN p_lsr_id numeric
+)
+AS
+$procedure$
+   #package
+   #private
+BEGIN
+
+   INSERT INTO xxi.mi_0008_lsr_itm
+   (
+      lsr_id,
+      s_icusnum,
+      r_icusnum,
+      result_code,
+      result_info,
+      result_data
+   )
+   SELECT p_lsr_id,
+          a.s_icusnum,
+          a.r_icusnum,
+          a.san_result_code,
+          a.san_result_info,
+          a.san_result_data
+     FROM pg_temp.mi_0008_acc_tmp AS a
+    WHERE a.san_result_code IS NOT NULL
+
+   ON CONFLICT (lsr_id, s_icusnum) DO UPDATE
+      SET r_icusnum   = EXCLUDED.r_icusnum,
+          result_code = EXCLUDED.result_code,
+          result_info = EXCLUDED.result_info,
+          result_data = EXCLUDED.result_data;
+
+END;
+$procedure$
 
 /* One consistent snapshot of the complete active relation-17 graph. */
 CREATE PROCEDURE load_Link_Graph(
@@ -325,12 +518,8 @@ DECLARE
    l_stage_cd         varchar(20);
    l_source_count     bigint;
    l_graph_node_count bigint;
-   l_affected_count   bigint;
-   l_frontier_count   bigint;
    l_special_count    bigint;
    l_reject_count     bigint;
-   l_component_pass   bigint := 0;
-   l_kahn_pass        bigint := 0;
 BEGIN
    p_ires_code := ret_FAIL;
    p_cres_info := NULL;
@@ -386,108 +575,18 @@ BEGIN
 
    CALL mi_0008_san.create_Graph_Tables();
    CALL mi_0008_san.load_Link_Graph(l_graph_node_count);
-   CALL resolve_Components(l_graph_node_count);
-   CALL resolve_Roots(l_graph_node_count);
 
+   CALL mi_0008_san.resolve_Components(l_graph_node_count);
+   CALL mi_0008_san.resolve_Roots(l_graph_node_count);
 
+   CALL mi_0008_san.apply_Cus_Mapping(
+      l_special_count,
+      l_reject_count
+   );
 
-
-   ---------------------------------------------------------------------------
-   -- Compute one decision per source client and update SPECIAL rows only.
-   -- A root member (root == source) remains an implicit self-map.
-   ---------------------------------------------------------------------------
-   WITH mapped AS
-   (
-      SELECT a.s_icusnum,
-             n.component_id,
-             c.node_count,
-             c.root_count,
-             n.graph_result_code,
-             CASE
-                WHEN n.graph_result_code IS NULL
-                THEN coalesce(n.r_icusnum, a.s_icusnum)
-                ELSE NULL
-             END AS canonical_icusnum
-        FROM pg_temp.mi_0008_acc_tmp AS a
-        LEFT JOIN pg_temp.mi_0008_san_node AS n
-          ON n.icusnum = a.s_icusnum
-        LEFT JOIN pg_temp.mi_0008_san_component AS c
-          ON c.component_id = n.component_id
-   ), checked AS
-   (
-      SELECT m.*,
-             (cus.icusnum IS NOT NULL) AS canonical_exists
-        FROM mapped AS m
-        LEFT JOIN xxi."CUS" AS cus
-          ON cus.icusnum = m.canonical_icusnum
-   ), decision AS
-   (
-      SELECT x.s_icusnum,
-             CASE
-                WHEN x.graph_result_code IS NOT NULL THEN NULL
-                WHEN NOT x.canonical_exists THEN x.canonical_icusnum
-                WHEN x.canonical_icusnum IS DISTINCT FROM x.s_icusnum
-                THEN x.canonical_icusnum
-                ELSE NULL
-             END AS r_icusnum,
-             CASE
-                WHEN x.graph_result_code IS NOT NULL THEN x.graph_result_code
-                WHEN NOT x.canonical_exists THEN c_result_not_found
-                WHEN x.canonical_icusnum IS DISTINCT FROM x.s_icusnum
-                THEN c_result_cus_map
-                ELSE NULL
-             END AS result_code,
-             CASE x.graph_result_code
-                WHEN c_result_cycle
-                   THEN 'Active relation-17 component contains a cycle'
-                WHEN c_result_multi_root
-                   THEN 'Active relation-17 component has multiple roots'
-                ELSE CASE WHEN NOT x.canonical_exists
-                   THEN format('Canonical client %s is absent from CUS',
-                               x.canonical_icusnum)
-                   ELSE NULL END
-             END AS result_info,
-             CASE
-                WHEN x.graph_result_code IS NOT NULL THEN
-                   jsonb_build_object(
-                      'link_type', c_link_type_17,
-                      'component_id', x.component_id,
-                      'node_count', x.node_count,
-                      'root_count', x.root_count
-                   )::text
-                WHEN NOT x.canonical_exists THEN
-                   jsonb_build_object('missing_icusnum', x.canonical_icusnum)::text
-                WHEN x.canonical_icusnum IS DISTINCT FROM x.s_icusnum THEN
-                   jsonb_build_object('link_type', c_link_type_17)::text
-                ELSE NULL
-             END AS result_data
-        FROM checked AS x
-   )
-   UPDATE pg_temp.mi_0008_acc_tmp AS a
-      SET r_icusnum       = d.r_icusnum,
-          san_result_code = d.result_code,
-          san_result_info = d.result_info,
-          san_result_data = d.result_data
-     FROM decision AS d
-    WHERE a.s_icusnum = d.s_icusnum
-      AND d.result_code IS NOT NULL;
-
-   GET DIAGNOSTICS l_special_count = ROW_COUNT;
-
-   INSERT INTO xxi.mi_0008_lsr_itm
-   (
-      lsr_id, s_icusnum, r_icusnum,
-      result_code, result_info, result_data
-   )
-   SELECT p_lsr_id, a.s_icusnum, a.r_icusnum,
-          a.san_result_code, a.san_result_info, a.san_result_data
-     FROM pg_temp.mi_0008_acc_tmp AS a
-    WHERE a.san_result_code IS NOT NULL
-   ON CONFLICT (lsr_id, s_icusnum) DO UPDATE
-      SET r_icusnum  = EXCLUDED.r_icusnum,
-          result_code = EXCLUDED.result_code,
-          result_info = EXCLUDED.result_info,
-          result_data = EXCLUDED.result_data;
+   CALL mi_0008_san.write_Diagnostics(
+      p_lsr_id
+   );
 
    SELECT count(*) INTO l_reject_count
      FROM pg_temp.mi_0008_acc_tmp AS a
