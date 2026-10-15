@@ -261,7 +261,7 @@ CREATE OR REPLACE PACKAGE mi_0062_api
 
       CALL MI_Item_Result_Api.apply_Item_Result(
          'xxi.mi_0062'::regclass,
-         'MI_0062_Api.map_Item_Result(numeric,jsonb)'::regprocedure,
+         'MI_0062_Api.map_Item_Result(numeric,xml)'::regprocedure,
          p_request_uuid,
          p_message_uuid,
          p_item_uuid,
@@ -272,7 +272,8 @@ CREATE OR REPLACE PACKAGE mi_0062_api
          p_response_time,
          p_payload_text,
          p_ret_code,
-         p_ret_info
+         p_ret_info,
+         'xml'::text
       );
 
       CALL mi_logger.exit_f(
@@ -284,13 +285,12 @@ CREATE OR REPLACE PACKAGE mi_0062_api
    $$
 
    -- Разбор payload ответа по элементу
-   CREATE FUNCTION map_item_result(p_itm_id numeric, p_payload jsonb)
+   CREATE FUNCTION map_item_result(p_itm_id numeric, p_payload xml)
       RETURNS MI_Item_Result_Api.Item_Result AS $$
       #package
    DECLARE
       cFunc      varchar := cPkg_Name || '.map_item_result';
       l_xml      xml;
-      l_xml_text text;
       l_result   varchar;
       l_info     varchar;
       l_ires     numeric;
@@ -303,12 +303,11 @@ CREATE OR REPLACE PACKAGE mi_0062_api
          p_inf_id        => c_Inf_Id
       );
 
-      -- Извлечение XML из payload (структура?)
-      l_xml_text := p_payload->>'xml';
+      l_xml := p_payload;
 
-      IF l_xml_text IS NULL OR btrim(l_xml_text) = '' THEN
+      IF l_xml IS NULL OR btrim(l_xml::text) = '' THEN
          l_res.iRes_Code := RET_FAIL;
-         l_res.cRes_info := 'XML в payload не найден';
+         l_res.cRes_info := 'payload пуст';
          CALL mi_logger.error(
             p_logger_name   => c_Logger,
             p_message_text  => l_res.cRes_info,
@@ -316,8 +315,6 @@ CREATE OR REPLACE PACKAGE mi_0062_api
          );
          RETURN l_res;
       END IF;
-
-      l_xml := l_xml_text::xml;
 
       -- Определение результата из ответа
       l_result := (xpath('/response/@result', l_xml))[1]::text;
@@ -336,7 +333,7 @@ CREATE OR REPLACE PACKAGE mi_0062_api
          END IF;
       ELSE
          l_ires := -1;
-         l_info := 'Неизвестный ответ: ' || l_xml_text;
+         l_info := 'Неизвестный ответ: ' || l_xml::text;
       END IF;
 
       l_res.iRes_Code := l_ires;
@@ -420,6 +417,7 @@ CREATE OR REPLACE PACKAGE mi_0062_api
          cuser,
          idiscount_size,
          ddiscount_date,
+         istatus,           
          cmessageid,
          mamount,
          cpayername,
@@ -460,6 +458,7 @@ CREATE OR REPLACE PACKAGE mi_0062_api
          l_user,                                            -- cuser
          x.idiscount_size,
          (x.ddiscount_date_s)::date,
+         KZ_CH_UTIL.GEN_CH_STATUS(x.csupplierbillid),       -- несуществующая на тесте функция, аккуратно! Перенесено из Oracle!
          r.correlation_id::text,                            -- cmessageid
          round(x.mamount / 100.0, 2),
          x.cpayername,
