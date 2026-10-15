@@ -76,3 +76,4 @@ build/
 tools/
 versions/
 @buffer/
+tests/
