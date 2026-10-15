@@ -1882,21 +1882,45 @@ BEGIN
    UPDATE xxi.mi_0008_lsr SET stage_cd = 'SANITARIUM'
     WHERE lsr_id = p_lsr_id;
 
-   CALL mi_0008_san.sanitize_Cus(
-      l_ctx.lsr_id, l_ctx.inf_id, l_san_code, l_san_info
+   CALL mi_0008_san.resolve_Cus (
+      l_ctx.lsr_id,
+      l_ctx.inf_id,
+      l_san_code,
+      l_san_info
    );
 
-   IF l_san_code IS DISTINCT FROM ret_Ok THEN
+   IF l_san_code IS DISTINCT FROM ret_OK THEN
       CALL MI_resultCtx.raise_fail(
          p_result_code => 'MI_0008_API#SAN_FAILED',
          p_result_info => coalesce(l_san_info, 'Sanitarium failed')
       );
    END IF;
 
-   UPDATE xxi.mi_0008_lsr SET stage_cd = 'FINAL_WRITE'
+   CALL mi_0008_api.collapse_To_Roots();
+
+   CALL mi_0008_san.validate_Root_Cus(
+      p_lsr_id       => l_ctx.lsr_id,
+      p_inf_id       => l_ctx.inf_id,
+      p_iyear        => l_ctx.iyear,
+      p_launch_itype => l_ctx.launch_itype,
+      p_irsn_corr    => l_ctx.irsn_corr,
+      p_ireq_kind    => l_ctx.ireq_kind,
+      p_ires_code    => l_san_code,
+      p_cres_info    => l_san_info
+   );
+
+   IF l_san_code IS DISTINCT FROM ret_OK THEN
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_API#ROOT_SAN_FAILED',
+         p_result_info => coalesce(l_san_info, 'Root validation failed')
+      );
+   END IF;
+
+   UPDATE xxi.mi_0008_lsr
+      SET stage_cd = 'FINAL_WRITE'
     WHERE lsr_id = p_lsr_id;
 
-   CALL mi_0008_api.collapse_To_Roots();
+
    CALL mi_0008_api.write_Report(
       l_ctx, p_ctaxreq_id, l_req_id, l_write_code, l_write_info
    );

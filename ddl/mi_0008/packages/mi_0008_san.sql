@@ -493,16 +493,9 @@ $procedure$
 
 
 /*
- * Public technical entry point used by mi_0008_api.prepare_Report.  The API
- * passes the actual inf_id explicitly from its run_context_t; Sanitarium does
- * not resolve orchestration state through a one-row temp table.
- *
- * Normal self mapping remains implicit:
- *   r_icusnum IS NULL AND san_result_code IS NULL.
- * Only mappings/rejections update the accumulator and enter the persistent
- * current-state protocol.  Financial columns are never read or changed here.
+ * Public technical entry point used by mi_0008_api.prepare_Rep changed here.
  */
-CREATE PROCEDURE sanitize_Cus(
+CREATE PROCEDURE resolve_Cus (
    IN  p_lsr_id    numeric,
    IN  p_inf_id    numeric,
    OUT p_ires_code int4,
@@ -587,11 +580,6 @@ BEGIN
    CALL mi_0008_san.write_Diagnostics(
       p_lsr_id
    );
-
-   SELECT count(*) INTO l_reject_count
-     FROM pg_temp.mi_0008_acc_tmp AS a
-    WHERE a.san_result_code IS NOT NULL
-      AND a.san_result_code <> c_result_cus_map;
 
    p_ires_code := ret_OK;
    p_cres_info := format(
