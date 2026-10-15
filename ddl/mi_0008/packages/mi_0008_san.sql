@@ -105,6 +105,169 @@ END;
 $procedure$
 
 
+/* */
+CREATE PROCEDURE resolve_Components (
+   IN p_graph_node_count bigint
+)
+AS
+$procedure$
+   #package
+   #private
+DECLARE
+   l_affected_count bigint;
+   l_component_pass bigint := 0;
+BEGIN
+
+   IF p_graph_node_count = 0 THEN
+      RETURN;
+   END IF;
+
+   LOOP
+
+      l_component_pass := l_component_pass + 1;
+
+      WITH proposed AS
+      (
+         SELECT e.p_icusnum AS icusnum,
+                least(p.component_id, c.component_id) AS component_id
+           FROM pg_temp.mi_0008_san_edge AS e
+           JOIN pg_temp.mi_0008_san_node AS p
+             ON p.icusnum = e.p_icusnum
+           JOIN pg_temp.mi_0008_san_node AS c
+             ON c.icusnum = e.c_icusnum
+
+         UNION ALL
+
+         SELECT e.c_icusnum,
+                least(p.component_id, c.component_id)
+           FROM pg_temp.mi_0008_san_edge AS e
+           JOIN pg_temp.mi_0008_san_node AS p
+             ON p.icusnum = e.p_icusnum
+           JOIN pg_temp.mi_0008_san_node AS c
+             ON c.icusnum = e.c_icusnum
+      ),
+      best AS
+      (
+         SELECT p.icusnum,
+                min(p.component_id) AS component_id
+           FROM proposed AS p
+          GROUP BY p.icusnum
+      )
+      UPDATE pg_temp.mi_0008_san_node AS n
+         SET component_id = b.component_id
+        FROM best AS b
+       WHERE n.icusnum = b.icusnum
+         AND b.component_id < n.component_id;
+
+      GET DIAGNOSTICS l_affected_count = ROW_COUNT;
+
+      EXIT WHEN l_affected_count = 0;
+
+      IF l_component_pass > p_graph_node_count THEN
+         RAISE EXCEPTION
+            'Component propagation did not converge';
+      END IF;
+
+   END LOOP;
+
+END;
+$procedure$
+
+
+/* */
+CREATE PROCEDURE resolve_Roots(
+   IN p_graph_node_count bigint
+)
+AS
+$procedure$
+   #package
+   #private
+BEGIN
+      ------------------------------------------------------------------------
+      -- Cycle detection by Kahn topological removal.  A node left behind
+      -- marks its entire weak component as cyclic.
+      ------------------------------------------------------------------------
+      WITH degree_by_node AS
+      (
+         SELECT e.c_icusnum AS icusnum, count(*) AS in_degree
+           FROM pg_temp.mi_0008_san_edge AS e
+          GROUP BY e.c_icusnum
+      )
+      UPDATE pg_temp.mi_0008_san_node AS n
+         SET in_degree = d.in_degree,
+             work_in_degree = d.in_degree
+        FROM degree_by_node AS d
+       WHERE n.icusnum = d.icusnum;
+
+      LOOP
+         l_kahn_pass := l_kahn_pass + 1;
+         TRUNCATE TABLE pg_temp.mi_0008_san_frontier;
+
+         INSERT INTO pg_temp.mi_0008_san_frontier (icusnum)
+         SELECT n.icusnum
+           FROM pg_temp.mi_0008_san_node AS n
+          WHERE NOT n.is_removed
+            AND n.work_in_degree = 0;
+
+         GET DIAGNOSTICS l_frontier_count = ROW_COUNT;
+         EXIT WHEN l_frontier_count = 0;
+
+         WITH removed_edges AS
+         (
+            SELECT e.c_icusnum AS icusnum, count(*) AS edge_count
+              FROM pg_temp.mi_0008_san_edge AS e
+              JOIN pg_temp.mi_0008_san_frontier AS f
+                ON f.icusnum = e.p_icusnum
+              JOIN pg_temp.mi_0008_san_node AS c
+                ON c.icusnum = e.c_icusnum
+             WHERE NOT c.is_removed
+             GROUP BY e.c_icusnum
+         )
+         UPDATE pg_temp.mi_0008_san_node AS n
+            SET work_in_degree = n.work_in_degree - r.edge_count
+           FROM removed_edges AS r
+          WHERE n.icusnum = r.icusnum
+            AND NOT n.is_removed;
+
+         UPDATE pg_temp.mi_0008_san_node AS n
+            SET is_removed = true
+           FROM pg_temp.mi_0008_san_frontier AS f
+          WHERE n.icusnum = f.icusnum;
+
+         IF l_kahn_pass > l_graph_node_count THEN
+            RAISE EXCEPTION 'Cycle analysis did not converge for LSR %', p_lsr_id;
+         END IF;
+      END LOOP;
+
+      INSERT INTO pg_temp.mi_0008_san_component
+      (
+         component_id, node_count, root_count, root_icusnum, has_cycle
+      )
+      SELECT n.component_id,
+             count(*),
+             count(*) FILTER (WHERE n.in_degree = 0),
+             min(n.icusnum) FILTER (WHERE n.in_degree = 0),
+             bool_or(NOT n.is_removed)
+        FROM pg_temp.mi_0008_san_node AS n
+       GROUP BY n.component_id;
+
+      UPDATE pg_temp.mi_0008_san_node AS n
+         SET r_icusnum = CASE
+                            WHEN NOT c.has_cycle AND c.root_count = 1
+                            THEN c.root_icusnum
+                            ELSE NULL
+                         END,
+             graph_result_code = CASE
+                                    WHEN c.has_cycle THEN c_result_cycle
+                                    WHEN c.root_count <> 1 THEN c_result_multi_root
+                                    ELSE NULL
+                                 END
+        FROM pg_temp.mi_0008_san_component AS c
+       WHERE c.component_id = n.component_id;
+   END IF;
+
+end;
+
 /* One consistent snapshot of the complete active relation-17 graph. */
 CREATE PROCEDURE load_Link_Graph(
    OUT p_graph_node_count bigint
@@ -223,132 +386,11 @@ BEGIN
 
    CALL mi_0008_san.create_Graph_Tables();
    CALL mi_0008_san.load_Link_Graph(l_graph_node_count);
+   CALL resolve_Components(l_graph_node_count);
+   CALL resolve_Roots(l_graph_node_count);
 
-   ---------------------------------------------------------------------------
-   -- Weakly connected components.  Every pass propagates the smallest node
-   -- id across one undirected hop.  This is a set loop over graph passes, not
-   -- a loop over report clients.
-   ---------------------------------------------------------------------------
-   IF l_graph_node_count > 0 THEN
-      LOOP
-         l_component_pass := l_component_pass + 1;
 
-         WITH proposed AS
-         (
-            SELECT e.p_icusnum AS icusnum,
-                   least(p.component_id, c.component_id) AS component_id
-              FROM pg_temp.mi_0008_san_edge AS e
-              JOIN pg_temp.mi_0008_san_node AS p ON p.icusnum = e.p_icusnum
-              JOIN pg_temp.mi_0008_san_node AS c ON c.icusnum = e.c_icusnum
-            UNION ALL
-            SELECT e.c_icusnum,
-                   least(p.component_id, c.component_id)
-              FROM pg_temp.mi_0008_san_edge AS e
-              JOIN pg_temp.mi_0008_san_node AS p ON p.icusnum = e.p_icusnum
-              JOIN pg_temp.mi_0008_san_node AS c ON c.icusnum = e.c_icusnum
-         ), best AS
-         (
-            SELECT p.icusnum, min(p.component_id) AS component_id
-              FROM proposed AS p
-             GROUP BY p.icusnum
-         )
-         UPDATE pg_temp.mi_0008_san_node AS n
-            SET component_id = b.component_id
-           FROM best AS b
-          WHERE n.icusnum = b.icusnum
-            AND b.component_id < n.component_id;
 
-         GET DIAGNOSTICS l_affected_count = ROW_COUNT;
-         EXIT WHEN l_affected_count = 0;
-
-         IF l_component_pass > l_graph_node_count THEN
-            RAISE EXCEPTION 'Component propagation did not converge for LSR %',
-               p_lsr_id;
-         END IF;
-      END LOOP;
-
-      ------------------------------------------------------------------------
-      -- Cycle detection by Kahn topological removal.  A node left behind
-      -- marks its entire weak component as cyclic.
-      ------------------------------------------------------------------------
-      WITH degree_by_node AS
-      (
-         SELECT e.c_icusnum AS icusnum, count(*) AS in_degree
-           FROM pg_temp.mi_0008_san_edge AS e
-          GROUP BY e.c_icusnum
-      )
-      UPDATE pg_temp.mi_0008_san_node AS n
-         SET in_degree = d.in_degree,
-             work_in_degree = d.in_degree
-        FROM degree_by_node AS d
-       WHERE n.icusnum = d.icusnum;
-
-      LOOP
-         l_kahn_pass := l_kahn_pass + 1;
-         TRUNCATE TABLE pg_temp.mi_0008_san_frontier;
-
-         INSERT INTO pg_temp.mi_0008_san_frontier (icusnum)
-         SELECT n.icusnum
-           FROM pg_temp.mi_0008_san_node AS n
-          WHERE NOT n.is_removed
-            AND n.work_in_degree = 0;
-
-         GET DIAGNOSTICS l_frontier_count = ROW_COUNT;
-         EXIT WHEN l_frontier_count = 0;
-
-         WITH removed_edges AS
-         (
-            SELECT e.c_icusnum AS icusnum, count(*) AS edge_count
-              FROM pg_temp.mi_0008_san_edge AS e
-              JOIN pg_temp.mi_0008_san_frontier AS f
-                ON f.icusnum = e.p_icusnum
-              JOIN pg_temp.mi_0008_san_node AS c
-                ON c.icusnum = e.c_icusnum
-             WHERE NOT c.is_removed
-             GROUP BY e.c_icusnum
-         )
-         UPDATE pg_temp.mi_0008_san_node AS n
-            SET work_in_degree = n.work_in_degree - r.edge_count
-           FROM removed_edges AS r
-          WHERE n.icusnum = r.icusnum
-            AND NOT n.is_removed;
-
-         UPDATE pg_temp.mi_0008_san_node AS n
-            SET is_removed = true
-           FROM pg_temp.mi_0008_san_frontier AS f
-          WHERE n.icusnum = f.icusnum;
-
-         IF l_kahn_pass > l_graph_node_count THEN
-            RAISE EXCEPTION 'Cycle analysis did not converge for LSR %', p_lsr_id;
-         END IF;
-      END LOOP;
-
-      INSERT INTO pg_temp.mi_0008_san_component
-      (
-         component_id, node_count, root_count, root_icusnum, has_cycle
-      )
-      SELECT n.component_id,
-             count(*),
-             count(*) FILTER (WHERE n.in_degree = 0),
-             min(n.icusnum) FILTER (WHERE n.in_degree = 0),
-             bool_or(NOT n.is_removed)
-        FROM pg_temp.mi_0008_san_node AS n
-       GROUP BY n.component_id;
-
-      UPDATE pg_temp.mi_0008_san_node AS n
-         SET r_icusnum = CASE
-                            WHEN NOT c.has_cycle AND c.root_count = 1
-                            THEN c.root_icusnum
-                            ELSE NULL
-                         END,
-             graph_result_code = CASE
-                                    WHEN c.has_cycle THEN c_result_cycle
-                                    WHEN c.root_count <> 1 THEN c_result_multi_root
-                                    ELSE NULL
-                                 END
-        FROM pg_temp.mi_0008_san_component AS c
-       WHERE c.component_id = n.component_id;
-   END IF;
 
    ---------------------------------------------------------------------------
    -- Compute one decision per source client and update SPECIAL rows only.
