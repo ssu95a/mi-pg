@@ -654,16 +654,30 @@ $procedure$
 
 
 
-/* */
+/*
+ * Проверяет готовые person snapshots итоговых root-клиентов.
+ *
+ * До вызова процедуры обязательно должен быть выполнен
+ * mi_0008_api.project_Current_Person().
+ *
+ * Процедура:
+ *   - не выбирает данные из CUS/CUS_DOCUM;
+ *   - не создаёт mi_person;
+ *   - не пишет mi_0008_lsr_itm;
+ *   - только устанавливает санитарное решение в mi_0008_acc_tmp.
+ *
+ * Отсутствие гражданства не является причиной отклонения:
+ * количество таких принятых клиентов возвращается в p_citizen_warn.
+ */
 CREATE PROCEDURE apply_Root_Validation(
    IN  p_iyear         numeric,
    IN  p_launch_itype  numeric,
    IN  p_irsn_corr     numeric,
    IN  p_ireq_kind     numeric,
 
-   OUT p_root_count     bigint,
-   OUT p_reject_count   bigint,
-   OUT p_citizen_warn   bigint
+   OUT p_root_count    bigint,
+   OUT p_reject_count  bigint,
+   OUT p_citizen_warn  bigint
 )
 AS
 $procedure$
@@ -677,213 +691,156 @@ BEGIN
    p_reject_count := 0;
    p_citizen_warn := 0;
 
-   WITH roots AS MATERIALIZED
+   /*
+    * После collapse_To_Roots каждая строка соответствует одному
+    * итоговому canonical/root клиенту.
+    *
+    * Graph rejects к этому моменту уже удалены из рабочего набора.
+    */
+   WITH decision AS MATERIALIZED
    (
-      SELECT a.s_icusnum AS icusnum
-        FROM pg_temp.mi_0008_acc_tmp AS a
-       WHERE a.san_result_code IS NULL
-   ),
-   person_data AS MATERIALIZED
-   (
-      SELECT r.icusnum,
-             c.icusnum IS NOT NULL AS cus_exists,
+      SELECT work.s_icusnum,
 
-             NULLIF(btrim(c.ccusnumnal), '') AS inn,
-             c.dcusbirthday::date AS birth_date,
-
-             coalesce(
-                pref_doc.doc_type_id,
-                alt_doc.doc_type_id
-             ) AS doc_type_id,
+             work.doc_issue_date,
+             work.ctzn_country_code,
 
              CASE
-                WHEN pref_doc.doc_type_id IS NOT NULL
-                   THEN pref_doc.doc_issue_date
-                ELSE alt_doc.doc_issue_date
-             END AS doc_issue_date,
-
-             coalesce(
-                cus_country.cdigital,
-                doc_country.cdigital
-             ) AS ctzn_country_code
-
-        FROM roots AS r
-
-        LEFT JOIN xxi."CUS" AS c
-          ON c.icusnum = r.icusnum
-
-        LEFT JOIN LATERAL
-        (
-           SELECT CASE
-                     WHEN btrim(p.cpudcode9) ~ '^[0-9]{1,3}$'
-                        THEN btrim(p.cpudcode9)::numeric(3)
-                     ELSE NULL::numeric(3)
-                  END AS doc_type_id,
-
-                  d.doc_date::date AS doc_issue_date,
-                  d.doc_cnt
-
-             FROM xxi.cus_docum AS d
-
-             LEFT JOIN xxi.pud AS p
-               ON p.ipudid = d.id_doc_tp
-
-            WHERE d.icusnum = r.icusnum
-              AND d.pref = 'Y'
-
-            ORDER BY d.doc_date DESC NULLS LAST,
-                     d.id_doc DESC
-
-            LIMIT 1
-        ) AS pref_doc
-          ON true
-
-        LEFT JOIN LATERAL
-        (
-           SELECT CASE
-                     WHEN btrim(p.cpudcode9) ~ '^[0-9]{1,3}$'
-                        THEN btrim(p.cpudcode9)::numeric(3)
-                     ELSE NULL::numeric(3)
-                  END AS doc_type_id,
-
-                  d.doc_date::date AS doc_issue_date,
-                  d.doc_cnt
-
-             FROM xxi.cus_docum AS d
-
-             LEFT JOIN xxi.pud AS p
-               ON p.ipudid = d.id_doc_tp
-
-            WHERE d.icusnum = r.icusnum
-              AND coalesce(d.pref, 'N') = 'N'
-              AND coalesce(d.doc_period, CURRENT_DATE) >= CURRENT_DATE
-
-            ORDER BY d.doc_date DESC NULLS LAST,
-                     d.id_doc DESC
-
-            LIMIT 1
-        ) AS alt_doc
-          ON true
-
-        LEFT JOIN LATERAL
-        (
-           SELECT k.cdigital
-             FROM xxi.ok_sm AS k
-            WHERE k.calfa_2 = c.ccuscountry1
-            LIMIT 1
-        ) AS cus_country
-          ON true
-
-        LEFT JOIN LATERAL
-        (
-           SELECT k.cdigital
-             FROM xxi.ok_sm AS k
-            WHERE k.calfa_3 =
-                  CASE
-                     WHEN pref_doc.doc_type_id IS NOT NULL
-                        THEN pref_doc.doc_cnt
-                     ELSE alt_doc.doc_cnt
-                  END
-            LIMIT 1
-        ) AS doc_country
-          ON true
-   ),
-   decision AS MATERIALIZED
-   (
-      SELECT p.*,
-
-             CASE
-                WHEN NOT p.cus_exists
+                /*
+                 * project_Current_Person должен создать строку проекции
+                 * даже при отсутствии CUS, установив cus_exists = false.
+                 */
+                WHEN work.cus_exists IS NOT TRUE
                    THEN c_result_not_found
 
-                WHEN p.doc_type_id IS NULL
+                /*
+                 * ДУЛ отсутствует либо его тип не удалось распознать.
+                 */
+                WHEN work.doc_type_id IS NULL
                    THEN c_result_no_doc
 
+                /*
+                 * Для банковского уточнения person/ДУЛ документ,
+                 * выданный после отчётного периода, не принимается.
+                 */
                 WHEN p_launch_itype = 2
                  AND p_ireq_kind = 1
                  AND p_irsn_corr = 1
-                 AND extract(year FROM p.doc_issue_date) > p_iyear
+                 AND extract(year FROM work.doc_issue_date) > p_iyear
                    THEN c_result_doc_after
 
-                WHEN p.inn IS NULL
-                  OR length(p.inn) > 12
+                /*
+                 * Пустой ИНН и строка из пробелов трактуются одинаково.
+                 */
+                WHEN NULLIF(
+                        btrim(work.inn),
+                        ''
+                     ) IS NULL
+                  OR length(
+                        NULLIF(
+                           btrim(work.inn),
+                           ''
+                        )
+                     ) > 12
                    THEN c_result_bad_inn
 
-                WHEN p.birth_date IS NULL
+                WHEN work.birth_date IS NULL
                    THEN c_result_no_birth
 
                 ELSE NULL
              END::varchar(50) AS result_code
 
-        FROM person_data AS p
+        FROM pg_temp.mi_0008_acc_tmp AS work
+
+       WHERE work.san_result_code IS NULL
    ),
    updated AS
    (
-      UPDATE pg_temp.mi_0008_acc_tmp AS a
-         SET r_icusnum       = d.icusnum,
-             san_result_code = d.result_code,
+      UPDATE pg_temp.mi_0008_acc_tmp AS work
+         SET /*
+              * После collapse s_icusnum уже является root-CUS.
+              * Для отклонённого root сохраняем явное self-reference.
+              */
+             r_icusnum = decision.s_icusnum,
+
+             san_result_code = decision.result_code,
 
              san_result_info =
-                CASE d.result_code
-                   WHEN c_result_not_found
-                      THEN 'Клиент не найден в справочнике CUS'
+                CASE decision.result_code
+                   WHEN c_result_not_found THEN
+                      'Клиент не найден в справочнике CUS'
 
-                   WHEN c_result_no_doc
-                      THEN 'Отсутствует действующий ДУЛ или не распознан его тип'
+                   WHEN c_result_no_doc THEN
+                      'Отсутствует действующий ДУЛ или не распознан его тип'
 
-                   WHEN c_result_doc_after
-                      THEN format(
+                   WHEN c_result_doc_after THEN
+                      format(
                          'ДУЛ выдан после отчётного периода: дата=%s, год=%s',
-                         d.doc_issue_date,
+                         decision.doc_issue_date,
                          p_iyear
                       )
 
-                   WHEN c_result_bad_inn
-                      THEN 'Некорректный ИНН: значение отсутствует или длина превышает 12'
+                   WHEN c_result_bad_inn THEN
+                      'Некорректный ИНН: значение отсутствует или длина превышает 12'
 
-                   WHEN c_result_no_birth
-                      THEN 'Не задана дата рождения'
+                   WHEN c_result_no_birth THEN
+                      'Не задана дата рождения'
 
-                   ELSE d.result_code
+                   ELSE
+                      decision.result_code
                 END,
 
              san_result_data =
                 jsonb_strip_nulls(
                    jsonb_build_object(
-                      'stage',          'ROOT_VALIDATION',
-                      'doc_issue_date', d.doc_issue_date,
-                      'report_year',    p_iyear
+                      'stage',
+                      'ROOT_VALIDATION',
+
+                      'doc_issue_date',
+                      decision.doc_issue_date,
+
+                      'report_year',
+                      p_iyear
                    )
                 )::text
 
-        FROM decision AS d
+        FROM decision
 
-       WHERE a.s_icusnum = d.icusnum
-         AND d.result_code IS NOT NULL
+       WHERE work.s_icusnum = decision.s_icusnum
+         AND decision.result_code IS NOT NULL
 
-      RETURNING a.s_icusnum
+      RETURNING work.s_icusnum
    )
-   SELECT count(*),
+   SELECT count(*) AS root_count,
 
-          count(*) FILTER (
-             WHERE d.result_code IS NOT NULL
-          ),
+          count(*) FILTER
+          (
+             WHERE decision.result_code IS NOT NULL
+          ) AS reject_count,
 
-          count(*) FILTER (
-             WHERE d.result_code IS NULL
-               AND d.ctzn_country_code IS NULL
-          ),
+          count(*) FILTER
+          (
+             WHERE decision.result_code IS NULL
+               AND decision.ctzn_country_code IS NULL
+          ) AS citizen_warn_count,
 
-          (SELECT count(*) FROM updated)
+          (
+             SELECT count(*)
+               FROM updated
+          ) AS updated_count
 
      INTO p_root_count,
           p_reject_count,
           p_citizen_warn,
           l_updated_count
 
-     FROM decision AS d;
+     FROM decision;
 
+   /*
+    * Для каждого вычисленного rejection должна быть изменена
+    * ровно одна root-строка аккумулятора.
+    */
    IF l_updated_count <> p_reject_count THEN
+
       CALL MI_resultCtx.raise_fail(
          p_result_code => 'MI_0008_SAN#ROOT_CARDINALITY',
          p_result_info => format(
@@ -892,11 +849,11 @@ BEGIN
             l_updated_count
          )
       );
+
    END IF;
 
 END;
 $procedure$
-
 
 CREATE PROCEDURE persist_Root_Diagnostics(
    IN p_lsr_id numeric
@@ -1020,7 +977,7 @@ BEGIN
    );
 
 
-   CALL mi_0008_san.apply_Root_Validation (
+   CALL mi_0008_san.apply_Root_Validation(
       p_iyear         => p_iyear,
       p_launch_itype  => p_launch_itype,
       p_irsn_corr     => p_irsn_corr,
@@ -1035,9 +992,16 @@ BEGIN
       p_ires_code := ret_OK;
       p_cres_info := 'Sanitarium root validation: no clients';
 
-      CALL MI_logger.exit_f(...);
+      CALL MI_logger.exit_f(
+         p_logger_name  => cLogger,
+         p_message_text => p_cres_info,
+         p_inf_id       => p_inf_id,
+         p_object_id    => p_lsr_id
+      );
+
       RETURN;
-   END IF;   
+
+   END IF;
 
    CALL persist_Root_Diagnostics(p_lsr_id);
 
