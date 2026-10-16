@@ -61,39 +61,43 @@ $function$
 
 
 /*
- * Сессионные рабочие наборы.
+ * Единый рабочий набор текущего запуска.
  *
- * Параметры запуска не хранятся в сессионных таблицах: оркестратор передаёт
- * run_context_t каждому внутреннему этапу. mi_0008_acc_tmp — единственная
- * полнообъёмная материализация финансовых данных; область кандидатов компактна.
+ * До collapse_To_Roots:
+ *    одна строка = один исходный/source клиент.
+ *
+ * После collapse_To_Roots:
+ *    одна строка = один итоговый canonical/root клиент.
  */
-CREATE PROCEDURE create_Temp_Tables( )
+CREATE PROCEDURE create_Temp_Tables()
 AS
 $procedure$
    #package
    #private
 BEGIN
 
-   DROP TABLE IF EXISTS pg_temp.mi_0008_acc_tmp;
+   /*
+    * scope_tmp больше не создаётся.
+    * DROP пока оставляем для очистки legacy-состояния pooled session.
+    */
    DROP TABLE IF EXISTS pg_temp.mi_0008_scope_tmp;
+   DROP TABLE IF EXISTS pg_temp.mi_0008_acc_tmp;
 
-   CREATE TEMPORARY TABLE mi_0008_scope_tmp
-   (
-      s_icusnum    numeric(12) NOT NULL,
-      in_scope     boolean     NOT NULL DEFAULT false,
-      is_requested boolean     NOT NULL DEFAULT false,
-      is_excluded  boolean     NOT NULL DEFAULT false,
-      source_seen  boolean     NOT NULL DEFAULT false,
-      
-      CONSTRAINT pk_mi_0008_scope_tmp PRIMARY KEY (s_icusnum)
-
-   ) ON COMMIT DROP;
-
-   -- временный агрегатор для фин данных
    CREATE TEMPORARY TABLE mi_0008_acc_tmp
    (
       s_icusnum numeric(12) NOT NULL,
 
+      /*
+       * Scope текущего запуска.
+       */
+      in_scope     boolean NOT NULL DEFAULT false,
+      is_requested boolean NOT NULL DEFAULT false,
+      is_excluded  boolean NOT NULL DEFAULT false,
+      source_seen  boolean NOT NULL DEFAULT false,
+
+      /*
+       * Финансовый accumulator.
+       */
       msum_f_dep numeric(22,2),
       msum_i_dep numeric(22,2),
       msum_f_crd numeric(22,2),
@@ -101,24 +105,374 @@ BEGIN
       msum_f_acc numeric(22,2),
       msum_i_acc numeric(22,2),
 
+      /*
+       * Решение Sanitarium.
+       */
       r_icusnum       numeric(12),
-
       san_result_code varchar(50),
       san_result_info text,
       san_result_data text,
 
-      CONSTRAINT pk_mi_0008_acc_tmp PRIMARY KEY (s_icusnum)
+      /*
+       * Последняя допустимая историческая запись.
+       *
+       * Суммы и person-поля истории сюда не копируются:
+       * они доступны по hist_itm_id / hist_person_id.
+       */
+      has_primary    boolean NOT NULL DEFAULT false,
+      hist_itm_id    numeric(12),
+      hist_icorr     numeric(2),
+      hist_inum      numeric(12),
+      hist_person_id numeric(12),
 
-   ) ON COMMIT DROP;
+      /*
+       * Текущий immutable person snapshot.
+       *
+       * Заполняется один раз после collapse_To_Roots.
+       * Эти же данные проверяет Sanitarium и позднее сохраняет mi_person.
+       */
+      cus_exists boolean,
+
+      first_name        varchar(50),
+      last_name         varchar(50),
+      middle_name       varchar(50),
+      ctzn_country_code varchar(10),
+      inn               varchar(13),
+
+      doc_type_id       numeric(3),
+      doc_type_code     varchar(20),
+      doc_ser           varchar(10),
+      doc_num           varchar(20),
+      doc_issue_date    date,
+      doc_issuer_code   varchar(20),
+      doc_expire_date   date,
+      doc_issuer_name   varchar(500),
+
+      birth_date date,
+
+      CONSTRAINT pk_mi_0008_acc_tmp
+         PRIMARY KEY (s_icusnum)
+   )
+   ON COMMIT DROP;
 
 END;
 $procedure$
 
 
 /*
- * Формируем компактный набор кандидатов и расширяем его по активным связям типа 17.
- * Рекурсивный обход считает связи неориентированными только для охвата кандидатов;
- * Санитарий по-прежнему трактует граф как направленный: родитель -> потомок.
+ * Один раз формирует текущий person snapshot для итоговых root-клиентов.
+ *
+ * Выбранные здесь данные:
+ *   - используются validate_Root_Cus;
+ *   - сравниваются с историческим mi_person;
+ *   - сохраняются как новый immutable mi_person snapshot.
+ *
+ * Повторное чтение CUS/CUS_DOCUM в дальнейших стадиях запрещено.
+ */
+CREATE PROCEDURE project_Current_Person()
+AS
+$procedure$
+   #package
+   #private
+DECLARE
+   l_projected_count bigint;
+   l_updated_count   bigint;
+BEGIN
+
+   WITH person_data AS MATERIALIZED
+   (
+      SELECT work.s_icusnum,
+
+             c.icusnum IS NOT NULL
+                AS cus_exists,
+
+             /*
+              * Сохраняем текущее поведение write_Report:
+              * обязательные ФИО получают техническое значение,
+              * если в CUS они отсутствуют.
+              */
+             coalesce(
+                c.ccusfirst_name,
+                'отсутствует'
+             )::varchar(50) AS first_name,
+
+             coalesce(
+                c.ccuslast_name,
+                'отсутствует'
+             )::varchar(50) AS last_name,
+
+             c.ccusmiddle_name::varchar(50)
+                AS middle_name,
+
+             /*
+              * Сначала гражданство из CUS,
+              * затем fallback из выбранного ДУЛ.
+              */
+             coalesce(
+                cus_country.cdigital,
+                doc_country.cdigital
+             )::varchar(10) AS ctzn_country_code,
+
+             c.ccusnumnal::varchar(13)
+                AS inn,
+
+             /*
+              * Preferred-документ используется, только если его тип
+              * удалось распознать. Иначе выбирается действующий fallback.
+              */
+             coalesce(
+                pref_doc.doc_type_id,
+                alt_doc.doc_type_id
+             ) AS doc_type_id,
+
+             CASE
+                WHEN pref_doc.doc_type_id IS NOT NULL
+                   THEN pref_doc.doc_type_code
+                ELSE alt_doc.doc_type_code
+             END AS doc_type_code,
+
+             CASE
+                WHEN pref_doc.doc_type_id IS NOT NULL
+                   THEN pref_doc.doc_ser
+                ELSE alt_doc.doc_ser
+             END AS doc_ser,
+
+             CASE
+                WHEN pref_doc.doc_type_id IS NOT NULL
+                   THEN pref_doc.doc_num
+                ELSE alt_doc.doc_num
+             END AS doc_num,
+
+             CASE
+                WHEN pref_doc.doc_type_id IS NOT NULL
+                   THEN pref_doc.doc_issue_date
+                ELSE alt_doc.doc_issue_date
+             END AS doc_issue_date,
+
+             CASE
+                WHEN pref_doc.doc_type_id IS NOT NULL
+                   THEN pref_doc.doc_issuer_code
+                ELSE alt_doc.doc_issuer_code
+             END AS doc_issuer_code,
+
+             CASE
+                WHEN pref_doc.doc_type_id IS NOT NULL
+                   THEN pref_doc.doc_expire_date
+                ELSE alt_doc.doc_expire_date
+             END AS doc_expire_date,
+
+             CASE
+                WHEN pref_doc.doc_type_id IS NOT NULL
+                   THEN pref_doc.doc_issuer_name
+                ELSE alt_doc.doc_issuer_name
+             END AS doc_issuer_name,
+
+             c.dcusbirthday::date
+                AS birth_date
+
+        FROM pg_temp.mi_0008_acc_tmp AS work
+
+        LEFT JOIN xxi."CUS" AS c
+          ON c.icusnum = work.s_icusnum
+
+        /*
+         * Последний preferred ДУЛ.
+         *
+         * Как и в Oracle, срок действия preferred-документа здесь
+         * дополнительно не проверяется.
+         */
+        LEFT JOIN LATERAL
+        (
+           SELECT CASE
+                     WHEN btrim(p.cpudcode9) ~ '^[0-9]{1,3}$'
+                        THEN btrim(p.cpudcode9)::numeric(3)
+                     ELSE NULL::numeric(3)
+                  END AS doc_type_id,
+
+                  NULLIF(
+                     btrim(p.cpudcode9),
+                     ''
+                  )::varchar(20) AS doc_type_code,
+
+                  d.doc_ser::varchar(10)
+                     AS doc_ser,
+
+                  d.doc_num::varchar(20)
+                     AS doc_num,
+
+                  d.doc_date::date
+                     AS doc_issue_date,
+
+                  d.doc_subdiv::varchar(20)
+                     AS doc_issuer_code,
+
+                  d.doc_period::date
+                     AS doc_expire_date,
+
+                  d.doc_agency::varchar(500)
+                     AS doc_issuer_name,
+
+                  d.doc_cnt
+
+             FROM xxi.cus_docum AS d
+
+             LEFT JOIN xxi.pud AS p
+               ON p.ipudid = d.id_doc_tp
+
+            WHERE d.icusnum = work.s_icusnum
+              AND d.pref = 'Y'
+
+            ORDER BY d.doc_date DESC NULLS LAST,
+                     d.id_doc DESC
+
+            LIMIT 1
+        ) AS pref_doc
+          ON true
+
+        /*
+         * Fallback — последний действующий non-preferred ДУЛ.
+         */
+        LEFT JOIN LATERAL
+        (
+           SELECT CASE
+                     WHEN btrim(p.cpudcode9) ~ '^[0-9]{1,3}$'
+                        THEN btrim(p.cpudcode9)::numeric(3)
+                     ELSE NULL::numeric(3)
+                  END AS doc_type_id,
+
+                  NULLIF(
+                     btrim(p.cpudcode9),
+                     ''
+                  )::varchar(20) AS doc_type_code,
+
+                  d.doc_ser::varchar(10)
+                     AS doc_ser,
+
+                  d.doc_num::varchar(20)
+                     AS doc_num,
+
+                  d.doc_date::date
+                     AS doc_issue_date,
+
+                  d.doc_subdiv::varchar(20)
+                     AS doc_issuer_code,
+
+                  d.doc_period::date
+                     AS doc_expire_date,
+
+                  d.doc_agency::varchar(500)
+                     AS doc_issuer_name,
+
+                  d.doc_cnt
+
+             FROM xxi.cus_docum AS d
+
+             LEFT JOIN xxi.pud AS p
+               ON p.ipudid = d.id_doc_tp
+
+            WHERE d.icusnum = work.s_icusnum
+              AND coalesce(d.pref, 'N') = 'N'
+              AND coalesce(
+                     d.doc_period,
+                     CURRENT_DATE
+                  ) >= CURRENT_DATE
+
+            ORDER BY d.doc_date DESC NULLS LAST,
+                     d.id_doc DESC
+
+            LIMIT 1
+        ) AS alt_doc
+          ON true
+
+        LEFT JOIN LATERAL
+        (
+           SELECT country.cdigital
+             FROM xxi.ok_sm AS country
+            WHERE country.calfa_2 = c.ccuscountry1
+            LIMIT 1
+        ) AS cus_country
+          ON true
+
+        LEFT JOIN LATERAL
+        (
+           SELECT country.cdigital
+             FROM xxi.ok_sm AS country
+            WHERE country.calfa_3 =
+                  CASE
+                     WHEN pref_doc.doc_type_id IS NOT NULL
+                        THEN pref_doc.doc_cnt
+                     ELSE alt_doc.doc_cnt
+                  END
+            LIMIT 1
+        ) AS doc_country
+          ON true
+
+       /*
+        * После collapse здесь находятся только итоговые root-строки.
+        * Повторный вызов после validation не должен переобрабатывать rejects.
+        */
+       WHERE work.san_result_code IS NULL
+   ),
+   updated AS
+   (
+      UPDATE pg_temp.mi_0008_acc_tmp AS work
+         SET cus_exists = person.cus_exists,
+
+             first_name        = person.first_name,
+             last_name         = person.last_name,
+             middle_name       = person.middle_name,
+             ctzn_country_code = person.ctzn_country_code,
+             inn               = person.inn,
+
+             doc_type_id     = person.doc_type_id,
+             doc_type_code   = person.doc_type_code,
+             doc_ser         = person.doc_ser,
+             doc_num         = person.doc_num,
+             doc_issue_date  = person.doc_issue_date,
+             doc_issuer_code = person.doc_issuer_code,
+             doc_expire_date = person.doc_expire_date,
+             doc_issuer_name = person.doc_issuer_name,
+
+             birth_date = person.birth_date
+
+        FROM person_data AS person
+
+       WHERE work.s_icusnum = person.s_icusnum
+
+      RETURNING work.s_icusnum
+   )
+   SELECT
+      (SELECT count(*) FROM person_data),
+      (SELECT count(*) FROM updated)
+
+     INTO l_projected_count,
+          l_updated_count;
+
+   IF l_updated_count <> l_projected_count THEN
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_API#PERSON_PROJECTION_CARDINALITY',
+         p_result_info => format(
+            'Expected %s projected persons, updated %s',
+            l_projected_count,
+            l_updated_count
+         )
+      );
+   END IF;
+
+END;
+$procedure$
+
+
+/*
+ * Формирует область клиентов текущего запуска и расширяет её
+ * по активным связям типа 17.
+ *
+ * Для полного primary-run p_scope_all = true:
+ * рабочая таблица заранее всеми клиентами не заполняется;
+ * в неё записываются только исключения.
+ *
+ * Для marker/correction/cancellation:
+ * каждая строка области заранее создаётся в mi_0008_acc_tmp.
  */
 CREATE PROCEDURE build_Scope(
    IN  p_ctx         mi_0008_api.run_context_t,
@@ -131,192 +485,234 @@ $procedure$
    #private
 BEGIN
 
-   p_scope_all := (p_ctx.launch_itype = 1 AND p_ctx.cus_marker IS NULL);
+   p_scope_all :=  p_ctx.launch_itype = 1 AND p_ctx.cus_marker IS NULL;
 
    ---------------------------------------------------------------------------
-   -- Исходные клиенты, заданные параметрами запуска.
+   -- Исходные клиенты, явно заданные параметрами запуска.
    ---------------------------------------------------------------------------
-   IF p_ctx.launch_itype = 1 AND p_ctx.cus_marker IS NOT NULL THEN
-      -- Структура пакета Oracle: IDROW — клиент, IDAROW — номер пакета.
-      INSERT INTO pg_temp.mi_0008_scope_tmp
-         (s_icusnum, in_scope, is_requested)
-      SELECT DISTINCT m.idrow, true, true
+   IF p_ctx.launch_itype = 1
+      AND p_ctx.cus_marker IS NOT NULL
+   THEN
+
+      /*
+       * Первичная пакетная обработка:
+       * IDROW  — клиент;
+       * IDAROW — номер пакета.
+       */
+      INSERT INTO pg_temp.mi_0008_acc_tmp
+      (
+         s_icusnum,
+         in_scope,
+         is_requested
+      )
+      SELECT DISTINCT
+             m.idrow,
+             true,
+             true
         FROM xxi.mrk_id2 AS m
        WHERE m.idmarker = p_ctx.cus_marker
-         AND m.idarow = p_ctx.pack_num
+         AND m.idarow   = p_ctx.pack_num
          AND m.idrow IS NOT NULL
+
       ON CONFLICT (s_icusnum) DO UPDATE
          SET in_scope     = true,
              is_requested = true;
 
-   ELSIF p_ctx.launch_itype IN (2, 3) AND p_ctx.cus_marker IS NOT NULL THEN
-      -- Структура обычного маркера Oracle: IDAROW — клиент.
-      INSERT INTO pg_temp.mi_0008_scope_tmp
-         (s_icusnum, in_scope, is_requested)
-      SELECT DISTINCT m.idarow, true, true
+   ELSIF p_ctx.launch_itype IN (2, 3)
+      AND p_ctx.cus_marker IS NOT NULL
+   THEN
+
+      /*
+       * Коррекция или аннулирование:
+       * IDAROW — клиент.
+       */
+      INSERT INTO pg_temp.mi_0008_acc_tmp
+      (
+         s_icusnum,
+         in_scope,
+         is_requested
+      )
+      SELECT DISTINCT
+             m.idarow,
+             true,
+             true
         FROM xxi.mrk_id2 AS m
        WHERE m.idmarker = p_ctx.cus_marker
          AND m.idarow IS NOT NULL
+
       ON CONFLICT (s_icusnum) DO UPDATE
-         SET in_scope = true,
+         SET in_scope     = true,
              is_requested = true;
 
-   ELSIF p_ctx.launch_itype = 2 AND p_ctx.cus_marker IS NULL THEN
-      -- Банковский режим поиска изменений. Финансовые корректировки начинаются
-      -- с первичной истории, а уточнения данных клиента — с любой допустимой истории.
-      INSERT INTO pg_temp.mi_0008_scope_tmp
-         (s_icusnum, in_scope, is_requested)
-      SELECT DISTINCT i.icusnum, true, true
+   ELSIF p_ctx.launch_itype = 2
+      AND p_ctx.cus_marker IS NULL
+   THEN
+
+      /*
+       * Банковский поиск изменений.
+       *
+       * Для финансовой корректировки исходной областью служат клиенты,
+       * имеющие допустимую первичную строку.
+       *
+       * Для person-коррекции подходит любая допустимая история.
+       */
+      INSERT INTO pg_temp.mi_0008_acc_tmp
+      (
+         s_icusnum,
+         in_scope,
+         is_requested
+      )
+      SELECT DISTINCT
+             i.icusnum,
+             true,
+             true
         FROM xxi.mi_0008 AS i
-        JOIN xxi.mi_req AS q ON q.req_id = i.req_id
+
+        JOIN xxi.mi_req AS q
+          ON q.req_id = i.req_id
+
        WHERE q.inf_id = p_ctx.inf_id
          AND q.status_cd IN (1, 2, 3)
          AND i.iyear = p_ctx.iyear
-         AND (p_ctx.ireq_kind = c_kind_person OR i.icorr = 0)
+         AND (
+                p_ctx.ireq_kind = c_kind_person
+                OR i.icorr = 0
+             )
+
       ON CONFLICT (s_icusnum) DO UPDATE
-         SET in_scope = true,
+         SET in_scope     = true,
              is_requested = true;
+
    END IF;
 
    ---------------------------------------------------------------------------
-   -- Полное расширение по слабой компоненте связности предотвращает потерю
-   -- сумм дочерних клиентов в цепочках.
+   -- Расширяем ограниченную область на всю слабую компоненту relation 17.
+   --
+   -- Направление связи здесь игнорируется только для определения охвата.
+   -- Выбор canonical/root клиента выполняет Sanitarium.
    ---------------------------------------------------------------------------
    WITH RECURSIVE walk(icusnum) AS
    (
-      SELECT s.s_icusnum
-        FROM pg_temp.mi_0008_scope_tmp AS s
-       WHERE s.in_scope
+      SELECT a.s_icusnum
+        FROM pg_temp.mi_0008_acc_tmp AS a
+       WHERE a.in_scope
+
       UNION
+
       SELECT CASE
-                WHEN l.id_cus_parent = w.icusnum THEN l.id_cus_child
+                WHEN l.id_cus_parent = w.icusnum
+                   THEN l.id_cus_child
                 ELSE l.id_cus_parent
              END
+
         FROM walk AS w
+
         JOIN xxi.cus_lnk AS l
-          ON l.id_cus_parent = w.icusnum OR l.id_cus_child = w.icusnum
+          ON l.id_cus_parent = w.icusnum
+          OR l.id_cus_child  = w.icusnum
+
        WHERE l.id_lnk_type = 17
-         AND (l.date_end IS NULL OR l.date_end >= CURRENT_DATE)
+         AND (
+                l.date_end IS NULL
+                OR l.date_end >= CURRENT_DATE
+             )
    )
-   INSERT INTO pg_temp.mi_0008_scope_tmp (s_icusnum, in_scope)
-   SELECT w.icusnum, true FROM walk AS w
-   ON CONFLICT (s_icusnum) DO UPDATE SET in_scope = true;
+   INSERT INTO pg_temp.mi_0008_acc_tmp
+   (
+      s_icusnum,
+      in_scope
+   )
+   SELECT w.icusnum,
+          true
+     FROM walk AS w
+
+   ON CONFLICT (s_icusnum) DO UPDATE
+      SET in_scope = true;
 
    ---------------------------------------------------------------------------
-   -- При первичном сборе исключаем клиентов, уже представленных допустимой
-   -- первичной строкой истории. Исключения расширяем по тому же графу, чтобы
-   -- потомок не был повторно сопоставлен уже включённому в отчёт корню.
+   -- Для первичного запуска исключаем клиентов, уже представленных
+   -- допустимой первичной строкой этого inf_id и года.
    ---------------------------------------------------------------------------
    IF p_ctx.launch_itype = 1 THEN
 
-      INSERT INTO pg_temp.mi_0008_scope_tmp ( s_icusnum, is_excluded )
-      SELECT DISTINCT i.icusnum, true
+      INSERT INTO pg_temp.mi_0008_acc_tmp
+      (
+         s_icusnum,
+         is_excluded
+      )
+      SELECT DISTINCT
+             i.icusnum,
+             true
         FROM xxi.mi_0008 AS i
-        JOIN xxi.mi_req AS q ON q.req_id = i.req_id
+
+        JOIN xxi.mi_req AS q
+          ON q.req_id = i.req_id
+
        WHERE q.inf_id = p_ctx.inf_id
          AND q.status_cd IN (1, 2, 3)
          AND i.iyear = p_ctx.iyear
          AND i.icorr = 0
-      ON CONFLICT (s_icusnum) DO UPDATE SET is_excluded = true;
 
-      WITH RECURSIVE excluded_walk(icusnum) AS
-      (
-         SELECT s.s_icusnum
-           FROM pg_temp.mi_0008_scope_tmp AS s
-          WHERE s.is_excluded
-         UNION
-         SELECT CASE
-                   WHEN l.id_cus_parent = w.icusnum THEN l.id_cus_child
-                   ELSE l.id_cus_parent
-                END
-           FROM excluded_walk AS w
-           JOIN xxi.cus_lnk AS l
-             ON l.id_cus_parent = w.icusnum OR l.id_cus_child = w.icusnum
-          WHERE l.id_lnk_type = 17
-            AND (l.date_end IS NULL OR l.date_end >= CURRENT_DATE)
-      )
-      INSERT INTO pg_temp.mi_0008_scope_tmp (s_icusnum, is_excluded)
-      SELECT w.icusnum, true FROM excluded_walk AS w
-      ON CONFLICT (s_icusnum) DO UPDATE SET is_excluded = true;
-   END IF;
-
-   SELECT count(*) INTO p_scope_count
-     FROM pg_temp.mi_0008_scope_tmp AS s
-    WHERE s.in_scope AND NOT s.is_excluded;
-END;
-$procedure$
-
-
-/* DEP изменяет только msum_f_dep и msum_i_dep. */
-CREATE PROCEDURE load_Dep(
-   IN p_ctx mi_0008_api.run_context_t
-)
-AS
-$procedure$
-   #package
-   #private
-BEGIN
-   /*
-    * Исходные данные читаются напрямую из DEP.
-    * В src формируется не более одной строки на клиента.
-    */
-   WITH src AS MATERIALIZED
-   (
-      SELECT d.icusnum AS s_icusnum,
-             NULLIF(sum(d.sumprocfizonly), 0)::numeric(22,2) AS msum_f_dep,
-             NULLIF(sum(d.sumprocind), 0)::numeric(22,2) AS msum_i_dep
-        FROM dj_v_prc_to_Client AS d
-        LEFT 
-            JOIN pg_temp.mi_0008_scope_tmp AS scope ON scope.s_icusnum = d.icusnum
-       WHERE
-            d.icusnum IS NOT NULL
-         /* NULL в поле года сохраняет Oracle-совместимое поведение. */
-         AND (d.year IS NULL OR d.year = p_ctx.iyear)
-         /*
-          * Для полного запуска берём всех клиентов, кроме исключённых.
-          * Для ограниченного запуска берём только рассчитанную область.
-          */
-         AND CASE
-                WHEN p_ctx.scope_all
-                     THEN coalesce( NOT scope.is_excluded, true )
-                ELSE
-                     coalesce( scope.in_scope AND NOT scope.is_excluded, false )
-             END
-
-       GROUP BY d.icusnum
+      ON CONFLICT (s_icusnum) DO UPDATE
+         SET is_excluded = true;
 
       /*
-       * Полностью пустые строки не считаются результатом расчёта.
-       * Исходные нулевые значения сохраняют факт выполненного расчёта:
-       * после суммирования итоговый ноль будет преобразован в NULL.
+       * Исключение распространяется на всю weak component:
+       * child не должен повторно попасть в отчёт через уже представленный root.
        */
-      HAVING count(d.sumprocfizonly) > 0 OR count(d.sumprocind) > 0
-   ),
-   mark_seen AS
-   (
-      UPDATE pg_temp.mi_0008_scope_tmp AS scope
-         SET source_seen = true
-        FROM src
-       WHERE scope.s_icusnum = src.s_icusnum
-   RETURNING scope.s_icusnum
-   )
-   INSERT INTO pg_temp.mi_0008_acc_tmp
-   (
-      s_icusnum,
-      msum_f_dep,
-      msum_i_dep
-   )
-   SELECT src.s_icusnum,
-          src.msum_f_dep,
-          src.msum_i_dep
-     FROM src;
+      WITH RECURSIVE excluded_walk(icusnum) AS
+      (
+         SELECT a.s_icusnum
+           FROM pg_temp.mi_0008_acc_tmp AS a
+          WHERE a.is_excluded
+
+         UNION
+
+         SELECT CASE
+                   WHEN l.id_cus_parent = w.icusnum
+                      THEN l.id_cus_child
+                   ELSE l.id_cus_parent
+                END
+
+           FROM excluded_walk AS w
+
+           JOIN xxi.cus_lnk AS l
+             ON l.id_cus_parent = w.icusnum
+             OR l.id_cus_child  = w.icusnum
+
+          WHERE l.id_lnk_type = 17
+            AND (
+                   l.date_end IS NULL
+                   OR l.date_end >= CURRENT_DATE
+                )
+      )
+      INSERT INTO pg_temp.mi_0008_acc_tmp
+      (
+         s_icusnum,
+         is_excluded
+      )
+      SELECT w.icusnum,
+             true
+        FROM excluded_walk AS w
+
+      ON CONFLICT (s_icusnum) DO UPDATE
+         SET is_excluded = true;
+
+   END IF;
+
+   SELECT count(*)
+     INTO p_scope_count
+     FROM pg_temp.mi_0008_acc_tmp AS a
+    WHERE a.in_scope
+      AND NOT a.is_excluded;
 
 END;
 $procedure$
 
-/* CRD изменяет только msum_f_crd и msum_i_crd. */
-/* CRD изменяет только msum_f_crd и msum_i_crd. */
-CREATE PROCEDURE load_Crd(
+
+
+/* */
+CREATE PROCEDURE load_Sources(
    IN p_ctx mi_0008_api.run_context_t
 )
 AS
@@ -324,130 +720,69 @@ $procedure$
    #package
    #private
 BEGIN
-   WITH src AS MATERIALIZED
-   (
-      SELECT e.icusnum AS s_icusnum,
-             NULLIF( sum(e.msum) FILTER (WHERE e.itype = 1), 0 )::numeric(22,2) AS msum_f_crd,
-             NULLIF( sum(e.msum) FILTER (WHERE e.itype = 2), 0 )::numeric(22,2) AS msum_i_crd
-        FROM sm_008_Ed_tmp AS e
-        LEFT 
-             JOIN pg_temp.mi_0008_scope_tmp AS s ON s.s_icusnum = e.icusnum
-       WHERE e.icusnum IS NOT NULL
-         AND e.itype IN (1, 2)
-         AND e.msum IS NOT NULL
-         AND CASE
-                WHEN p_ctx.scope_all
-                   THEN coalesce(NOT s.is_excluded, true)
-                ELSE
-                   coalesce(
-                      s.in_scope AND NOT s.is_excluded,
-                      false
-                   )
-             END
-       GROUP BY e.icusnum
-   ),
-   mark_seen AS
-   (
-      UPDATE pg_temp.mi_0008_scope_tmp AS s
-         SET source_seen = true
-        FROM src
-       WHERE s.s_icusnum = src.s_icusnum
-       RETURNING s.s_icusnum
-   )
-   INSERT INTO pg_temp.mi_0008_acc_tmp
-   (
-      s_icusnum,
-      msum_f_crd,
-      msum_i_crd
-   )
-   SELECT src.s_icusnum,
-          src.msum_f_crd,
-          src.msum_i_crd
-     FROM src
-   ON CONFLICT (s_icusnum) DO UPDATE
-      SET msum_f_crd = EXCLUDED.msum_f_crd,
-          msum_i_crd = EXCLUDED.msum_i_crd;
-END;
-$procedure$
 
+   CALL mi_0008_src.prepare_Dep(
+      p_inf_id       => p_ctx.inf_id,
+      p_iyear        => p_ctx.iyear,
+      p_launch_itype => p_ctx.launch_itype,
+      p_irsn_corr    => p_ctx.irsn_corr,
+      p_cus_marker   => p_ctx.cus_marker,
+      p_pack_num     => p_ctx.pack_num,
+      p_scope_all    => p_ctx.scope_all
+   );
 
-/* ACC изменяет только msum_f_acc и msum_i_acc. */
-CREATE PROCEDURE load_Acc(
-   IN p_ctx mi_0008_api.run_context_t
-)
-AS
-$procedure$
-   #package
-   #private
-BEGIN
-   WITH src AS MATERIALIZED
-   (
-      SELECT p.inum AS s_icusnum,
-             NULLIF(sum(p.msum2), 0)::numeric(22,2) AS msum_f_acc,
-             NULLIF(sum(p.msum1), 0)::numeric(22,2) AS msum_i_acc
-        FROM perc_Temp AS p
-        LEFT JOIN pg_temp.mi_0008_scope_tmp AS s
-          ON s.s_icusnum = p.inum
-       WHERE p.inum IS NOT NULL
-         AND CASE
-                WHEN p_ctx.scope_all
-                   THEN coalesce(NOT s.is_excluded, true)
-                ELSE
-                   coalesce(
-                      s.in_scope AND NOT s.is_excluded,
-                      false
-                   )
-             END
-       GROUP BY p.inum
-      HAVING count(p.msum1) > 0 OR count(p.msum2) > 0
-   ),
-   mark_seen AS
-   (
-      UPDATE pg_temp.mi_0008_scope_tmp AS s
-         SET source_seen = true
-        FROM src
-       WHERE s.s_icusnum = src.s_icusnum
-       RETURNING s.s_icusnum
-   )
-   INSERT INTO pg_temp.mi_0008_acc_tmp
-   (
-      s_icusnum,
-      msum_f_acc,
-      msum_i_acc
-   )
-   SELECT src.s_icusnum,
-          src.msum_f_acc,
-          src.msum_i_acc
-     FROM src
-   ON CONFLICT (s_icusnum) DO UPDATE
-      SET msum_f_acc = EXCLUDED.msum_f_acc,
-          msum_i_acc = EXCLUDED.msum_i_acc;
+   CALL mi_0008_src.prepare_Crd(
+      p_inf_id       => p_ctx.inf_id,
+      p_iyear        => p_ctx.iyear,
+      p_launch_itype => p_ctx.launch_itype,
+      p_irsn_corr    => p_ctx.irsn_corr,
+      p_cus_marker   => p_ctx.cus_marker,
+      p_pack_num     => p_ctx.pack_num,
+      p_scope_all    => p_ctx.scope_all
+   );
+
+   CALL mi_0008_src.prepare_Acc(
+      p_inf_id       => p_ctx.inf_id,
+      p_iyear        => p_ctx.iyear,
+      p_launch_itype => p_ctx.launch_itype,
+      p_irsn_corr    => p_ctx.irsn_corr,
+      p_cus_marker   => p_ctx.cus_marker,
+      p_pack_num     => p_ctx.pack_num,
+      p_scope_all    => p_ctx.scope_all
+   );
+
 END;
 $procedure$
 
 
 /* */
-CREATE PROCEDURE load_Sources( IN p_ctx mi_0008_api.run_context_t )
+CREATE PROCEDURE prune_Excluded()
 AS
 $procedure$
    #package
    #private
 BEGIN
-   -- Порядок соответствует Oracle. Перед загрузкой своей пары каждый адаптер
-   -- обязан заменить собственный снимок источника в текущей сессии.
-   CALL mi_0008_api.load_Dep(p_ctx);
-   CALL mi_0008_api.load_Crd(p_ctx);
-   CALL mi_0008_api.load_Acc(p_ctx);
+
+   DELETE
+     FROM pg_temp.mi_0008_acc_tmp
+    WHERE 
+          is_excluded;
 END;
 $procedure$
 
 
 /*
- * Принятые строки источников сворачиваем к каноническим корням В ТОМ ЖЕ
- * аккумуляторе. 
- * Групповой INSERT/UPSERT заменяет суммы корней, после чего
- * сопоставленные дочерние и отклонённые строки удаляются. Это позволяет
- * обойтись без второй полнообъёмной таблицы сумм.
+ * Принятые строки источников сворачиваются к canonical/root клиентам
+ * в том же рабочем наборе.
+ *
+ * До процедуры:
+ *   одна строка = один source CUS.
+ *
+ * После процедуры:
+ *   одна строка = один canonical/root CUS.
+ *
+ * Это единственное место, где допускается сложение сумм
+ * разных клиентов.
  */
 CREATE PROCEDURE collapse_To_Roots()
 AS
@@ -455,57 +790,191 @@ $procedure$
    #package
    #private
 BEGIN
-   -- Сохраняем на каноническом корне метаданные целевого запуска или запроса ФНС.
-   INSERT INTO pg_temp.mi_0008_scope_tmp AS current_scope
-               (s_icusnum, in_scope, is_requested, source_seen)
-   SELECT coalesce(a.r_icusnum, a.s_icusnum),
-          true,
-          bool_or(coalesce(s.is_requested, false)),
-          bool_or(coalesce(s.source_seen,  false))
-     FROM pg_temp.mi_0008_acc_tmp AS a
-     LEFT JOIN pg_temp.mi_0008_scope_tmp AS s ON s.s_icusnum = a.s_icusnum
-    WHERE a.san_result_code IS NULL
-       OR a.san_result_code = 'CUS_MAP'
-    GROUP BY coalesce(a.r_icusnum, a.s_icusnum)
-   ON CONFLICT (s_icusnum) DO UPDATE
-      SET in_scope = true,
-          is_requested = current_scope.is_requested OR EXCLUDED.is_requested,
-          source_seen = current_scope.source_seen OR EXCLUDED.source_seen;
 
-   INSERT INTO pg_temp.mi_0008_acc_tmp
+   INSERT INTO pg_temp.mi_0008_acc_tmp AS work
    (
       s_icusnum,
-      msum_f_dep, msum_i_dep, msum_f_crd, msum_i_crd,
-      msum_f_acc, msum_i_acc
+
+      in_scope,
+      is_requested,
+      is_excluded,
+      source_seen,
+
+      msum_f_dep,
+      msum_i_dep,
+      msum_f_crd,
+      msum_i_crd,
+      msum_f_acc,
+      msum_i_acc,
+
+      r_icusnum,
+      san_result_code,
+      san_result_info,
+      san_result_data
    )
-   SELECT coalesce(a.r_icusnum, a.s_icusnum),
-          NULLIF(sum(a.msum_f_dep), 0)::numeric(22,2),
-          NULLIF(sum(a.msum_i_dep), 0)::numeric(22,2),
-          NULLIF(sum(a.msum_f_crd), 0)::numeric(22,2),
-          NULLIF(sum(a.msum_i_crd), 0)::numeric(22,2),
-          NULLIF(sum(a.msum_f_acc), 0)::numeric(22,2),
-          NULLIF(sum(a.msum_i_acc), 0)::numeric(22,2)
+   SELECT coalesce( a.r_icusnum, a.s_icusnum ) AS root_icusnum,
+
+          bool_or(a.in_scope),
+          bool_or(a.is_requested),
+          false,
+          bool_or(a.source_seen),
+
+          NULLIF(
+             sum(a.msum_f_dep),
+             0
+          )::numeric(22,2),
+
+          NULLIF(
+             sum(a.msum_i_dep),
+             0
+          )::numeric(22,2),
+
+          NULLIF(
+             sum(a.msum_f_crd),
+             0
+          )::numeric(22,2),
+
+          NULLIF(
+             sum(a.msum_i_crd),
+             0
+          )::numeric(22,2),
+
+          NULLIF(
+             sum(a.msum_f_acc),
+             0
+          )::numeric(22,2),
+
+          NULLIF(
+             sum(a.msum_i_acc),
+             0
+          )::numeric(22,2),
+
+          /*
+           * После collapse строка уже является root-строкой.
+           * Предыдущее graph-решение ей больше не требуется.
+           */
+          NULL::numeric,
+          NULL::varchar,
+          NULL::text,
+          NULL::text
+
      FROM pg_temp.mi_0008_acc_tmp AS a
+
     WHERE a.san_result_code IS NULL
        OR a.san_result_code = 'CUS_MAP'
-    GROUP BY coalesce(a.r_icusnum, a.s_icusnum)
-   ON CONFLICT (s_icusnum) DO UPDATE
-      SET msum_f_dep = EXCLUDED.msum_f_dep,
+    GROUP BY coalesce( a.r_icusnum, a.s_icusnum )
+
+       ON CONFLICT (s_icusnum) 
+       DO UPDATE
+      SET in_scope     = EXCLUDED.in_scope,
+          is_requested = EXCLUDED.is_requested,
+          is_excluded  = false,
+          source_seen  = EXCLUDED.source_seen,
+
+          msum_f_dep = EXCLUDED.msum_f_dep,
           msum_i_dep = EXCLUDED.msum_i_dep,
           msum_f_crd = EXCLUDED.msum_f_crd,
           msum_i_crd = EXCLUDED.msum_i_crd,
           msum_f_acc = EXCLUDED.msum_f_acc,
           msum_i_acc = EXCLUDED.msum_i_acc,
-          r_icusnum = NULL,
+
+          r_icusnum       = NULL,
           san_result_code = NULL,
           san_result_info = NULL,
           san_result_data = NULL;
 
-   -- Все особые состояния уже сохранены в mi_0008_lsr_itm. Полученные выше
-   -- корневые строки являются обычными строками аккумулятора; особые исходные
-   -- строки теперь можно удалить.
-   DELETE FROM pg_temp.mi_0008_acc_tmp
-    WHERE san_result_code IS NOT NULL;
+   /*
+    * К этому моменту:
+    *
+    *   - root-строки созданы или обновлены;
+    *   - CUS_MAP children уже включены в суммы root;
+    *   - graph rejects уже сохранены в mi_0008_lsr_itm.
+    *
+    * Поэтому все special source-строки удаляются.
+    */
+   DELETE
+     FROM pg_temp.mi_0008_acc_tmp
+    WHERE 
+          san_result_code IS NOT NULL;
+
+END;
+$procedure$
+
+
+/*
+ * Находит последнюю допустимую историю для каждого итогового клиента.
+ *
+ * History определяется по:
+ *   - тому же inf_id;
+ *   - тому же отчётному году;
+ *   - status_cd IN (1, 2, 3).
+ *
+ * Latest выбирается по фактическому порядку создания request/item,
+ * а не через MAX(icorr).
+ */
+CREATE PROCEDURE resolve_History(
+   IN p_ctx mi_0008_api.run_context_t
+)
+AS
+$procedure$
+   #package
+   #private
+BEGIN
+
+   /*
+    * Процедура должна быть идемпотентной внутри одной сессии:
+    * повторный вызов полностью заменяет результат history resolution.
+    */
+   UPDATE pg_temp.mi_0008_acc_tmp
+      SET has_primary    = false,
+          hist_itm_id    = NULL,
+          hist_icorr     = NULL,
+          hist_inum      = NULL,
+          hist_person_id = NULL;
+
+
+   WITH latest AS MATERIALIZED
+   (
+      SELECT DISTINCT ON (work.s_icusnum)
+             work.s_icusnum,
+
+             bool_or(item.icorr = 0)
+                OVER (
+                   PARTITION BY work.s_icusnum
+                ) AS has_primary,
+
+             item.itm_id,
+             item.icorr,
+             item.inum,
+             item.person_id
+
+        FROM pg_temp.mi_0008_acc_tmp AS work
+
+        JOIN xxi.mi_0008 AS item
+          ON item.icusnum = work.s_icusnum
+         AND item.iyear   = p_ctx.iyear
+
+        JOIN xxi.mi_req AS request
+          ON request.req_id = item.req_id
+         AND request.inf_id = p_ctx.inf_id
+         AND request.status_cd IN (1, 2, 3)
+
+       ORDER BY work.s_icusnum,
+                request.created_at DESC,
+                request.req_id DESC,
+                item.itm_id DESC
+   )
+   UPDATE pg_temp.mi_0008_acc_tmp AS work
+      SET has_primary    = history.has_primary,
+          hist_itm_id    = history.itm_id,
+          hist_icorr     = history.icorr,
+          hist_inum      = history.inum,
+          hist_person_id = history.person_id
+
+     FROM latest AS history
+
+    WHERE work.s_icusnum = history.s_icusnum;
+
 END;
 $procedure$
 
@@ -712,8 +1181,8 @@ BEGIN
       msum_i_acc
    )
    SELECT a.s_icusnum,
-          coalesce(s.is_requested, false),
-          coalesce(s.source_seen, false),
+          a.is_requested,
+          a.source_seen,
 
           a.msum_f_dep,
           a.msum_i_dep,
@@ -724,10 +1193,8 @@ BEGIN
 
      FROM pg_temp.mi_0008_acc_tmp AS a
 
-     LEFT JOIN pg_temp.mi_0008_scope_tmp AS s
-       ON s.s_icusnum = a.s_icusnum
-
     WHERE a.san_result_code IS NULL;
+
 
    /*
     * Таблица может содержать сотни тысяч строк.
@@ -751,7 +1218,6 @@ BEGIN
    (
       SELECT DISTINCT ON (r.icusnum)
              r.icusnum,
-
              bool_or(i.icorr = 0)
                 OVER (PARTITION BY r.icusnum) AS has_primary,
 
@@ -1849,15 +2315,12 @@ BEGIN
       CALL mi_0008_api.load_Sources(l_ctx);
    END IF;
 
-   -- Целевые финансовые режимы, уточнение данных клиента и аннулирование должны
-   -- сохранять кандидатов, даже если расчёт источников не вернул сумм.
-   IF NOT l_scope_all THEN
-      INSERT INTO pg_temp.mi_0008_acc_tmp (s_icusnum)
-      SELECT s.s_icusnum
-        FROM pg_temp.mi_0008_scope_tmp AS s
-       WHERE s.in_scope AND NOT s.is_excluded
-      ON CONFLICT (s_icusnum) DO NOTHING;
-   END IF;
+   /*
+    * Person correction и cancellation не запускают источники,
+    * но их кандидаты уже были созданы build_Scope.
+    */
+   CALL mi_0008_api.prune_Excluded( );
+
 
    SELECT count(*) INTO l_acc_count FROM pg_temp.mi_0008_acc_tmp;
 
@@ -1915,6 +2378,13 @@ BEGIN
          p_result_info => coalesce(l_san_info, 'Root validation failed')
       );
    END IF;
+
+   CALL mi_0008_api.prune_Rejected_Roots();
+
+   CALL mi_0008_api.resolve_History(
+      p_ctx => l_ctx
+   );
+
 
    UPDATE xxi.mi_0008_lsr
       SET stage_cd = 'FINAL_WRITE'
