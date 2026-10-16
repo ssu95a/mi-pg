@@ -2148,7 +2148,7 @@ BEGIN
       );
    END IF;
 
-   p_ires_code := c_result_ok;
+   p_ires_code := ret_OK;
    p_cres_info := format(
       'OK: accepted_roots=%s, written=%s, unchanged=%s, san_rejected=%s, diagnostics=%s',
       l_candidate_count,
@@ -2161,8 +2161,20 @@ END;
 $procedure$
 
 
+/* */
+CREATE PROCEDURE prune_Rejected_Roots()
+AS
+$procedure$
+   #package
+   #private
+BEGIN
 
+   DELETE
+     FROM pg_temp.mi_0008_acc_tmp
+    WHERE san_result_code IS NOT NULL;
 
+END;
+$procedure$
 
 
 /*
@@ -2360,6 +2372,8 @@ BEGIN
    END IF;
 
    CALL mi_0008_api.collapse_To_Roots();
+
+   CALL mi_0008_api.project_Current_Person();
 
    CALL mi_0008_san.validate_Root_Cus(
       p_lsr_id       => l_ctx.lsr_id,

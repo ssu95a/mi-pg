@@ -992,9 +992,16 @@ BEGIN
       p_ires_code := ret_OK;
       p_cres_info := 'Sanitarium root validation: no clients';
 
-      CALL MI_logger.exit_f(...);
+      CALL MI_logger.exit_f(
+         p_logger_name  => cLogger,
+         p_message_text => p_cres_info,
+         p_inf_id       => p_inf_id,
+         p_object_id    => p_lsr_id
+      );
+
       RETURN;
-   END IF;   
+
+   END IF;
 
    CALL persist_Root_Diagnostics(p_lsr_id);
 
