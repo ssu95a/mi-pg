@@ -3,11 +3,6 @@
 -- Purpose      : Client sanitarium for MI_0008
 -- Version      : 1.0.1
 --
--- The graph core is retained from rescue commit 4e46149.  The I/O boundary is
--- intentionally different: the package reads and updates only
--- pg_temp.mi_0008_acc_tmp and persists only rare current diagnostics to
--- mi_0008_lsr_itm.
---
 CREATE OR REPLACE PACKAGE mi_0008_san
 
 CREATE FUNCTION __init__()
@@ -39,6 +34,7 @@ END;
 $init$
 
 
+/* */
 CREATE FUNCTION get_Version()
    RETURNS varchar
 AS
@@ -242,9 +238,9 @@ BEGIN
        WHERE n.icusnum = f.icusnum;
 
       IF l_kahn_pass > p_graph_node_count THEN
-         RAISE EXCEPTION
-            'Cycle analysis did not converge';
+         RAISE EXCEPTION 'Cycle analysis did not converge';
       END IF;
+
    END LOOP;
 
    INSERT INTO pg_temp.mi_0008_san_component
@@ -285,6 +281,7 @@ END;
 $procedure$
 
 
+/* */
 CREATE PROCEDURE apply_Cus_Mapping(
    OUT p_special_count bigint,
    OUT p_reject_count  bigint
