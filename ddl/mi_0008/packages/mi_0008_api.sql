@@ -39,9 +39,9 @@ DECLARE
    c_result_no_data  CONSTANT int4 := 1;
    c_result_busy     CONSTANT int4 := 2;
 
-   c_reason_fns  CONSTANT numeric := 2;
-   c_kind_person CONSTANT numeric := 1;
-   c_kind_sum    CONSTANT numeric := 2;
+   c_reason_fns      CONSTANT numeric := 2;
+   c_kind_person     CONSTANT numeric := 1;
+   c_kind_sum        CONSTANT numeric := 2;
 
 BEGIN
    RAISE DEBUG 'Package "%" - % - initialized', cPkg_Name, cVersion;
@@ -49,6 +49,7 @@ END;
 $init$
 
 
+/* */
 CREATE FUNCTION get_Version()
    RETURNS varchar
 AS
@@ -64,22 +65,18 @@ $function$
  * Единый рабочий набор текущего запуска.
  *
  * До collapse_To_Roots:
- *    одна строка = один исходный/source клиент.
+ *   одна строка = один исходный/source клиент.
  *
  * После collapse_To_Roots:
- *    одна строка = один итоговый canonical/root клиент.
+ *   одна строка = один итоговый canonical/root клиент.
  */
-CREATE PROCEDURE create_Temp_Tables()
+CREATE PROCEDURE create_Temp_Tables( )
 AS
 $procedure$
    #package
    #private
 BEGIN
 
-   /*
-    * scope_tmp больше не создаётся.
-    * DROP пока оставляем для очистки legacy-состояния pooled session.
-    */
    DROP TABLE IF EXISTS pg_temp.mi_0008_scope_tmp;
    DROP TABLE IF EXISTS pg_temp.mi_0008_acc_tmp;
 
@@ -149,6 +146,28 @@ BEGIN
       doc_issuer_name   varchar(500),
 
       birth_date date,
+
+      /*
+       * Итоговые суммы будущей строки отчёта.
+       */
+      out_msum_f_dep numeric(22,2),
+      out_msum_i_dep numeric(22,2),
+      out_msum_f_crd numeric(22,2),
+      out_msum_i_crd numeric(22,2),
+      out_msum_f_acc numeric(22,2),
+      out_msum_i_acc numeric(22,2),
+
+      /*
+       * Расчётный номер корректировки.
+       * Значение 100 допустимо только как технический результат:
+       * в xxi.mi_0008 оно никогда не записывается.
+       */
+      target_icorr numeric(3),
+
+      /*
+       * Итоговое решение по root-клиенту.
+       */
+      decision_code varchar(50),
 
       CONSTRAINT pk_mi_0008_acc_tmp
          PRIMARY KEY (s_icusnum)
@@ -457,6 +476,280 @@ BEGIN
             l_updated_count
          )
       );
+   END IF;
+
+END;
+$procedure$
+
+
+/*
+ * Формирует итоговые суммы и расчётный icorr для каждого root-клиента.
+ *
+ * До вызова должны быть выполнены:
+ *
+ *   - project_Current_Person;
+ *   - validate_Root_Cus;
+ *   - prune_Rejected_Roots;
+ *   - resolve_History.
+ *
+ * Правила:
+ *
+ *   cancellation:
+ *      все итоговые суммы NULL, target_icorr = 99;
+ *
+ *   person correction:
+ *      суммы копируются из последней исторической строки;
+ *
+ *   FNS financial correction:
+ *      если явно запрошенный клиент не пришёл ни из одного источника,
+ *      используются исторические суммы;
+ *
+ *   остальные режимы:
+ *      используются текущие рассчитанные суммы;
+ *
+ *   primary:
+ *      target_icorr = 0;
+ *
+ *   correction без истории:
+ *      target_icorr = 0;
+ *
+ *   correction с историей:
+ *      target_icorr = hist_icorr + 1.
+ */
+CREATE PROCEDURE resolve_Output_Amounts(
+   IN p_ctx mi_0008_api.run_context_t
+)
+AS
+$procedure$
+   #package
+   #private
+DECLARE
+   l_candidate_count       bigint;
+   l_updated_count         bigint;
+   l_missing_history_count bigint;
+BEGIN
+
+   WITH base AS MATERIALIZED
+   (
+      SELECT work.s_icusnum,
+
+             work.hist_itm_id,
+             work.hist_icorr,
+
+             work.msum_f_dep,
+             work.msum_i_dep,
+             work.msum_f_crd,
+             work.msum_i_crd,
+             work.msum_f_acc,
+             work.msum_i_acc,
+
+             history.msum_f_dep AS hist_msum_f_dep,
+             history.msum_i_dep AS hist_msum_i_dep,
+             history.msum_f_crd AS hist_msum_f_crd,
+             history.msum_i_crd AS hist_msum_i_crd,
+             history.msum_f_acc AS hist_msum_f_acc,
+             history.msum_i_acc AS hist_msum_i_acc,
+
+             /*
+              * Для cancellation финансовые данные всегда очищаются.
+              */
+             p_ctx.launch_itype = 3
+                AS is_cancellation,
+
+             /*
+              * В этих режимах итоговые суммы берутся из history:
+              *
+              *   - любое person-уточнение;
+              *   - запрос ФНС по финансовым данным, если клиент
+              *     не пришёл из текущих источников.
+              */
+             p_ctx.launch_itype = 2
+             AND
+             (
+                p_ctx.ireq_kind = c_kind_person
+
+                OR
+
+                (
+                   p_ctx.ireq_kind = c_kind_sum
+                   AND p_ctx.irsn_corr = c_reason_fns
+                   AND work.is_requested
+                   AND NOT work.source_seen
+                )
+             ) AS use_history,
+
+             /*
+              * hist_itm_id был получен из xxi.mi_0008.
+              * Если строка внезапно исчезла, это нарушение внутреннего
+              * контракта, а не нормальное отсутствие истории.
+              */
+             work.hist_itm_id IS NOT NULL
+             AND history.itm_id IS NULL
+                AS history_missing
+
+        FROM pg_temp.mi_0008_acc_tmp AS work
+
+        LEFT JOIN xxi.mi_0008 AS history
+          ON history.itm_id = work.hist_itm_id
+
+       /*
+        * После prune_Rejected_Roots здесь обычно все строки accepted.
+        * Условие оставлено как дополнительная защита контракта.
+        */
+       WHERE work.san_result_code IS NULL
+   ),
+   calculated AS MATERIALIZED
+   (
+      SELECT b.s_icusnum,
+
+             CASE
+                WHEN b.is_cancellation
+                   THEN NULL
+
+                WHEN b.use_history
+                   THEN b.hist_msum_f_dep
+
+                ELSE b.msum_f_dep
+             END::numeric(22,2) AS out_msum_f_dep,
+
+             CASE
+                WHEN b.is_cancellation
+                   THEN NULL
+
+                WHEN b.use_history
+                   THEN b.hist_msum_i_dep
+
+                ELSE b.msum_i_dep
+             END::numeric(22,2) AS out_msum_i_dep,
+
+             CASE
+                WHEN b.is_cancellation
+                   THEN NULL
+
+                WHEN b.use_history
+                   THEN b.hist_msum_f_crd
+
+                ELSE b.msum_f_crd
+             END::numeric(22,2) AS out_msum_f_crd,
+
+             CASE
+                WHEN b.is_cancellation
+                   THEN NULL
+
+                WHEN b.use_history
+                   THEN b.hist_msum_i_crd
+
+                ELSE b.msum_i_crd
+             END::numeric(22,2) AS out_msum_i_crd,
+
+             CASE
+                WHEN b.is_cancellation
+                   THEN NULL
+
+                WHEN b.use_history
+                   THEN b.hist_msum_f_acc
+
+                ELSE b.msum_f_acc
+             END::numeric(22,2) AS out_msum_f_acc,
+
+             CASE
+                WHEN b.is_cancellation
+                   THEN NULL
+
+                WHEN b.use_history
+                   THEN b.hist_msum_i_acc
+
+                ELSE b.msum_i_acc
+             END::numeric(22,2) AS out_msum_i_acc,
+
+             CASE
+                WHEN p_ctx.launch_itype = 1
+                   THEN 0
+
+                WHEN p_ctx.launch_itype = 3
+                   THEN 99
+
+                WHEN b.hist_itm_id IS NULL
+                   THEN 0
+
+                ELSE b.hist_icorr + 1
+             END::numeric(3) AS target_icorr,
+
+             b.history_missing
+
+        FROM base AS b
+   ),
+   updated AS
+   (
+      UPDATE pg_temp.mi_0008_acc_tmp AS work
+         SET out_msum_f_dep = result.out_msum_f_dep,
+             out_msum_i_dep = result.out_msum_i_dep,
+             out_msum_f_crd = result.out_msum_f_crd,
+             out_msum_i_crd = result.out_msum_i_crd,
+             out_msum_f_acc = result.out_msum_f_acc,
+             out_msum_i_acc = result.out_msum_i_acc,
+
+             target_icorr = result.target_icorr
+
+        FROM calculated AS result
+
+       WHERE work.s_icusnum = result.s_icusnum
+         AND NOT result.history_missing
+
+      RETURNING work.s_icusnum
+   )
+   SELECT
+      (
+         SELECT count(*)
+           FROM calculated
+      ),
+
+      (
+         SELECT count(*)
+           FROM calculated
+          WHERE history_missing
+      ),
+
+      (
+         SELECT count(*)
+           FROM updated
+      )
+
+     INTO l_candidate_count,
+          l_missing_history_count,
+          l_updated_count;
+
+   /*
+    * Ссылка на существовавшую history-строку не должна становиться битой
+    * внутри того же формирования отчёта.
+    */
+   IF l_missing_history_count > 0 THEN
+
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_API#HISTORY_ITEM_NOT_FOUND',
+         p_result_info => format(
+            'Не найдено исторических строк по hist_itm_id: %s',
+            l_missing_history_count
+         )
+      );
+
+   END IF;
+
+   /*
+    * Для каждого принятого root-клиента должна быть рассчитана
+    * ровно одна итоговая строка сумм.
+    */
+   IF l_updated_count <> l_candidate_count THEN
+
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_API#OUTPUT_CARDINALITY',
+         p_result_info => format(
+            'Ожидалось рассчитанных строк: %s, обновлено: %s',
+            l_candidate_count,
+            l_updated_count
+         )
+      );
+
    END IF;
 
 END;
@@ -1021,6 +1314,438 @@ $procedure$
 
 
 /*
+ * Определяет итоговое действие по каждому принятому root-клиенту.
+ *
+ * До вызова должны быть выполнены:
+ *
+ *   - resolve_History;
+ *   - resolve_Output_Amounts.
+ *
+ * Текущие person-данные уже находятся в mi_0008_acc_tmp.
+ * Исторические суммы и person snapshot читаются по сохранённым ссылкам.
+ *
+ * Процедура не создаёт request, person или строки отчёта.
+ */
+CREATE PROCEDURE resolve_Decisions(
+   IN p_ctx mi_0008_api.run_context_t
+)
+AS
+$procedure$
+   #package
+   #private
+DECLARE
+   l_candidate_count bigint;
+   l_updated_count   bigint;
+BEGIN
+
+   /*
+    * Повторный вызов полностью пересчитывает решения.
+    */
+   UPDATE pg_temp.mi_0008_acc_tmp
+      SET decision_code = NULL;
+
+   WITH facts AS MATERIALIZED
+   (
+      SELECT work.s_icusnum,
+
+             work.has_primary,
+             work.hist_itm_id,
+             work.hist_icorr,
+             work.target_icorr,
+
+             /*
+              * Итоговые суммы уже рассчитаны
+              * resolve_Output_Amounts.
+              */
+             work.out_msum_f_dep,
+             work.out_msum_i_dep,
+             work.out_msum_f_crd,
+             work.out_msum_i_crd,
+             work.out_msum_f_acc,
+             work.out_msum_i_acc,
+
+             /*
+              * Общая сумма нужна только для проверки
+              * неположительного финансового результата.
+              */
+               coalesce(work.out_msum_f_dep, 0)
+             + coalesce(work.out_msum_i_dep, 0)
+             + coalesce(work.out_msum_f_crd, 0)
+             + coalesce(work.out_msum_i_crd, 0)
+             + coalesce(work.out_msum_f_acc, 0)
+             + coalesce(work.out_msum_i_acc, 0)
+                AS financial_total,
+
+             /*
+              * NULL-safe сравнение всех шести сумм.
+              */
+             work.out_msum_f_dep
+                IS NOT DISTINCT FROM history.msum_f_dep
+
+             AND work.out_msum_i_dep
+                IS NOT DISTINCT FROM history.msum_i_dep
+
+             AND work.out_msum_f_crd
+                IS NOT DISTINCT FROM history.msum_f_crd
+
+             AND work.out_msum_i_crd
+                IS NOT DISTINCT FROM history.msum_i_crd
+
+             AND work.out_msum_f_acc
+                IS NOT DISTINCT FROM history.msum_f_acc
+
+             AND work.out_msum_i_acc
+                IS NOT DISTINCT FROM history.msum_i_acc
+
+                AS financial_unchanged,
+
+             /*
+              * Oracle-набор полей для определения изменения person.
+              *
+              * Расширенные поля документа здесь намеренно
+              * не участвуют.
+              */
+             work.first_name
+                IS NOT DISTINCT FROM old_person.first_name
+
+             AND work.last_name
+                IS NOT DISTINCT FROM old_person.last_name
+
+             AND work.middle_name
+                IS NOT DISTINCT FROM old_person.middle_name
+
+             AND work.ctzn_country_code
+                IS NOT DISTINCT FROM old_person.ctzn_country_code
+
+             AND work.birth_date
+                IS NOT DISTINCT FROM old_person.birth_date
+
+             AND work.inn
+                IS NOT DISTINCT FROM old_person.inn
+
+             AND work.doc_type_id
+                IS NOT DISTINCT FROM old_person.doc_type_id
+
+             AND work.doc_ser
+                IS NOT DISTINCT FROM old_person.doc_ser
+
+             AND work.doc_num
+                IS NOT DISTINCT FROM old_person.doc_num
+
+             AND work.doc_issue_date
+                IS NOT DISTINCT FROM old_person.doc_issue_date
+
+                AS person_unchanged
+
+        FROM pg_temp.mi_0008_acc_tmp AS work
+
+        LEFT JOIN xxi.mi_0008 AS history
+          ON history.itm_id = work.hist_itm_id
+
+        LEFT JOIN xxi.mi_person AS old_person
+          ON old_person.person_id = work.hist_person_id
+
+       WHERE work.san_result_code IS NULL
+   ),
+   decisions AS MATERIALIZED
+   (
+      SELECT facts.s_icusnum,
+
+             CASE
+                /*
+                 * Аннулирование является terminal state.
+                 */
+                WHEN facts.hist_icorr = 99
+                   THEN 'ICORR_AFTER_CANCEL'
+
+                /*
+                 * Повторная primary-строка для того же
+                 * inf_id и года не создаётся.
+                 */
+                WHEN p_ctx.launch_itype = 1
+                 AND facts.has_primary
+                   THEN 'ALREADY_PRIMARY'
+
+                /*
+                 * Person correction невозможна без истории.
+                 */
+                WHEN p_ctx.launch_itype = 2
+                 AND p_ctx.ireq_kind = c_kind_person
+                 AND facts.hist_itm_id IS NULL
+                   THEN 'PERSON_NO_HISTORY'
+
+                /*
+                 * Обычные corrections не используют
+                 * зарезервированные icorr 98 и 99.
+                 *
+                 * Явное cancellation может сформировать 99
+                 * после legacy icorr=98.
+                 */
+                WHEN p_ctx.launch_itype = 2
+                 AND facts.hist_icorr IN (97, 98)
+                   THEN 'ICORR_EXHAUSTED'
+
+                /*
+                 * Неположительная сумма не превращается
+                 * автоматически в cancellation.
+                 */
+                WHEN p_ctx.launch_itype IN (1, 2)
+                 AND p_ctx.ireq_kind = c_kind_sum
+                 AND facts.financial_total <= 0
+                   THEN 'NONPOSITIVE_TOTAL'
+
+                /*
+                 * Банк не создаёт финансовую correction,
+                 * если суммы не изменились.
+                 *
+                 * Для ФНС строка создаётся даже без изменений.
+                 */
+                WHEN p_ctx.launch_itype = 2
+                 AND p_ctx.ireq_kind = c_kind_sum
+                 AND p_ctx.irsn_corr <> c_reason_fns
+                 AND facts.hist_itm_id IS NOT NULL
+                 AND facts.financial_unchanged
+                   THEN 'UNCHANGED_FINANCIAL'
+
+                /*
+                 * Банк не создаёт person correction,
+                 * если значимые person-поля не изменились.
+                 *
+                 * Для ФНС строка создаётся даже без изменений.
+                 */
+                WHEN p_ctx.launch_itype = 2
+                 AND p_ctx.ireq_kind = c_kind_person
+                 AND p_ctx.irsn_corr <> c_reason_fns
+                 AND facts.person_unchanged
+                   THEN 'UNCHANGED_PERSON'
+
+                /*
+                 * Физический unique-key таблицы не содержит inf_id,
+                 * поэтому проверяется вся xxi.mi_0008.
+                 */
+                WHEN EXISTS
+                     (
+                        SELECT 1
+                          FROM xxi.mi_0008 AS occupied
+                         WHERE occupied.icusnum =
+                               facts.s_icusnum
+
+                           AND occupied.iyear =
+                               p_ctx.iyear
+
+                           AND occupied.icorr =
+                               facts.target_icorr
+                     )
+                   THEN 'ITEM_KEY_EXISTS'
+
+                ELSE 'EMIT'
+             END::varchar(50) AS decision_code
+
+        FROM facts
+   ),
+   updated AS
+   (
+      UPDATE pg_temp.mi_0008_acc_tmp AS work
+         SET decision_code = decision.decision_code
+
+        FROM decisions AS decision
+
+       WHERE work.s_icusnum = decision.s_icusnum
+
+      RETURNING work.s_icusnum
+   )
+   SELECT
+      (
+         SELECT count(*)
+           FROM decisions
+      ),
+
+      (
+         SELECT count(*)
+           FROM updated
+      )
+
+     INTO l_candidate_count,
+          l_updated_count;
+
+   IF l_updated_count <> l_candidate_count THEN
+
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_API#DECISION_CARDINALITY',
+         p_result_info => format(
+            'Ожидалось решений: %s, обновлено: %s',
+            l_candidate_count,
+            l_updated_count
+         )
+      );
+
+   END IF;
+
+END;
+$procedure$
+
+
+/*
+ * Сохраняет исключительные результаты final-decision в протокол LSR.
+ *
+ * Обычные business-skips:
+ *
+ *   - ALREADY_PRIMARY;
+ *   - NONPOSITIVE_TOTAL;
+ *   - UNCHANGED_FINANCIAL;
+ *   - UNCHANGED_PERSON;
+ *
+ * в mi_0008_lsr_itm не записываются.
+ *
+ * Процедура не изменяет рабочий набор и возвращает:
+ *
+ *   p_diag_count       — общее количество сохранённых диагностик;
+ *   p_icorr_diag_count — количество диагностик границы icorr.
+ */
+CREATE PROCEDURE persist_Decision_Diagnostics(
+   IN  p_ctx                mi_0008_api.run_context_t,
+   OUT p_diag_count         bigint,
+   OUT p_icorr_diag_count   bigint
+)
+AS
+$procedure$
+   #package
+   #private
+DECLARE
+   l_written_count bigint;
+BEGIN
+
+   p_diag_count       := 0;
+   p_icorr_diag_count := 0;
+   l_written_count    := 0;
+
+   WITH diagnostics AS MATERIALIZED
+   (
+      SELECT work.s_icusnum,
+
+             work.decision_code
+                AS result_code,
+
+             CASE work.decision_code
+
+                WHEN 'ICORR_EXHAUSTED' THEN
+                   format(
+                      'Обычная коррекция после icorr=%s попадает в зарезервированный диапазон',
+                      work.hist_icorr
+                   )
+
+                WHEN 'ICORR_AFTER_CANCEL' THEN
+                   'Последняя допустимая историческая строка является аннулированием icorr=99'
+
+                WHEN 'PERSON_NO_HISTORY' THEN
+                   'Для уточнения сведений о физическом лице отсутствует допустимая историческая строка'
+
+                WHEN 'ITEM_KEY_EXISTS' THEN
+                   format(
+                      'Итоговый ключ строки уже существует: год=%s, icorr=%s',
+                      p_ctx.iyear,
+                      work.target_icorr
+                   )
+
+                ELSE
+                   work.decision_code
+             END AS result_info,
+
+             jsonb_strip_nulls(
+                jsonb_build_object(
+                   'history_itm_id',
+                   work.hist_itm_id,
+
+                   'history_icorr',
+                   work.hist_icorr,
+
+                   'target_icorr',
+                   work.target_icorr
+                )
+             )::text AS result_data
+
+        FROM pg_temp.mi_0008_acc_tmp AS work
+
+       WHERE work.decision_code IN
+             (
+                'ICORR_EXHAUSTED',
+                'ICORR_AFTER_CANCEL',
+                'PERSON_NO_HISTORY',
+                'ITEM_KEY_EXISTS'
+             )
+   ),
+   written AS
+   (
+      INSERT INTO xxi.mi_0008_lsr_itm
+      (
+         lsr_id,
+         s_icusnum,
+         r_icusnum,
+         result_code,
+         result_info,
+         result_data
+      )
+      SELECT p_ctx.lsr_id,
+             diag.s_icusnum,
+             diag.s_icusnum,
+             diag.result_code,
+             diag.result_info,
+             diag.result_data
+
+        FROM diagnostics AS diag
+
+      ON CONFLICT (lsr_id, s_icusnum) DO UPDATE
+         SET r_icusnum   = EXCLUDED.r_icusnum,
+             result_code = EXCLUDED.result_code,
+             result_info = EXCLUDED.result_info,
+             result_data = EXCLUDED.result_data
+
+      RETURNING 1
+   )
+   SELECT count(*),
+
+          count(*) FILTER
+          (
+             WHERE diag.result_code IN
+                   (
+                      'ICORR_EXHAUSTED',
+                      'ICORR_AFTER_CANCEL'
+                   )
+          ),
+
+          (
+             SELECT count(*)
+               FROM written
+          )
+
+     INTO p_diag_count,
+          p_icorr_diag_count,
+          l_written_count
+
+     FROM diagnostics AS diag;
+
+   /*
+    * INSERT и ON CONFLICT DO UPDATE должны обработать
+    * ровно одну строку на каждую диагностику.
+    */
+   IF l_written_count <> p_diag_count THEN
+
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_API#DIAGNOSTIC_CARDINALITY',
+         p_result_info => format(
+            'Ожидалось диагностических записей: %s, сохранено: %s',
+            p_diag_count,
+            l_written_count
+         )
+      );
+
+   END IF;
+
+END;
+$procedure$
+
+
+/*
  * Параметризованный итоговый конвейер. Набор решений материализуется один раз
  * внутри этого оператора; сессионная таблица контекста и итоговые представления
  * не требуются.
@@ -1045,10 +1770,10 @@ DECLARE
 
    l_unchanged_count  bigint := 0;
    l_diag_count       bigint := 0;
-   l_diag_written     bigint := 0;
    l_icorr_diag_count bigint := 0;
    l_san_reject_count bigint := 0;
 BEGIN
+
    p_req_id    := NULL;
    p_ires_code := c_result_no_data;
    p_cres_info := NULL;
@@ -1178,7 +1903,16 @@ BEGIN
       msum_f_crd,
       msum_i_crd,
       msum_f_acc,
-      msum_i_acc
+      msum_i_acc,
+
+      out_msum_f_dep,
+      out_msum_i_dep,
+      out_msum_f_crd,
+      out_msum_i_crd,
+      out_msum_f_acc,
+      out_msum_i_acc,
+
+      target_icorr
    )
    SELECT a.s_icusnum,
           a.is_requested,
@@ -1189,7 +1923,16 @@ BEGIN
           a.msum_f_crd,
           a.msum_i_crd,
           a.msum_f_acc,
-          a.msum_i_acc
+          a.msum_i_acc,
+
+          a.out_msum_f_dep,
+          a.out_msum_i_dep,
+          a.out_msum_f_crd,
+          a.out_msum_i_crd,
+          a.out_msum_f_acc,
+          a.out_msum_i_acc,
+
+          a.target_icorr          
 
      FROM pg_temp.mi_0008_acc_tmp AS a
 
@@ -1513,145 +2256,6 @@ BEGIN
      FROM person_cur AS p
     WHERE p.icusnum = r.icusnum;
 
-   /*
-    * Вычисляются суммы итоговой строки и номер корректировки.
-    *
-    * Для уточнения сведений о физическом лице используются
-    * суммы последней исторической строки.
-    *
-    * Для запроса ФНС по суммам, если выбранный клиент не пришёл
-    * из источников, также используются исторические суммы.
-    *
-    * Аннулирование всегда содержит NULL во всех шести суммах.
-    */
-   UPDATE pg_temp.mi_0008_report_tmp AS r
-      SET out_msum_f_dep =
-             CASE
-                WHEN p_ctx.launch_itype = 3
-                   THEN NULL
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_person
-                   THEN r.hist_msum_f_dep
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_sum
-                 AND p_ctx.irsn_corr = c_reason_fns
-                 AND r.is_requested
-                 AND NOT r.source_seen
-                   THEN r.hist_msum_f_dep
-
-                ELSE r.msum_f_dep
-             END,
-
-          out_msum_i_dep =
-             CASE
-                WHEN p_ctx.launch_itype = 3
-                   THEN NULL
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_person
-                   THEN r.hist_msum_i_dep
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_sum
-                 AND p_ctx.irsn_corr = c_reason_fns
-                 AND r.is_requested
-                 AND NOT r.source_seen
-                   THEN r.hist_msum_i_dep
-
-                ELSE r.msum_i_dep
-             END,
-
-          out_msum_f_crd =
-             CASE
-                WHEN p_ctx.launch_itype = 3
-                   THEN NULL
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_person
-                   THEN r.hist_msum_f_crd
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_sum
-                 AND p_ctx.irsn_corr = c_reason_fns
-                 AND r.is_requested
-                 AND NOT r.source_seen
-                   THEN r.hist_msum_f_crd
-
-                ELSE r.msum_f_crd
-             END,
-
-          out_msum_i_crd =
-             CASE
-                WHEN p_ctx.launch_itype = 3
-                   THEN NULL
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_person
-                   THEN r.hist_msum_i_crd
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_sum
-                 AND p_ctx.irsn_corr = c_reason_fns
-                 AND r.is_requested
-                 AND NOT r.source_seen
-                   THEN r.hist_msum_i_crd
-
-                ELSE r.msum_i_crd
-             END,
-
-          out_msum_f_acc =
-             CASE
-                WHEN p_ctx.launch_itype = 3
-                   THEN NULL
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_person
-                   THEN r.hist_msum_f_acc
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_sum
-                 AND p_ctx.irsn_corr = c_reason_fns
-                 AND r.is_requested
-                 AND NOT r.source_seen
-                   THEN r.hist_msum_f_acc
-
-                ELSE r.msum_f_acc
-             END,
-
-          out_msum_i_acc =
-             CASE
-                WHEN p_ctx.launch_itype = 3
-                   THEN NULL
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_person
-                   THEN r.hist_msum_i_acc
-
-                WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_sum
-                 AND p_ctx.irsn_corr = c_reason_fns
-                 AND r.is_requested
-                 AND NOT r.source_seen
-                   THEN r.hist_msum_i_acc
-
-                ELSE r.msum_i_acc
-             END,
-
-          target_icorr =
-             CASE
-                WHEN p_ctx.launch_itype = 1
-                   THEN 0
-
-                WHEN p_ctx.launch_itype = 3
-                   THEN 99
-
-                WHEN r.hist_itm_id IS NULL
-                   THEN 0
-
-                ELSE r.hist_icorr + 1
-             END;
 
    /*
     * Сравнение сумм выполняется поколоночно и NULL-safe.
@@ -1802,32 +2406,12 @@ BEGIN
                       'UNCHANGED_FINANCIAL',
                       'UNCHANGED_PERSON'
                    )
-          ),
-
-          count(*) FILTER (
-             WHERE r.decision_code IN
-                   (
-                      'ICORR_EXHAUSTED',
-                      'ICORR_AFTER_CANCEL',
-                      'PERSON_NO_HISTORY',
-                      'ITEM_KEY_EXISTS'
-                   )
-          ),
-
-          count(*) FILTER (
-             WHERE r.decision_code IN
-                   (
-                      'ICORR_EXHAUSTED',
-                      'ICORR_AFTER_CANCEL'
-                   )
           )
 
      INTO l_candidate_count,
           l_emit_count,
-          l_unchanged_count,
-          l_diag_count,
-          l_icorr_diag_count
-
+          l_unchanged_count
+          
      FROM pg_temp.mi_0008_report_tmp AS r;
 
    /*
@@ -1848,79 +2432,11 @@ BEGIN
     *
     * icorr=-1 физически нигде не создаётся.
     */
-   INSERT INTO xxi.mi_0008_lsr_itm
-   (
-      lsr_id,
-      s_icusnum,
-      r_icusnum,
-      result_code,
-      result_info,
-      result_data
-   )
-   SELECT p_ctx.lsr_id,
-          r.icusnum,
-          r.icusnum,
-          r.decision_code,
-
-          CASE r.decision_code
-             WHEN 'ICORR_EXHAUSTED'
-                THEN format(
-                   'Обычная коррекция после icorr=%s попадает в зарезервированный диапазон',
-                   r.hist_icorr
-                )
-
-             WHEN 'ICORR_AFTER_CANCEL'
-                THEN 'Последняя допустимая историческая строка является аннулированием icorr=99'
-
-             WHEN 'PERSON_NO_HISTORY'
-                THEN 'Для уточнения сведений о физическом лице отсутствует допустимая историческая строка'
-
-             WHEN 'ITEM_KEY_EXISTS'
-                THEN format(
-                   'Итоговый ключ строки уже существует: год=%s, icorr=%s',
-                   p_ctx.iyear,
-                   r.target_icorr
-                )
-
-             ELSE r.decision_code
-          END,
-
-          jsonb_strip_nulls(
-             jsonb_build_object(
-                'history_itm_id', r.hist_itm_id,
-                'history_icorr', r.hist_icorr,
-                'target_icorr', r.target_icorr
-             )
-          )::text
-
-     FROM pg_temp.mi_0008_report_tmp AS r
-
-    WHERE r.decision_code IN
-          (
-             'ICORR_EXHAUSTED',
-             'ICORR_AFTER_CANCEL',
-             'PERSON_NO_HISTORY',
-             'ITEM_KEY_EXISTS'
-          )
-
-   ON CONFLICT (lsr_id, s_icusnum) DO UPDATE
-      SET r_icusnum   = EXCLUDED.r_icusnum,
-          result_code = EXCLUDED.result_code,
-          result_info = EXCLUDED.result_info,
-          result_data = EXCLUDED.result_data;
-
-   GET DIAGNOSTICS l_diag_written = ROW_COUNT;
-
-   IF l_diag_written <> l_diag_count THEN
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_API#DIAGNOSTIC_CARDINALITY',
-         p_result_info => format(
-            'Ожидалось диагностических записей: %s, сохранено: %s',
-            l_diag_count,
-            l_diag_written
-         )
-      );
-   END IF;
+   CALL mi_0008_api.persist_Decision_Diagnostics(
+      p_ctx              => p_ctx,
+      p_diag_count       => l_diag_count,
+      p_icorr_diag_count => l_icorr_diag_count
+   );
 
    IF l_diag_count > 0 THEN
       CALL MI_logger.warn(
@@ -2399,6 +2915,13 @@ BEGIN
       p_ctx => l_ctx
    );
 
+   CALL mi_0008_api.resolve_Output_Amounts(
+      p_ctx => l_ctx
+   );
+
+   CALL mi_0008_api.resolve_Decisions(
+      p_ctx => l_ctx
+   );
 
    UPDATE xxi.mi_0008_lsr
       SET stage_cd = 'FINAL_WRITE'
