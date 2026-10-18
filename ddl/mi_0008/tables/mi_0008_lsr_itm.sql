@@ -48,12 +48,6 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr_itm
 TABLESPACE users
 ;
 
-
--- Для одного исходного клиента в рамках LSR допускается не более одной рабочей
--- записи: mi_0008_api.prepare_Report создаёт CUS_PENDING,
--- Sanitarium обновляет её результатом.
---
--- INCLUDE позволяет получать решение Sanitarium непосредственно из индекса при соединении с результатом расчёта.
 create unique index if not exists 
    ux_mi_0008_lsr_itm__source on xxi.mi_0008_lsr_itm( lsr_id, s_icusnum)
       include (r_icusnum, result_code)
@@ -66,13 +60,15 @@ create index if not exists ix_mi_0008_lsr_itm_lsr_result
       tablespace indexes
 ;
 
+alter table xxi.mi_0008_lsr_itm 
+   OWNER TO "XXI"
+;
+
+
 alter sequence xxi.s_mi_0008_lsr_itm
    owned by xxi.mi_0008_lsr_itm.lsr_itm_id
 ;
 
-alter table xxi.mi_0008_lsr_itm 
-   OWNER TO "XXI"
-;
 
 COMMENT ON TABLE xxi.mi_0008_lsr_itm IS
    'MI-edo. Доходы физических лиц. Протокол обработки клиентов в рамках LSR. '

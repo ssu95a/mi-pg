@@ -3,10 +3,6 @@
 -- Назначение : подготовка исходных расчётных данных для MI_0008
 -- Версия     : 0.1.0
 --
--- В текущей версии процедуры являются заглушками: они создают пустые
--- сессионные таблицы с контрактной структурой. Расчёт и заполнение таблиц
--- должны быть реализованы внутри соответствующих процедур prepare_*.
---
 CREATE OR REPLACE PACKAGE mi_0008_src
 
 CREATE FUNCTION __init__()
@@ -77,7 +73,7 @@ BEGIN
              0
           )::numeric(22,2)
 
-     FROM dj_v_prc_to_Client AS d
+     FROM xxi.dj_v_prc_to_Client AS d
 
      LEFT JOIN pg_temp.mi_0008_acc_tmp AS scope
        ON scope.s_icusnum = d.icusnum
@@ -170,7 +166,7 @@ BEGIN
              0
           )::numeric(22,2) AS msum_i_crd
 
-     FROM sm_008_ed_tmp AS src
+     FROM xxi.sm_008_ed_tmp AS src
 
      LEFT JOIN pg_temp.mi_0008_acc_tmp AS scope
        ON scope.s_icusnum = src.icusnum
@@ -284,7 +280,7 @@ BEGIN
              0
           )::numeric(22,2) AS msum_i_acc
 
-     FROM perc_temp AS src
+     FROM xxi.perc_temp AS src
 
      LEFT JOIN pg_temp.mi_0008_acc_tmp AS scope
        ON scope.s_icusnum = src.inum
@@ -343,7 +339,7 @@ BEGIN
 END;
 $procedure$
 
-/* Конец пакета. */
+/* end_Of_Package */
 ;
 
 COMMENT ON SCHEMA mi_0008_src IS
