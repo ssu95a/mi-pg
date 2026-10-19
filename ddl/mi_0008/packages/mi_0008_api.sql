@@ -493,40 +493,6 @@ $procedure$
 
 
 /*
- * Формирует итоговые суммы и расчётный icorr для каждого root-клиента.
- *
- * До вызова должны быть выполнены:
- *
- *   - project_Current_Person;
- *   - validate_Root_Cus;
- *   - prune_Rejected_Roots;
- *   - resolve_History.
- *
- * Правила:
- *
- *   cancellation:
- *      все итоговые суммы NULL, target_icorr = 99;
- *
- *   person correction:
- *      суммы копируются из последней исторической строки;
- *
- *   FNS financial correction:
- *      если явно запрошенный клиент не пришёл ни из одного источника,
- *      используются исторические суммы;
- *
- *   остальные режимы:
- *      используются текущие рассчитанные суммы;
- *
- *   primary:
- *      target_icorr = 0;
- *
- *   correction без истории:
- *      target_icorr = 0;
- *
- *   correction с историей:
- *      target_icorr = hist_icorr + 1.
- */
-/*
  * Формирует итоговые суммы и расчётный icorr для каждого
  * принятого root-клиента.
  *
@@ -1925,12 +1891,12 @@ $procedure$
  *   - не создаёт request;
  *   - не создаёт mi_person;
  *   - сохраняет historical inum либо создаёт новый;
- *   - проверяет cardinality итоговой вставки.
+ *   - проверяет готовность и cardinality итоговой вставки.
  */
 CREATE PROCEDURE write_Items(
-   IN  p_ctx             mi_0008_api.run_context_t,
-   IN  p_req_id          numeric,
-   OUT p_written_count   bigint
+   IN  p_ctx           mi_0008_api.run_context_t,
+   IN  p_req_id        numeric,
+   OUT p_written_count bigint
 )
 AS
 $procedure$
@@ -1943,6 +1909,10 @@ BEGIN
 
    p_written_count := 0;
 
+   /*
+    * Заголовок запроса должен быть создан write_Report
+    * до вызова этой процедуры.
+    */
    IF p_req_id IS NULL THEN
 
       CALL MI_resultCtx.raise_fail(
@@ -1953,49 +1923,49 @@ BEGIN
    END IF;
 
    /*
-    * Проверяем готовность всех строк EMIT.
+    * Считаем готовые к записи строки.
     *
-    * target_icorr=100 может существовать только как промежуточный
-    * расчётный результат и никогда не должен попасть в xxi.mi_0008.
+    * target_icorr=100 допустим только как промежуточное значение:
+    * resolve_Decisions должен исключить такую строку из EMIT.
     */
-   SELECT count(*) FILTER
-          (
-             WHERE work.decision_code = 'EMIT'
-          ),
+   SELECT count(*),
 
           count(*) FILTER
           (
-             WHERE work.decision_code = 'EMIT'
-               AND
-               (
-                  work.person_id IS NULL
-
-                  OR work.target_icorr IS NULL
-
-                  OR work.target_icorr NOT BETWEEN 0 AND 99
-               )
+             WHERE work.person_id IS NULL
+                OR work.target_icorr IS NULL
+                OR work.target_icorr NOT BETWEEN 0 AND 99
           )
 
      INTO l_emit_count,
           l_invalid_count
 
-     FROM pg_temp.mi_0008_acc_tmp AS work;
+     FROM pg_temp.mi_0008_acc_tmp AS work
+
+    WHERE work.decision_code = 'EMIT';
 
    /*
-    * write_Items вызывается только после проверки emit_count
-    * и создания заголовка запроса.
+    * write_Items вызывается только после проверки l_emit_count
+    * в write_Report и создания request.
     */
-   CALL mi_0008_api.assert_Cardinality(
-      p_expected    => l_emit_count,
-      p_actual      => p_written_count,
-      p_result_code => 'MI_0008_API#WRITE_CARDINALITY',
-      p_entity      => 'Строки отчёта MI_0008',
-      p_context     => format(
-         'req_id=%s',
-         p_req_id
-      )
-   );
+   IF l_emit_count = 0 THEN
 
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_API#NO_ITEMS_TO_WRITE',
+         p_result_info => format(
+            'Для req_id=%s отсутствуют строки EMIT',
+            p_req_id
+         )
+      );
+
+   END IF;
+
+   /*
+    * Все EMIT-строки должны иметь:
+    *
+    *   - новый immutable person_id;
+    *   - допустимый target_icorr от 0 до 99.
+    */
    CALL mi_0008_api.assert_Cardinality(
       p_expected    => 0,
       p_actual      => l_invalid_count,
@@ -2008,14 +1978,12 @@ BEGIN
    );
 
    /*
-    * Для correction/cancellation сохраняется historical inum.
+    * Для correction/cancellation сохраняется исторический inum.
+    * При отсутствии истории создаётся новый inum.
     *
-    * Если истории нет, создаётся новый inum. COALESCE вычисляет
-    * nextval только для строк с hist_inum IS NULL.
-    *
-    * Возможный конфликт физического ключа не подавляется:
-    * unique constraint должен остановить весь запуск, если между
-    * resolve_Decisions и INSERT ключ оказался занят.
+    * Возможный конфликт физического ключа
+    * (icusnum, iyear, icorr) намеренно не подавляется:
+    * unique constraint должен остановить весь запуск.
     */
    INSERT INTO xxi.mi_0008
    (
@@ -2058,18 +2026,20 @@ BEGIN
 
    GET DIAGNOSTICS p_written_count = ROW_COUNT;
 
-   IF p_written_count <> l_emit_count THEN
-
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_API#WRITE_CARDINALITY',
-         p_result_info => format(
-            'Ожидалось строк отчёта: %s, записано: %s',
-            l_emit_count,
-            p_written_count
-         )
-      );
-
-   END IF;
+   /*
+    * На каждую EMIT-строку должна быть записана
+    * ровно одна строка xxi.mi_0008.
+    */
+   CALL mi_0008_api.assert_Cardinality(
+      p_expected    => l_emit_count,
+      p_actual      => p_written_count,
+      p_result_code => 'MI_0008_API#WRITE_CARDINALITY',
+      p_entity      => 'Строки отчёта MI_0008',
+      p_context     => format(
+         'req_id=%s',
+         p_req_id
+      )
+   );
 
 END;
 $procedure$
@@ -2120,7 +2090,6 @@ DECLARE
    l_san_reject_count  bigint := 0;
 
    l_person_count      bigint := 0;
-   l_linked_count      bigint := 0;
    l_written_count     bigint := 0;
 BEGIN
 
