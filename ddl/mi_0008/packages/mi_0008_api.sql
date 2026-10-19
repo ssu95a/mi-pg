@@ -1738,7 +1738,7 @@ DECLARE
    l_emit_count          bigint;
    l_existing_count      bigint;
    l_missing_person_count bigint;
-   l_linked_count        bigint
+   l_linked_count        bigint;
 
 BEGIN
 
