@@ -3,10 +3,6 @@
 -- Назначение : подготовка исходных расчётных данных для MI_0008
 -- Версия     : 0.1.0
 --
--- В текущей версии процедуры являются заглушками: они создают пустые
--- сессионные таблицы с контрактной структурой. Расчёт и заполнение таблиц
--- должны быть реализованы внутри соответствующих процедур prepare_*.
---
 CREATE OR REPLACE PACKAGE mi_0008_src
 
 CREATE FUNCTION __init__()
@@ -35,13 +31,38 @@ END;
 $function$
 
 
+/* */
+CREATE PROCEDURE assert_Result (
+   IN p_source varchar,
+   IN p_result ts.t_intRetCode
+)
+AS
+$procedure$
+   #package
+   #private
+BEGIN
+
+   /* NULL retcode тоже считается ошибкой. */
+   IF p_result.iretcode IS DISTINCT FROM 0 THEN
+
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_SRC#' || upper(p_source) || '_FAILED',
+         p_result_info => format( '%s: code=%s, error=%s', p_source, coalesce(p_result.iretcode::text, '<NULL>'), coalesce(p_result.cerrormsg, '<empty>') )
+      );
+
+   END IF;
+
+END;
+$procedure$
+
+
 /*
  * Подготавливает данные по депозитам.
- *
- * Процедура всегда заменяет снимок текущей сессии и создаёт таблицу даже при
- * отсутствии данных. В заглушке таблица остаётся пустой.
+ * 
+ * Процедура всегда заменяет снимок текущей сессии и создаёт таблицу
+ * даже при отсутствии данных. 
  */
-CREATE PROCEDURE prepare_Dep(
+CREATE PROCEDURE prepare_Dep (
    IN p_inf_id       numeric,
    IN p_iyear        numeric,
    IN p_launch_itype numeric,
@@ -53,7 +74,18 @@ CREATE PROCEDURE prepare_Dep(
 AS
 $procedure$
    #package
+DECLARE
+   l_dBeg date := make_date( p_iyear::int,     1, 1);
+   l_dEnd date := make_date( p_iyear::int + 1, 1, 1) - 1;
+
+   l_calc_ret ts.t_intRetCode;
+
 BEGIN
+
+   l_calc_ret := DJ_api.fill_TableTemp_Prc_To_Client( l_dBeg, l_dEnd, coalesce(p_cus_marker,0)::bigint, null::bigint, null::bigint, false );
+
+   CALL mi_0008_src.assert_Result( p_source => 'DEP', p_result => l_calc_ret );
+
 
    INSERT INTO pg_temp.mi_0008_acc_tmp AS work
    (
@@ -66,65 +98,39 @@ BEGIN
    SELECT d.icusnum,
           true,
           true,
-
-          NULLIF(
-             sum(d.sumprocfizonly),
-             0
-          )::numeric(22,2),
-
-          NULLIF(
-             sum(d.sumprocind),
-             0
-          )::numeric(22,2)
-
-     FROM dj_v_prc_to_Client AS d
-
+          NULLIF( sum(d.sumprocfizonly), 0 )::numeric(22,2),
+          NULLIF( sum(d.sumprocind), 0     )::numeric(22,2)
+     FROM 
+          xxi.dj_v_prc_to_Client AS d
      LEFT JOIN pg_temp.mi_0008_acc_tmp AS scope
        ON scope.s_icusnum = d.icusnum
-
-    WHERE d.icusnum IS NOT NULL
-
-      AND (
-             d.year IS NULL
-             OR d.year = p_iyear
-          )
-
+    WHERE 
+          d.icusnum IS NOT NULL
+      AND ( d.year IS NULL OR d.year::numeric(4) = p_iyear )
       AND CASE
-             WHEN p_scope_all THEN
-                NOT coalesce(scope.is_excluded, false)
-
+             WHEN p_scope_all THEN NOT coalesce( scope.is_excluded, false )
              ELSE
-                coalesce(scope.in_scope, false)
-                AND NOT coalesce(scope.is_excluded, false)
+                  coalesce( scope.in_scope, false ) AND NOT coalesce( scope.is_excluded, false )
           END
-
-    GROUP BY d.icusnum
-
-   HAVING count(d.sumprocfizonly) > 0
-       OR count(d.sumprocind) > 0
-
-   ON CONFLICT (s_icusnum) DO UPDATE
+    GROUP BY 
+          d.icusnum
+   HAVING 
+          count(d.sumprocfizonly) > 0 OR count(d.sumprocind) > 0
+       ON 
+ CONFLICT (s_icusnum) 
+       DO UPDATE
       SET in_scope    = true,
           source_seen = true,
-
-          msum_f_dep = EXCLUDED.msum_f_dep,
-          msum_i_dep = EXCLUDED.msum_i_dep;
-
+          msum_f_dep  = EXCLUDED.msum_f_dep,
+          msum_i_dep  = EXCLUDED.msum_i_dep;
 END;
 $procedure$
 
 
 /*
- * Подготавливает данные CRD и сразу записывает агрегированный
- * результат в единый рабочий набор MI_0008.
- *
- * CRD владеет только:
- *   msum_f_crd — доход физического лица, source itype = 1;
- *   msum_i_crd — доход индивидуального предпринимателя, itype = 2.
- *
- * Сырые строки и промежуточная source-table не создаются.
+ * Подготавливает данные CRD
  */
-CREATE PROCEDURE prepare_Crd(
+CREATE PROCEDURE prepare_Crd (
    IN p_inf_id       numeric,
    IN p_iyear        numeric,
    IN p_launch_itype numeric,
@@ -151,34 +157,12 @@ BEGIN
    SELECT src.icusnum,
           true,
           true,
-
-          /*
-           * itype в SM_008_ED_TMP — тип суммы источника,
-           * а не режим формирования отчёта.
-           */
-          NULLIF(
-             sum(src.msum) FILTER (
-                WHERE src.itype = 1
-             ),
-             0
-          )::numeric(22,2) AS msum_f_crd,
-
-          NULLIF(
-             sum(src.msum) FILTER (
-                WHERE src.itype = 2
-             ),
-             0
-          )::numeric(22,2) AS msum_i_crd
-
-     FROM sm_008_ed_tmp AS src
-
+          NULLIF( sum(src.msum) FILTER ( WHERE src.itype = 1 ), 0 )::numeric(22,2) AS msum_f_crd,
+          NULLIF( sum(src.msum) FILTER ( WHERE src.itype = 2 ), 0 )::numeric(22,2) AS msum_i_crd
+     FROM xxi.sm_008_ed_tmp AS src
      LEFT JOIN pg_temp.mi_0008_acc_tmp AS scope
        ON scope.s_icusnum = src.icusnum
-
-    WHERE src.icusnum IS NOT NULL
-      AND src.itype IN (1, 2)
-      AND src.msum IS NOT NULL
-
+    WHERE src.icusnum IS NOT NULL AND src.itype IN (1, 2) AND src.msum IS NOT NULL
       /*
        * Полный запуск:
        *   отсутствие строки в work означает обычного нового клиента;
@@ -187,36 +171,19 @@ BEGIN
        * Ограниченный запуск:
        *   берём только клиентов рассчитанного scope.
        */
-      AND CASE
-             WHEN p_scope_all THEN
-                NOT coalesce(
-                   scope.is_excluded,
-                   false
-                )
-
-             ELSE
-                coalesce(
-                   scope.in_scope,
-                   false
-                )
-                AND NOT coalesce(
-                   scope.is_excluded,
-                   false
-                )
+      AND CASE 
+            WHEN p_scope_all THEN NOT coalesce( scope.is_excluded, false )
+            ELSE coalesce( scope.in_scope, false ) AND NOT coalesce( scope.is_excluded, false )
           END
-
     GROUP BY src.icusnum
-
    /*
     * После WHERE src.msum IS NOT NULL условие обычно истинно,
     * но явно фиксирует контракт: пустой contribution строку не создаёт.
     */
    HAVING count(src.msum) > 0
-
    ON CONFLICT (s_icusnum) DO UPDATE
       SET in_scope    = true,
           source_seen = true,
-
           /*
            * Повторная подготовка заменяет snapshot CRD.
            * Значения не складываются с предыдущим результатом.
@@ -239,8 +206,8 @@ $procedure$
  *   msum_i_acc — доход индивидуального предпринимателя, source msum1.
  *
  * Дополнительная source-table не создаётся.
- */
-CREATE PROCEDURE prepare_Acc(
+*/
+CREATE PROCEDURE prepare_Acc (
    IN p_inf_id       numeric,
    IN p_iyear        numeric,
    IN p_launch_itype numeric,
@@ -252,15 +219,27 @@ CREATE PROCEDURE prepare_Acc(
 AS
 $procedure$
    #package
+DECLARE
+
+   l_calc_ret ts.t_intRetCode;
+
+   l_dbeg date := make_date( p_iyear::int,     1, 1);
+   l_dend date := make_date( p_iyear::int + 1, 1, 1) - 1;
+
 BEGIN
 
+   l_calc_ret := Perc_Core.calcCusIncome( p_cus_marker, l_dbeg, l_dend, CASE p_launch_itype WHEN 1 THEN 'Y' ELSE 'N' END );
+
+   CALL mi_0008_src.assert_Result( p_source => 'ACC', p_result => l_calc_ret );
+
+   /*
+    * читаем perc_temp.
+    */
    INSERT INTO pg_temp.mi_0008_acc_tmp AS work
    (
       s_icusnum,
-
       in_scope,
       source_seen,
-
       msum_f_acc,
       msum_i_acc
    )
@@ -268,82 +247,42 @@ BEGIN
           true,
           true,
 
-          /*
-           * Oracle-compatible mapping:
-           *
-           *   msum2 → физическое лицо;
-           *   msum1 → индивидуальный предприниматель.
-           */
-          NULLIF(
-             sum(src.msum2),
-             0
-          )::numeric(22,2) AS msum_f_acc,
+          NULLIF(sum(src.msum2), 0)::numeric(22,2),
 
-          NULLIF(
-             sum(src.msum1),
-             0
-          )::numeric(22,2) AS msum_i_acc
+          NULLIF(sum(src.msum1), 0)::numeric(22,2)
 
-     FROM perc_temp AS src
+     FROM xxi.perc_temp AS src
 
      LEFT JOIN pg_temp.mi_0008_acc_tmp AS scope
        ON scope.s_icusnum = src.inum
 
     WHERE src.inum IS NOT NULL
 
-      /*
-       * Полный запуск:
-       *   берём всех клиентов source, кроме уже исключённых.
-       *
-       * Ограниченный запуск:
-       *   берём только клиентов рассчитанного scope.
-       */
       AND CASE
              WHEN p_scope_all THEN
-                NOT coalesce(
-                   scope.is_excluded,
-                   false
-                )
+                NOT coalesce(scope.is_excluded, false)
 
              ELSE
-                coalesce(
-                   scope.in_scope,
-                   false
-                )
-                AND NOT coalesce(
-                   scope.is_excluded,
-                   false
-                )
+                coalesce(scope.in_scope, false)
+                AND NOT coalesce(scope.is_excluded, false)
           END
 
     GROUP BY src.inum
 
-   /*
-    * Полностью отсутствующий contribution строку не создаёт.
-    *
-    * Если source содержал нули, строка создаётся:
-    * итоговая сумма станет NULL, но source_seen будет true.
-    */
    HAVING count(src.msum1) > 0
        OR count(src.msum2) > 0
 
    ON CONFLICT (s_icusnum) DO UPDATE
       SET in_scope    = true,
           source_seen = true,
-
-          /*
-           * Повторный вызов заменяет ACC snapshot,
-           * а не складывает его с предыдущим результатом.
-           *
-           * DEP и CRD колонки не изменяются.
-           */
-          msum_f_acc = EXCLUDED.msum_f_acc,
-          msum_i_acc = EXCLUDED.msum_i_acc;
+          msum_f_acc  = EXCLUDED.msum_f_acc,
+          msum_i_acc  = EXCLUDED.msum_i_acc;
 
 END;
 $procedure$
 
-/* Конец пакета. */
+
+/* end_Of_Package */
 ;
 
 COMMENT ON SCHEMA mi_0008_src IS
