@@ -32,6 +32,7 @@ CREATE TYPE mi_0008_api.amounts_t AS
 )
 
 
+/* entry point */
 CREATE FUNCTION __init__()
    RETURNS void
 AS
@@ -43,15 +44,15 @@ DECLARE
    cPkg_Name CONSTANT varchar(20)  := 'mi_0008_api';
    cLogger   CONSTANT varchar(20)  := 'mi.0008';
 
-   ret_Ok   CONSTANT int4 := 0;
-   ret_Fail CONSTANT int4 := -1;
+   ret_Ok    CONSTANT int4 := 0;
+   ret_Fail  CONSTANT int4 := -1;
 
-   c_result_no_data  CONSTANT int4 := 1;
-   c_result_busy     CONSTANT int4 := 2;
+   c_result_no_data CONSTANT int4 := 1;
+   c_result_busy    CONSTANT int4 := 2;
 
-   c_reason_fns      CONSTANT numeric := 2;
-   c_kind_person     CONSTANT numeric := 1;
-   c_kind_sum        CONSTANT numeric := 2;
+   c_reason_fns     CONSTANT numeric := 2;
+   c_kind_person    CONSTANT numeric := 1;
+   c_kind_sum       CONSTANT numeric := 2;
 
 BEGIN
    RAISE DEBUG 'Package "%" - % - initialized', cPkg_Name, cVersion;
@@ -73,8 +74,8 @@ $function$
 
 /*
  * Проверяет точное совпадение ожидаемого и фактического количества строк.
- *
- * Используется только для технических cardinality-инвариантов.
+ * 
+ * Используется только для техн инвариантов.
  * Бизнес-проверки должны оставаться явными в своих процедурах.
  */
 CREATE PROCEDURE assert_Cardinality(
@@ -94,23 +95,21 @@ BEGIN
       RETURN;
    END IF;
 
-   CALL MI_resultCtx.raise_fail(
+   CALL MI_resultCtx.raise_fail (
       p_result_code => p_result_code,
       p_result_info => format( '%s: ожидалось=%s, фактически=%s%s', p_entity, coalesce( p_expected::text, '<NULL>' ), coalesce( p_actual::text, '<NULL>'),
-
-            CASE
-               WHEN p_context IS NULL
-                  THEN ''
-               ELSE format(
-                  '; %s',
-                  p_context
-               )
-            END
-         )
+         CASE
+            WHEN p_context IS NULL
+               THEN ''
+            ELSE
+               format( '; %s', p_context )
+         END
+      )
    );
 
 END;
 $procedure$
+
 
 /*
  * Единый рабочий набор текущего запуска.
@@ -133,19 +132,16 @@ BEGIN
 
    CREATE TEMPORARY TABLE mi_0008_acc_tmp
    (
+      /* Исходный клиент, пришедший из отчета */
       s_icusnum numeric(12) NOT NULL,
 
-      /*
-       * Scope текущего запуска.
-       */
+      /* Scope текущего запуска. */
       in_scope     boolean NOT NULL DEFAULT false,
       is_requested boolean NOT NULL DEFAULT false,
       is_excluded  boolean NOT NULL DEFAULT false,
       source_seen  boolean NOT NULL DEFAULT false,
 
-      /*
-       * Финансовый accumulator.
-       */
+      /* Финансовый accumulator. */
       msum_f_dep numeric(22,2),
       msum_i_dep numeric(22,2),
       msum_f_crd numeric(22,2),
@@ -153,17 +149,15 @@ BEGIN
       msum_f_acc numeric(22,2),
       msum_i_acc numeric(22,2),
 
-      /*
-       * Решение Sanitarium.
-       */
-      r_icusnum       numeric(12),
-      san_result_code varchar(50),
-      san_result_info text,
-      san_result_data text,
+      /* Решение Sanitarium. */
+      r_icusnum       numeric(12), -- реальный клиент, по 17 связи
+      san_result_code varchar(50), -- рез-т оценки состояния клиента
+      san_result_info text,        -- информация 
+      san_result_data text,        -- доп данные 
 
       /*
        * Последняя допустимая историческая запись.
-       *
+       * из предыдущего отчета.
        * Суммы и person-поля истории сюда не копируются:
        * они доступны по hist_itm_id / hist_person_id.
        */
@@ -174,12 +168,12 @@ BEGIN
       hist_person_id numeric(12),
 
       /*
-       * Текущий immutable person snapshot.
+       * Текущий person snapshot. данные клиентов
        *
        * Заполняется один раз после collapse_To_Roots.
        * Эти же данные проверяет Sanitarium и позднее сохраняет mi_person.
        */
-      cus_exists boolean,
+      cus_exists        boolean,
 
       first_name        varchar(50),
       last_name         varchar(50),
@@ -221,7 +215,7 @@ BEGIN
       decision_code varchar(50),
 
       /*
-       * Созданный immutable person snapshot.
+       * Созданный и привязанный к записи person snapshot.
        */
       person_id numeric(12),
 
@@ -239,9 +233,9 @@ $procedure$
  *
  * Выбранные здесь данные:
  *
- *   - проверяет validate_Root_Cus;
+ *   - проверяет  validate_Root_Cus;
  *   - сравнивает resolve_Decisions;
- *   - сохраняет create_Person_Snapshots.
+ *   - сохраняет  create_Person_Snapshots.
  *
  * Повторное чтение CUS/CUS_DOCUM в последующих стадиях не требуется.
  */
@@ -260,22 +254,21 @@ BEGIN
       SELECT work.s_icusnum
         FROM pg_temp.mi_0008_acc_tmp  AS work
        WHERE
-             work.san_result_code IS NULL
+             work.san_result_code IS NULL -- игнорим, исключенных sanitarium'ом
    ),
    person_data AS MATERIALIZED
    (
       SELECT root.s_icusnum,
              c.icusnum IS NOT NULL AS cus_exists,
              /*
-              * Сохраняем прежнее поведение:
-              * обязательные ФИО получают техническое значение.
+              * ORA подход: обязательные ФИО получают техническое значение.
               */
              coalesce( c.ccusfirst_name, 'отсутствует' )::varchar(50) AS first_name,
              coalesce( c.ccuslast_name,  'отсутствует' )::varchar(50) AS last_name,
              c.ccusmiddle_name::varchar(50) AS middle_name,
+
              /*
-              * Сначала гражданство из CUS,
-              * затем fallback из выбранного ДУЛ.
+              * Сначала гражданство из CUS, затем fallback из выбранного ДУЛ.
               */
              coalesce (
                 (
@@ -311,13 +304,10 @@ BEGIN
           ON c.icusnum = root.s_icusnum
 
         /*
-         * За один проход получаем:
-         *
-         *   - последний preferred;
-         *   - последний действующий non-preferred.
-         *
-         * Затем выбираем preferred только при распознанном типе,
-         * иначе используем non-preferred.
+         * С документами у CUS беда,
+         * строим логику выбора вокруг:
+         * - последний preferred - pref = 'Y';
+         * - последний действующий coalesce( pref, 'N' ) <> 'Y'.
          */
         LEFT JOIN LATERAL
         (
@@ -333,39 +323,28 @@ BEGIN
 
              FROM
              (
-                SELECT
+                 SELECT CASE WHEN d.pref = 'Y' THEN true ELSE false END AS is_preferred,
+                 row_number() OVER
+                 (
+                    PARTITION BY
                        CASE
                           WHEN d.pref = 'Y'
                              THEN true
                           ELSE false
-                       END AS is_preferred,
+                       END
 
-                       row_number() OVER
-                       (
-                          PARTITION BY
-                             CASE
-                                WHEN d.pref = 'Y'
-                                   THEN true
-                                ELSE false
-                             END
+                    ORDER BY d.doc_date DESC NULLS LAST, d.id_doc DESC
+                 ) AS rn,
+                    CASE
+                       WHEN btrim(p.cpudcode9) ~ '^[0-9]{1,3}$'
+                          THEN btrim(p.cpudcode9)::numeric(3)
+                       ELSE NULL::numeric(3)
+                    END AS doc_type_id,
 
-                          ORDER BY d.doc_date DESC NULLS LAST,
-                                   d.id_doc DESC
-                       ) AS rn,
-
-                       CASE
-                          WHEN btrim(p.cpudcode9) ~ '^[0-9]{1,3}$'
-                             THEN btrim(p.cpudcode9)::numeric(3)
-                          ELSE NULL::numeric(3)
-                       END AS doc_type_id,
-
-                       NULLIF(
-                          btrim(p.cpudcode9),
-                          ''
-                       )::varchar(20) AS doc_type_code,
-
-                       d.doc_ser::varchar(10)
-                          AS doc_ser,
+                    NULLIF( btrim(p.cpudcode9), '' )::varchar(20) 
+                      AS doc_type_code,
+                    d.doc_ser::varchar(10) 
+                      AS doc_ser,
 
                        d.doc_num::varchar(20)
                           AS doc_num,
@@ -406,32 +385,16 @@ BEGIN
                        * non-preferred документ.
                        */
                       (
-                         coalesce(d.pref, 'N') = 'N'
-
-                         AND coalesce(
-                                d.doc_period,
-                                CURRENT_DATE
-                             ) >= CURRENT_DATE
+                         coalesce(d.pref, 'N') = 'N' AND coalesce( d.doc_period, CURRENT_DATE ) >= CURRENT_DATE
                       )
                    )
              ) AS ranked
 
             WHERE ranked.rn = 1
-
-              /*
-               * Последний preferred участвует только при
-               * распознанном типе.
-               *
-               * Последний fallback участвует независимо от
-               * распознавания типа: дальнейшая валидация сама
-               * выставит SAN_CUS_NO_DOC.
-               */
               AND
               (
-                 NOT ranked.is_preferred
-                 OR ranked.doc_type_id IS NOT NULL
+                 NOT ranked.is_preferred OR ranked.doc_type_id IS NOT NULL
               )
-
             /*
              * Распознанный preferred имеет приоритет.
              * Если он исключён условием выше — остаётся fallback.
@@ -439,8 +402,7 @@ BEGIN
             ORDER BY ranked.is_preferred DESC
 
             LIMIT 1
-        ) AS doc
-          ON true
+        ) AS doc ON true
    ),
    updated AS
    (
@@ -468,16 +430,8 @@ BEGIN
       RETURNING work.s_icusnum
    )
    SELECT
-      (
-         SELECT count(*)
-           FROM person_data
-      ),
-
-      (
-         SELECT count(*)
-           FROM updated
-      )
-
+      ( SELECT count(*) FROM person_data ),
+      ( SELECT count(*) FROM updated     )
      INTO l_projected_count,
           l_updated_count;
 
@@ -505,13 +459,13 @@ $procedure$
  *
  * Правила выбора сумм:
  *
- *   cancellation:
+ *   отмена:
  *      все суммы NULL;
  *
- *   person correction:
+ *   коррекция:
  *      суммы последней исторической строки;
  *
- *   FNS financial correction:
+ *   FNS дул:
  *      для явно запрошенного клиента, не пришедшего из текущих
  *      источников, используются исторические суммы;
  *
@@ -600,9 +554,7 @@ BEGIN
               * Это нарушение внутреннего контракта, а не обычный
               * сценарий "истории нет".
               */
-             work.hist_itm_id IS NOT NULL
-             AND history.itm_id IS NULL
-                AS history_missing
+             work.hist_itm_id IS NOT NULL AND history.itm_id IS NULL AS history_missing
 
         FROM pg_temp.mi_0008_acc_tmp AS work
 
@@ -634,8 +586,7 @@ BEGIN
                    )::mi_0008_api.amounts_t
 
                 WHEN src.use_history THEN
-                   src.history_amounts
-
+                     src.history_amounts
                 ELSE
                    src.current_amounts
              END
@@ -652,13 +603,10 @@ BEGIN
              CASE
                 WHEN p_ctx.launch_itype = 1 THEN
                    0
-
                 WHEN p_ctx.launch_itype = 3 THEN
                    99
-
                 WHEN src.hist_itm_id IS NULL THEN
                    0
-
                 ELSE
                    src.hist_icorr + 1
              END::numeric(3)
@@ -673,22 +621,16 @@ BEGIN
       UPDATE pg_temp.mi_0008_acc_tmp AS work
          SET out_msum_f_dep =
                 (result.output_amounts).f_dep,
-
              out_msum_i_dep =
                 (result.output_amounts).i_dep,
-
              out_msum_f_crd =
                 (result.output_amounts).f_crd,
-
              out_msum_i_crd =
                 (result.output_amounts).i_crd,
-
              out_msum_f_acc =
                 (result.output_amounts).f_acc,
-
              out_msum_i_acc =
                 (result.output_amounts).i_acc,
-
              target_icorr =
                 result.target_icorr
 
@@ -701,21 +643,14 @@ BEGIN
    )
    SELECT
       (
-         SELECT count(*)
-           FROM calculated
+         SELECT count(*) FROM calculated
       ),
-
       (
-         SELECT count(*)
-           FROM calculated
-          WHERE history_missing
+         SELECT count(*) FROM calculated WHERE history_missing
       ),
-
       (
-         SELECT count(*)
-           FROM updated
+         SELECT count(*) FROM updated
       )
-
      INTO l_candidate_count,
           l_missing_history_count,
           l_updated_count;
@@ -752,7 +687,7 @@ $procedure$
  * Оба флага распространяются одним обходом weak components.
  * Направление relation-17 здесь игнорируется только для определения охвата.
  */
-CREATE PROCEDURE build_Scope(
+CREATE PROCEDURE build_Scope (
    IN  p_ctx         mi_0008_api.run_context_t,
    OUT p_scope_all   boolean,
    OUT p_scope_count bigint
@@ -763,11 +698,8 @@ $procedure$
    #private
 BEGIN
 
-   p_scope_all :=
-      p_ctx.launch_itype = 1
-      AND p_ctx.cus_marker IS NULL;
+   p_scope_all := p_ctx.launch_itype = 1 AND p_ctx.cus_marker IS NULL;
 
-   ---------------------------------------------------------------------------
    -- Явно заданный marker.
    --
    -- Primary:
@@ -776,7 +708,6 @@ BEGIN
    --
    -- Correction/cancellation:
    --   IDAROW — CUS.
-   ---------------------------------------------------------------------------
    IF p_ctx.cus_marker IS NOT NULL THEN
 
       INSERT INTO pg_temp.mi_0008_acc_tmp
@@ -799,11 +730,7 @@ BEGIN
 
        WHERE marker.idmarker = p_ctx.cus_marker
 
-         AND (
-                p_ctx.launch_itype <> 1
-                OR marker.idarow = p_ctx.pack_num
-             )
-
+         AND ( p_ctx.launch_itype <> 1 OR marker.idarow = p_ctx.pack_num )
          AND CASE
                 WHEN p_ctx.launch_itype = 1
                    THEN marker.idrow
@@ -814,9 +741,7 @@ BEGIN
          SET in_scope     = true,
              is_requested = true;
 
-   ---------------------------------------------------------------------------
    -- Банковский поиск изменений без marker.
-   ---------------------------------------------------------------------------
    ELSIF p_ctx.launch_itype = 2 THEN
 
       INSERT INTO pg_temp.mi_0008_acc_tmp
@@ -838,7 +763,6 @@ BEGIN
        WHERE request.inf_id = p_ctx.inf_id
          AND request.status_cd IN (1, 2, 3)
          AND item.iyear = p_ctx.iyear
-
          AND (
                 p_ctx.ireq_kind = c_kind_person
                 OR item.icorr = 0
@@ -882,7 +806,6 @@ BEGIN
 
    END IF;
 
-   ---------------------------------------------------------------------------
    -- Один обход active relation-17.
    --
    -- В одной component могут находиться разные семена:
@@ -891,21 +814,13 @@ BEGIN
    --   (in_scope=false, is_excluded=true)
    --
    -- UNION распространяет оба состояния, а expanded объединяет их bool_or.
-   ---------------------------------------------------------------------------
    WITH RECURSIVE
    active_links AS MATERIALIZED
    (
-      SELECT DISTINCT
-             link.id_cus_parent,
-             link.id_cus_child
-
+      SELECT DISTINCT link.id_cus_parent, link.id_cus_child
         FROM xxi.cus_lnk AS link
-
        WHERE link.id_lnk_type = 17
-         AND (
-                link.date_end IS NULL
-                OR link.date_end >= CURRENT_DATE
-             )
+         AND ( link.date_end IS NULL OR link.date_end >= CURRENT_DATE )
    ),
    walk
    (
@@ -988,7 +903,7 @@ END;
 $procedure$
 
 
-/* */
+/* Загрузка данных из разных источников в отче */
 CREATE PROCEDURE load_Sources (
    IN p_ctx mi_0008_api.run_context_t
 )
@@ -1017,7 +932,7 @@ BEGIN
       p_pack_num     => p_ctx.pack_num,
       p_scope_all    => p_ctx.scope_all
    );
-
+/*
    CALL mi_0008_src.prepare_Acc(
       p_inf_id       => p_ctx.inf_id,
       p_iyear        => p_ctx.iyear,
@@ -1027,12 +942,14 @@ BEGIN
       p_pack_num     => p_ctx.pack_num,
       p_scope_all    => p_ctx.scope_all
    );
-
+*/
 END;
 $procedure$
 
 
-/* */
+/* Удаляем из отчета исключнных клиентов, 
+   почему исключены см. sm_0008_lsr_itm
+*/
 CREATE PROCEDURE prune_Excluded( )
 AS
 $procedure$

@@ -28,6 +28,7 @@ DECLARE
    c_result_no_birth   CONSTANT varchar(50) := 'SAN_CUS_NO_BIRTH';
    c_result_no_doc     CONSTANT varchar(50) := 'SAN_CUS_NO_DOC';
    c_result_doc_after  CONSTANT varchar(50) := 'SAN_CUS_DOC_AFTER_PERIOD';
+
 BEGIN
    RAISE DEBUG 'Package "%" - % - initialized', cPkg_Name, cVersion;
 END;
@@ -170,7 +171,7 @@ $procedure$
 
 
 /* */
-CREATE PROCEDURE resolve_Roots(
+CREATE PROCEDURE resolve_Roots (
    IN p_graph_node_count bigint
 )
 AS
@@ -934,9 +935,7 @@ $procedure$
  *
  * Процедура не читает историю отчёта и не принимает решений по icorr.
  * Она изменяет только санитарные поля аккумулятора и протокол LSR.
- * Отсутствие гражданства после fallback из ДУЛ логируется, но не является
- * причиной отклонения клиента.
- */
+*/
 CREATE PROCEDURE validate_Root_Cus(
    IN  p_lsr_id        numeric,
    IN  p_inf_id        numeric,
@@ -951,11 +950,12 @@ AS
 $procedure$
    #package
 DECLARE
+
    cAction_Name CONSTANT varchar(50) := cPkg_Name || '.validate_Root_Cus';
 
-   l_root_count      bigint;
-   l_reject_count    bigint;
-   l_citizen_warn    bigint;
+   l_root_count   bigint;
+   l_reject_count bigint;
+   l_citizen_warn bigint;
 BEGIN
 
    p_ires_code := ret_FAIL;
@@ -986,10 +986,11 @@ BEGIN
    );
    
    IF l_root_count = 0 THEN
+
       p_ires_code := ret_OK;
       p_cres_info := 'Sanitarium root validation: no clients';
 
-      CALL MI_logger.exit_f(
+      CALL MI_logger.exit_f (
          p_logger_name  => cLogger,
          p_message_text => p_cres_info,
          p_inf_id       => p_inf_id,
@@ -1000,26 +1001,23 @@ BEGIN
 
    END IF;
 
-   CALL persist_Root_Diagnostics(p_lsr_id);
+   CALL MI_0008_san.persist_Root_Diagnostics ( p_lsr_id );
 
-   CALL propagate_Root_Rejections(p_lsr_id);
+   CALL MI_0008_san.propagate_Root_Rejections( p_lsr_id );
 
    IF l_citizen_warn > 0 THEN
 
-      CALL MI_logger.warn(
+      CALL MI_logger.warn (
          p_logger_name   => cLogger,
-         p_message_text  => format(
-            'Citizenship is absent after DUL fallback for %s accepted roots',
-            l_citizen_warn
-         ),
+         p_message_text  => format( 'Citizenship is absent after DUL fallback for %s accepted roots', l_citizen_warn ),
          p_inf_id        => p_inf_id,
-         p_action_cd     => 'root_validation',
-         p_object_name   => cPkg_Name,
+         p_action_cd     => cAction_Name,
          p_object_id     => p_lsr_id
       );
    END IF;
 
    p_ires_code := ret_OK;
+
    p_cres_info := format(
       'Sanitarium root validation: roots=%s, rejected=%s, citizenship_warnings=%s',
       l_root_count,
@@ -1027,7 +1025,7 @@ BEGIN
       l_citizen_warn
    );
 
-   CALL MI_logger.exit_f(
+   CALL MI_logger.exit_f (
       p_logger_name  => cLogger,
       p_message_text => p_cres_info,
       p_inf_id       => p_inf_id,
@@ -1068,5 +1066,3 @@ $procedure$
 COMMENT ON SCHEMA mi_0008_san IS
    'MI-edo. MI_0008 client sanitarium 1.0.1 {$Id$}'
 ;
-
-
