@@ -5,9 +5,9 @@
 --
 
 CREATE TABLE IF NOT EXISTS xxi.mi_addr (
-    addr_id         numeric(12) NOT NULL,                         -- ID адреса
+    addr_id         numeric(12) NOT NULL DEFAULT nextval('xxi.s_mi_addr'), -- ID адреса
     req_id          numeric(12) NOT NULL,                         -- ID запроса /mi_req_id/
-    itm_id          numeric(12),                                  -- ID элемента запроса (полиморфная ссылка)
+    itm_id          numeric(12),                                  -- ID элемента запроса
     ckladr_code     varchar(30),                                  -- Код по КЛАДР
     cpostcode       varchar(6),                                   -- Индекс
     cregion_code    varchar(2),                                   -- Код региона
@@ -50,7 +50,7 @@ COMMENT ON TABLE xxi.mi_addr IS
 
 COMMENT ON COLUMN xxi.mi_addr.addr_id       IS 'ID адреса';
 COMMENT ON COLUMN xxi.mi_addr.req_id        IS 'ID запроса /mi_req_id/';
-COMMENT ON COLUMN xxi.mi_addr.itm_id        IS 'ID элемента запроса (полиморфная ссылка; таблица элемента определяется через mi_req.inf_id)';
+COMMENT ON COLUMN xxi.mi_addr.itm_id        IS 'ID элемента запроса (таблица элемента определяется через mi_req.inf_id)';
 COMMENT ON COLUMN xxi.mi_addr.ckladr_code   IS 'Код по КЛАДР';
 COMMENT ON COLUMN xxi.mi_addr.cpostcode     IS 'Индекс';
 COMMENT ON COLUMN xxi.mi_addr.cregion_code  IS 'Код региона';
