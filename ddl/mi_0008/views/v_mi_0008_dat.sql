@@ -1,7 +1,7 @@
 --
 -- View       : xxi.v_mi_0008_dat
--- Назначение : Доходы физ лиц. Данные для выгрузки
--- Описание   : СОбранные данные для выгрузки
+-- РќР°Р·РЅР°С‡РµРЅРёРµ : Р”РѕС…РѕРґС‹ С„РёР· Р»РёС†. Р”Р°РЅРЅС‹Рµ РґР»СЏ РІС‹РіСЂСѓР·РєРё
+-- РћРїРёСЃР°РЅРёРµ   : РЎРћР±СЂР°РЅРЅС‹Рµ РґР°РЅРЅС‹Рµ РґР»СЏ РІС‹РіСЂСѓР·РєРё
 CREATE OR REPLACE VIEW xxi.v_mi_0008_dat
 AS
 SELECT m.itm_id,
@@ -24,7 +24,7 @@ SELECT m.itm_id,
        p.birth_date,
        r.ctaxreq_id tax_req_id,
        r.i2 corr_sign,
-       m.rkind
+       r.i3 ireq_kind
   FROM xxi.mi_0008 AS m
   JOIN xxi.mi_person AS p  
     ON p.person_id = m.person_id
@@ -32,5 +32,5 @@ SELECT m.itm_id,
     ON r.req_id = m.req_id 
 ;
 COMMENT ON VIEW xxi.v_mi_0008_dat IS
-   'MI-edo. Доходы физ лиц. Данные для выгрузки. (8, 81 ВС). 1.0.1. {$Id$}'
+   'MI-edo. Р”РѕС…РѕРґС‹ С„РёР· Р»РёС†. Р”Р°РЅРЅС‹Рµ РґР»СЏ РІС‹РіСЂСѓР·РєРё. (8, 81 Р’РЎ). 1.0.1. {$Id$}'
 ;

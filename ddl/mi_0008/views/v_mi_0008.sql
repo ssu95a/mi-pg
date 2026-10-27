@@ -37,8 +37,7 @@ SELECT m.itm_id,
        p.doc_issuer_code,
        p.doc_expire_date,
        p.doc_issuer_name,
-       p.birth_date,
-       m.rkind
+       p.birth_date
   FROM xxi.mi_0008 AS m
   JOIN xxi.mi_person AS p
     ON p.person_id = m.person_id

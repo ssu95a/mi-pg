@@ -26,8 +26,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008 (
       msum_i_crd    numeric(22,2) NULL,
       msum_i_acc    numeric(22,2) NULL,
       msum_f_acc    numeric(22,2) NULL,
-
-      rkind         numeric(1)    NOT NULL -- Вид данных для запроса: Doc 1, Sum 2
+      
 -- constraints
 -- PK
    constraint pk_mi_0008 primary key (itm_id) using index tablespace indexes,
@@ -38,8 +37,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008 (
    constraint fk_mi_0008__person  foreign key (person_id) references xxi.mi_person (person_id),
    constraint fk_mi_0008__icusnum foreign key (icusnum  ) references xxi."CUS"(icusnum),
 -- CK
-   constraint ck_mi_0008__icorr CHECK (icorr BETWEEN 0 AND 99),
-   constraint ck_mi_0008__rkind CHECK (rkind in (1,2) )
+   constraint ck_mi_0008__icorr CHECK (icorr BETWEEN 0 AND 99)
 )
 TABLESPACE users
 ;
@@ -84,7 +82,4 @@ COMMENT ON COLUMN xxi.mi_0008.person_id IS
 ;
 COMMENT ON COLUMN xxi.mi_0008.itm_id IS 
    'ID элемента запроса'
-;
-COMMENT ON COLUMN xxi.mi_0008.rkind IS 
-   'Вид данных для запроса - Doc: 1, Sum: 2'
 ;

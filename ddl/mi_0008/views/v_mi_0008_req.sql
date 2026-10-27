@@ -16,7 +16,8 @@ AS
    mi_req.idsmr,
    mi_req.ctaxreq_id,
    mi_req.i1 as iyear,
-   mi_req.i2 as irsn_corr
+   mi_req.i2 as irsn_corr,
+   mi_req.i3 as ireq_kind
  FROM mi_req 
 WHERE
    mi_req.inf_id in (8,81)
