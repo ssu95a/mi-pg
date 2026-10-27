@@ -40,22 +40,22 @@ $init$
    #export off
 DECLARE
 
-   c_Version  CONSTANT varchar(100) := '1.2.0';
-   c_Pkg_Name CONSTANT varchar(20)  := 'mi_0008_api';
-   c_Logger   CONSTANT varchar(20)  := 'mi.0008';
+   cVersion  CONSTANT varchar(100) := '1.2.0';
+   cPkg_Name CONSTANT varchar(20)  := 'mi_0008_api';
+   cLogger   CONSTANT varchar(20)  := 'mi.0008';
 
-   ret_Ok          CONSTANT int4 := 0;
-   ret_Fail        CONSTANT int4 := -1;
+   ret_Ok    CONSTANT int4 := 0;
+   ret_Fail  CONSTANT int4 := -1;
 
-   cResult_no_data CONSTANT int4 := 1;
-   cResult_busy    CONSTANT int4 := 2;
+   c_result_no_data CONSTANT int4 := 1;
+   c_result_busy    CONSTANT int4 := 2;
 
-   c_reason_fns    CONSTANT numeric := 2;
-   c_kind_Doc      CONSTANT numeric := 1;
-   c_kind_Sum      CONSTANT numeric := 2;
+   c_reason_fns     CONSTANT numeric := 2;
+   c_kind_person    CONSTANT numeric := 1;
+   c_kind_sum       CONSTANT numeric := 2;
 
 BEGIN
-   RAISE DEBUG 'Package "%" - % - initialized', c_Pkg_Name, c_Version;
+   RAISE DEBUG 'Package "%" - % - initialized', cPkg_Name, cVersion;
 END;
 $init$
 
@@ -67,7 +67,7 @@ AS
 $function$
    #package
 BEGIN
-   RETURN c_Version;
+   RETURN cVersion;
 END;
 $function$
 
@@ -510,12 +510,12 @@ BEGIN
              p_ctx.launch_itype = 2
              AND
              (
-                p_ctx.ireq_kind = c_kind_Doc
+                p_ctx.ireq_kind = c_kind_person
 
                 OR
 
                 (
-                   p_ctx.ireq_kind = c_kind_Sum
+                   p_ctx.ireq_kind = c_kind_sum
                    AND p_ctx.irsn_corr = c_reason_fns
                    AND work.is_requested
                    AND NOT work.source_seen
@@ -740,7 +740,7 @@ BEGIN
          AND request.status_cd IN (1, 2, 3)
          AND item.iyear = p_ctx.iyear
          AND (
-                p_ctx.ireq_kind = c_kind_Doc
+                p_ctx.ireq_kind = c_kind_person
                 OR item.icorr = 0
              )
 
@@ -1323,7 +1323,7 @@ BEGIN
                 /*
                  * Person correction невозможна без истории.
                  */
-                WHEN p_ctx.launch_itype = 2 AND p_ctx.ireq_kind = c_kind_Doc AND facts.hist_itm_id IS NULL THEN 'PERSON_NO_HISTORY'
+                WHEN p_ctx.launch_itype = 2 AND p_ctx.ireq_kind = c_kind_person AND facts.hist_itm_id IS NULL THEN 'PERSON_NO_HISTORY'
 
                 /*
                  * Обычная correction не может занимать
@@ -1337,7 +1337,7 @@ BEGIN
                  * автоматически в cancellation.
                  */
                 WHEN p_ctx.launch_itype IN (1, 2)
-                 AND p_ctx.ireq_kind = c_kind_Sum
+                 AND p_ctx.ireq_kind = c_kind_sum
                  AND facts.financial_total <= 0 THEN
                    'NONPOSITIVE_TOTAL'
 
@@ -1348,7 +1348,7 @@ BEGIN
                  * Для ФНС строка создаётся даже без изменений.
                  */
                 WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_Sum
+                 AND p_ctx.ireq_kind = c_kind_sum
                  AND p_ctx.irsn_corr <> c_reason_fns
                  AND facts.hist_itm_id IS NOT NULL
                  AND facts.financial_unchanged THEN
@@ -1359,7 +1359,7 @@ BEGIN
                  * если значимые person-поля не изменились.
                  */
                 WHEN p_ctx.launch_itype = 2
-                 AND p_ctx.ireq_kind = c_kind_Doc
+                 AND p_ctx.ireq_kind = c_kind_person
                  AND p_ctx.irsn_corr <> c_reason_fns
                  AND facts.person_unchanged THEN
                    'UNCHANGED_PERSON'
@@ -1605,13 +1605,19 @@ BEGIN
    l_linked_count := 0;
 
    SELECT count(*),
-          count(*) FILTER ( WHERE work.person_id IS NOT NULL )
+
+          count(*) FILTER
+          (
+             WHERE work.person_id IS NOT NULL
+          )
+
      INTO l_emit_count,
           l_existing_count
-     FROM 
-          pg_temp.mi_0008_acc_tmp AS work
-    WHERE 
-          work.decision_code = 'EMIT';
+
+     FROM pg_temp.mi_0008_acc_tmp AS work
+
+    WHERE work.decision_code = 'EMIT';
+
    /*
     * Пустой набор — нормальный результат.
     * Request в этом случае оркестратор не создаёт.
@@ -1853,12 +1859,15 @@ BEGIN
     *   - новый immutable person_id;
     *   - допустимый target_icorr от 0 до 99.
     */
-   CALL mi_0008_api.assert_Cardinality (
+   CALL mi_0008_api.assert_Cardinality(
       p_expected    => 0,
       p_actual      => l_invalid_count,
       p_result_code => 'MI_0008_API#ITEM_NOT_READY',
       p_entity      => 'Неготовые EMIT-строки',
-      p_context     => format( 'req_id=%s', p_req_id )
+      p_context     => format(
+         'req_id=%s',
+         p_req_id
+      )
    );
 
    /*
@@ -1877,7 +1886,6 @@ BEGIN
       icorr,
       inum,
       person_id,
-      rkind,
 
       msum_f_dep,
       msum_i_dep,
@@ -1890,11 +1898,13 @@ BEGIN
           work.s_icusnum,
           p_ctx.iyear,
           work.target_icorr,
-          coalesce( work.hist_inum, nextval('xxi.s_mi_0008__inum') ),
+
+          coalesce(
+             work.hist_inum,
+             nextval('xxi.s_mi_0008__inum')
+          ),
 
           work.person_id,
-
-          p_ctx.ireq_kind,
 
           work.out_msum_f_dep,
           work.out_msum_i_dep,
@@ -1902,10 +1912,10 @@ BEGIN
           work.out_msum_i_crd,
           work.out_msum_f_acc,
           work.out_msum_i_acc
-     FROM 
-          pg_temp.mi_0008_acc_tmp AS work
-    WHERE 
-          work.decision_code = 'EMIT';
+
+     FROM pg_temp.mi_0008_acc_tmp AS work
+
+    WHERE work.decision_code = 'EMIT';
 
    GET DIAGNOSTICS p_written_count = ROW_COUNT;
 
@@ -2042,14 +2052,14 @@ BEGIN
    IF l_diag_count > 0 THEN
 
       CALL MI_logger.warn(
-         p_logger_name  => c_Logger,
+         p_logger_name  => cLogger,
          p_message_text => format(
             'Для %s клиентов записана диагностика формирования отчёта',
             l_diag_count
          ),
          p_inf_id      => p_ctx.inf_id,
          p_action_cd   => 'write_report',
-         p_object_name => c_Pkg_Name,
+         p_object_name => cPkg_Name,
          p_object_id   => p_ctx.lsr_id
       );
 
@@ -2058,14 +2068,14 @@ BEGIN
    IF l_icorr_diag_count > 0 THEN
 
       CALL MI_logger.warn(
-         p_logger_name  => c_Logger,
+         p_logger_name  => cLogger,
          p_message_text => format(
             'Для %s клиентов достигнута граница номера корректировки',
             l_icorr_diag_count
          ),
          p_inf_id      => p_ctx.inf_id,
          p_action_cd   => 'icorr',
-         p_object_name => c_Pkg_Name,
+         p_object_name => cPkg_Name,
          p_object_id   => p_ctx.lsr_id
       );
 
@@ -2102,11 +2112,15 @@ BEGIN
     */
    p_req_id := MI_Request_Api.create_Request(
       p_inf_id     => p_ctx.inf_id,
-      p_ctaxreq_id => NULLIF( btrim(p_ctaxreq_id), '' ),
+      p_ctaxreq_id => NULLIF(
+                         btrim(p_ctaxreq_id),
+                         ''
+                      ),
       p_status_cd  => 0::numeric,
       p_itype      => NULL::numeric,
       p_i1         => p_ctx.iyear,
-      p_i2         => p_ctx.irsn_corr
+      p_i2         => p_ctx.irsn_corr,
+      p_i3         => p_ctx.ireq_kind
    );
 
    IF p_req_id IS NULL THEN
@@ -2195,22 +2209,20 @@ AS
 $procedure$
    #package
 DECLARE
+   cAction_Name CONSTANT varchar(50) := cPkg_Name || '.prepare_Report';
 
-   c_Action_Name CONSTANT varchar(50) := c_Pkg_Name || '.prepare_Report';
+   l_ctx             mi_0008_api.run_context_t;
+   l_scope_all       boolean;
 
-   l_ctx         mi_0008_api.run_context_t;
-   l_scope_all   boolean;
+   l_scope_count     bigint;
+   l_acc_count       bigint;
+   l_san_code        int4;
+   l_san_info        varchar;
 
-   l_scope_count bigint;
-   l_acc_count   bigint;
-   l_san_code    int4;
-   l_san_info    varchar;
+   l_req_id          numeric;
 
-   l_req_id      numeric;
-
-   l_write_code  int4;
-
-   l_write_info  text;
+   l_write_code      int4;
+   l_write_info      text;
 
 BEGIN
 
@@ -2220,12 +2232,13 @@ BEGIN
    p_cres_info := NULL;
 
    CALL MI_logger.enter_f (
-      p_logger_name   => c_Logger,
-      p_function_name => c_Action_Name,
+      p_logger_name   => cLogger,
+      p_function_name => cAction_Name,
       p_inf_id        => p_inf_id,
-      p_parameters    => format (
+      p_parameters    => format(
          'year=%s,type=%s,reason=%s,kind=%s,marker=%s,pack=%s',
-         p_iyear, p_itype, p_irsn_corr, p_ireq_kind, p_cus_marker, p_pack_num
+         p_iyear, p_itype, p_irsn_corr, p_ireq_kind,
+         p_cus_marker, p_pack_num
       )
    );
 
@@ -2247,7 +2260,7 @@ BEGIN
       p_cres_info := 'INVALID_REQUEST_KIND';
    ELSIF p_inf_id = 81 AND NULLIF(btrim(p_ctaxreq_id), '') IS NULL THEN
       p_cres_info := 'CTAXREQ_ID_REQUIRED_FOR_INF_81';
-   ELSIF p_itype = 1 AND p_ireq_kind <> c_kind_Sum THEN
+   ELSIF p_itype = 1 AND p_ireq_kind <> c_kind_sum THEN
       p_cres_info := 'PRIMARY_REQUIRES_FINANCIAL_KIND';
    ELSIF p_itype = 1 AND p_cus_marker IS NOT NULL AND p_pack_num IS NULL THEN
       p_cres_info := 'PACK_NUM_REQUIRED_FOR_PRIMARY_MARKER';
@@ -2260,7 +2273,7 @@ BEGIN
 
    IF p_cres_info IS NOT NULL THEN
       CALL MI_logger.exit_f(
-         p_logger_name  => c_Logger,
+         p_logger_name  => cLogger,
          p_message_text => p_cres_info,
          p_inf_id       => p_inf_id
       );
@@ -2278,13 +2291,11 @@ BEGIN
       p_ires_code := c_result_busy;
       p_cres_info := format('BUSY: inf_id=%s, year=%s', p_inf_id, p_iyear);
       CALL MI_logger.exit_f(
-         p_logger_name  => c_Logger,
+         p_logger_name  => cLogger,
          p_message_text => p_cres_info,
          p_inf_id       => p_inf_id
       );
-
       RETURN;
-
    END IF;
 
    INSERT INTO xxi.mi_0008_lsr
@@ -2297,26 +2308,21 @@ BEGIN
       p_itype, p_iyear, p_irsn_corr, p_ireq_kind,
       'RUNNING', 'CREATED', clock_timestamp()
    )
-   ON
-      CONFLICT (iyear) 
-   WHERE 
-      finished_at IS NULL 
-         DO NOTHING
-   RETURNING 
-      lsr_id INTO p_lsr_id;
+   ON CONFLICT (iyear) WHERE finished_at IS NULL DO NOTHING
+   RETURNING lsr_id INTO p_lsr_id;
 
    IF NOT FOUND THEN
       p_ires_code := c_result_busy;
       p_cres_info := format('BUSY: active LSR for year=%s', p_iyear);
       CALL MI_logger.exit_f(
-         p_logger_name  => c_Logger,
+         p_logger_name  => cLogger,
          p_message_text => p_cres_info,
          p_inf_id       => p_inf_id
       );
       RETURN;
    END IF;
 
-   l_ctx := ROW (
+   l_ctx := ROW(
       p_lsr_id, p_inf_id, p_iyear, p_itype, p_irsn_corr, p_ireq_kind,
       p_cus_marker, p_pack_num, false
    )::mi_0008_api.run_context_t;
@@ -2324,15 +2330,12 @@ BEGIN
    CALL mi_0008_api.create_Temp_Tables();
 
    CALL mi_0008_api.build_Scope(l_ctx, l_scope_all, l_scope_count);
-   
    l_ctx.scope_all := l_scope_all;
 
-   UPDATE xxi.mi_0008_lsr 
-      SET stage_cd = 'SOURCE_CALC'
-    WHERE 
-          lsr_id = p_lsr_id;
+   UPDATE xxi.mi_0008_lsr SET stage_cd = 'SOURCE_CALC'
+    WHERE lsr_id = p_lsr_id;
 
-   IF p_itype IN (1, 2) AND p_ireq_kind = c_kind_Sum THEN
+   IF p_itype IN (1, 2) AND p_ireq_kind = c_kind_sum THEN
       CALL mi_0008_api.load_Sources(l_ctx);
    END IF;
 
@@ -2353,7 +2356,7 @@ BEGIN
          l_ctx, 'COMPLETED', NULL, p_ires_code, p_cres_info
       );
       CALL MI_logger.exit_f(
-         p_logger_name  => c_Logger,
+         p_logger_name  => cLogger,
          p_message_text => p_cres_info,
          p_inf_id       => p_inf_id,
          p_object_id    => p_lsr_id
@@ -2444,7 +2447,7 @@ BEGIN
    );
 
    CALL MI_logger.exit_f(
-      p_logger_name  => c_Logger,
+      p_logger_name  => cLogger,
       p_message_text => p_cres_info,
       p_inf_id       => p_inf_id,
       p_req_id       => p_req_id,
@@ -2464,388 +2467,20 @@ EXCEPTION
             ex.PG_EXCEPTION_CONTEXT = PG_EXCEPTION_CONTEXT;
 
          CALL MI_logger.error(
-            p_logger_name   => c_Logger,
-            p_message_text  => c_Action_Name || ' failed',
+            p_logger_name   => cLogger,
+            p_message_text  => cAction_Name || ' failed',
             p_inf_id        => p_inf_id,
             p_req_id        => p_req_id,
-            p_details_text  => TS.WhenOthersError(c_Action_Name, ex),
+            p_details_text  => TS.WhenOthersError(cAction_Name, ex),
             p_action_cd     => 'exception',
             p_context_value => ex.RETURNED_SQLSTATE,
-            p_object_name   => c_Pkg_Name,
+            p_object_name   => cPkg_Name,
             p_object_id     => p_lsr_id
          );
       END;
       RAISE;
 END;
 $procedure$
-
-
-/* Создание запроса, как ответ на запрос ФНС */
-CREATE PROCEDURE apply_Request (
-
-   in p_message_uuid          uuid,
-   in p_original_request_uuid uuid,
-   in p_correlation_id        uuid,
-
-   in p_request_time          timestamptz,
-
-   in p_payload_text          text,
-
-  out p_ret_code              int4,
-  out p_ret_info              varchar
-)
-AS
-$procedure$
-   #package
-declare
-
-   c_Func    constant varchar(50) := c_Pkg_Name || '.apply_Request'::varchar;
-   c_Inf_Id  constant numeric(2)  := 81::numeric;
-
-   l_payLoad jsonb;
-
-   l_req_Id  numeric(12);
-
-   l_original_request_uuid uuid; -- для проверки дубликатов
-
-   l_cTaxReq_Id  varchar;
-
-   l_res_code    int4;
-   l_res_info    varchar;
-
-   l_iyear       numeric(4); 
-
-   l_send_result MI_resultCtx.exec_Result;
-
-   l_marker_Id   bigint;
-
-begin
-
-   CALL MI_logger.enter_f( c_Logger, c_Func, 'p_message_uuid = ' || p_message_uuid || ', p_original_request_uuid = ' || p_original_request_uuid );
-
-   p_ret_code := ret_Fail;
-   p_ret_info := NULL;
-
-   /*
-    * Регистрация item + request на ответ
-    */
-   <<registration>>
-   BEGIN AUTONOMOUS
-
-      <<main>>
-      BEGIN
-
-         /*
-          * Валидация входных параметров.
-          */
-         IF p_message_uuid IS NULL THEN
-            p_ret_info := 'p_message_uuid is null';
-            EXIT main;
-         END IF;
-
-         IF p_request_time IS NULL THEN
-            p_ret_info := '"p_request_time" is null';
-            EXIT main;
-         END IF;
-
-         IF p_original_request_uuid IS NULL THEN
-            p_ret_info := 'p_original_request_uuid is null';
-            EXIT main;
-         END IF;
-
-         IF p_payload_text IS NULL OR btrim(p_payload_text) = ''
-         THEN
-            p_ret_info := 'p_payload_text is null';
-            EXIT main;
-         END IF;
-
-         /*
-          * Payload.
-          */
-         CALL MI_item_Result_Api.parse_Json_Payload(
-            p_payload_text,
-            l_payLoad,
-            p_ret_code,
-            p_ret_Info
-         );
-
-         IF p_ret_code <> ret_OK THEN
-            EXIT main;
-         END IF;
-
-
-         l_cTaxReq_Id := btrim( l_payLoad ->> 'requestId');
-
-         IF l_ctaxreq_Id IS NULL OR l_ctaxreq_Id = ''
-         THEN
-            p_ret_info :='"requestId" is null or empty in payload';
-            EXIT main;
-         END IF;
-
-         /*
-          * Запрос уже мог быть зарегистрирован раньше.
-          * Также поднимаем и req_id, и itm_id.
-          */
-       SELECT
-              r.req_id,
-              i.itm_id,
-              r.original_request_uuid
-         INTO
-              l_req_id,
-              l_itm_id,
-              l_original_request_uuid
-         FROM xxi.mi_req r
-         JOIN xxi.mi_0008 i
-           ON i.req_id = r.req_id
-        WHERE r.inf_id = c_Inf_Id
-          AND r.ctaxreq_id = l_ctaxreq_id
-        LIMIT 1;
-
-
-         IF l_req_id IS NOT NULL THEN
-
-            if l_original_request_uuid = p_original_request_uuid then
-
-               p_ret_code := ret_OK;
-               p_ret_info := 'already registered; req_id=' || l_req_id || '; itm_id=' || l_itm_id || ', original_request_uuid=' || p_original_request_uuid;
-
-               EXIT main;
-
-            end if;
-
-            declare
-               l_parent_req_id numeric(12) := l_req_id;
-            begin
-
-               -- дубликат по бизнес Id, делаем новую запись, со ссылкой на предыдущую
-                l_req_id := MI_Request_Api.create_Request (
-                   p_inf_id                => c_Inf_Id,
-                   p_correlation_id        => p_correlation_id,
-                   p_original_request_uuid => p_original_request_uuid,
-                   p_ctaxreq_id            => null,
-                   p_message_uuid          => p_message_uuid,
-                   p_status_cd             => 1,
-                   p_parent_req_id         => l_parent_req_id
-                );
-
-                p_ret_code := ret_OK;
-                p_ret_info := 'duplicate registered; req_id=' || l_req_id || '; parent_req_id=' || l_parent_req_id || '; itm_id=' || l_itm_id;
-
-             end;
-
-             EXIT main;
-
-         END IF;
-
-         /* 
-            нужно вернуть ответ 
-            10 — запрос принят в обработку, 82 — ошибка форматно-логического контроля
-
-            Логика:
-            - сперва формируем запрос, с проверкой входных данных   
-            - формируем ответ, на запрос - синхронный - create_Response
-            - потом формируем запрос с данными - асинхронный
-          */
-
-         l_iyear := ( l_payLoad ->> period )::numeric(4);
-
-         /* Проверяем payload */
-         /* Формат:
-            {
-              "requestId": "d88a40b2-fc1f-037e-e053-57211dacb019",
-              "providerRequestId": "5b0e6f1c-2a7d-4c3e-9f10-8d2a4b6c7e01",
-              "providerMnemonic": "KO0401",
-              "period": "2025",
-              "taxAuthorityCode": "3525",
-              "bank": {
-                "name": "ООО Банк",
-                "inn": "3525023780",
-                "kpp": "352501001",
-                "reorganization": null
-              },
-              "clarifications": [
-                {"number": "1", "correctionNumber": "00", "kind": "1"},
-                {"number": "2", "correctionNumber": "00", "kind": "2"}
-              ]
-            }
-         */
-
-         -- + готовим маркер для расчета
-
-         FOR r in (
-            SELECT m.iCusNum, j.inum, j.icorr
-              FROM mi_0008 m
-             RIGHT JOIN (
-                  SELECT elem ->> 'number'::numeric inum,
-                         elem ->> 'correctionNumber'::numeric icorr,
-                         elem ->> 'kind'::numeric   rkind
-                    FROM jsonb_array_elements( l_payLoad -> 'clarifications' ) AS elem
-              ) j
-              ON m.iyear = l_iyear AND m.inum = j.inum and m.iCorr = j.iCorr;
-         )
-         LOOP
-            
-            IF r.iCusNum is null then
-               
-               p_ret_info := 'Не найдена запись за ' || l_iyear || ' год, iNum = ' || r.inum || ', iCorr = ' || r.icorr;
-
-               IF l_marker_Id IS NOT NULL 
-                  Util.Mrk_deleteAll(l_marker_Id)
-               END IF;
-
-               EXIT main;
-
-            END IF;
-
-            IF l_marker_Id IS null 
-               l_marker_Id := util.mrk_getNextMarkerid();
-            END IF;
-
-            util.
-
-
-         END LOOP;
-
-         /*
-          * Заголовок запроса.
-          */
-         l_req_Id :=
-            MI_Request_Api.create_Request(
-               p_inf_id                => c_Inf_id,
-               p_correlation_id        => p_correlation_id,
-               p_original_request_uuid => p_original_request_uuid,
-               p_ctaxreq_id            => l_ctaxreq_id,
-               p_message_uuid          => p_message_uuid,
-               p_status_cd             => 0::numeric
-            );
-
-         /*
-          * Item запроса.
-          */
-         INSERT INTO xxi.mi_0008 (
-            req_id,
-            message_uuid,
-            person_id,
-         )
-
-         SELECT 
-           FROM mi_0008 m
-           LEFT JOIN (
-               SELECT elem ->> 'number'::numeric inum,
-                      elem ->> 'correctionNumber'::numeric icorr,
-                      elem ->> 'kind'::numeric   rkind
-                 FROM jsonb_array_elements( l_payLoad -> 'clarifications' ) AS elem 
-           )
-           ON m.iyear = l_iyear AND m.
-
-         p_ret_code := ret_OK;
-         p_ret_info := 'registered; req_id=' || l_req_Id || '; itm_id=' || l_itm_Id;
-
-      END main;
-
-
-      /*
-       * Если request/item зарегистрирован,
-       * в той же AT создаём response.
-       */
-      IF p_ret_code = ret_OK THEN
-
-         l_rsp_id := MI_Response_Api.create_response (
-
-               p_req_id      => l_req_id,
-               p_itm_id      => l_itm_id,
-
-               p_category_cd => 'SUCCESS',
-               p_result_code => 'OK',
-
-               p_result_info => p_ret_info,
-
-               p_payload     => jsonb_build_object( 'confirmed_at', clock_timestamp() ) );
-
-         CALL MI_Response_Api.to_ready(
-            p_rsp_id   => l_rsp_id,
-            p_res_code => l_res_code,
-            p_res_info => l_res_info
-         );
-
-         /*
-          * Не частичный NEW response.
-          * Ошибка откатывает всю AT.
-          */
-         IF l_res_code <> ret_OK THEN
-            RAISE EXCEPTION 'Ошибка перевода business response в READY: %', coalesce( l_res_info, 'unknown error' );
-         END IF;
-
-      END IF;
-
-   EXCEPTION
-      WHEN OTHERS THEN
-
-         /*
-          * Exception все откатит
-          */
-         p_ret_code := ret_Fail;
-         p_ret_info := SQLERRM;
-
-         CALL mi_logger.error(
-            p_logger_name  => cPkg_Name,
-            p_message_text => 'Ошибка регистрации request/item/response. ' || cFunc,
-            p_details_text => SQLERRM,
-
-            p_inf_id       => cInf_id,
-            p_req_id       => l_req_id,
-            p_itm_id       => l_itm_id,
-            p_rsp_id       => l_rsp_id
-         );
-
-   END registration; -- AT-commit
-
-
-   /*
-    * Transaction уже завершена. req/item/rsp READY зафиксированы.
-    */
-   IF p_ret_code = ret_OK AND l_rsp_id IS NOT NULL
-   THEN
-
-      BEGIN
-
-         CALL mi_mbus.send_response( l_rsp_id, l_send_result );
-
-         IF NOT l_send_result.is_success THEN
-
-            CALL mi_logger.error(
-               p_logger_name  => cPkg_Name,
-               p_message_text => 'Business response оставлен READY: ошибка отправки в XXL. ' || cFunc,
-               p_details_text => coalesce( l_send_result.result_info, 'неизвестная ошибка' ),
-
-               p_inf_id => cInf_id,
-               p_req_id => l_req_id,
-               p_itm_id => l_itm_id,
-               p_rsp_id => l_rsp_id
-            );
-
-         END IF;
-
-
-      EXCEPTION
-         WHEN OTHERS THEN
-
-            CALL mi_logger.error( p_logger_name  => cPkg_Name, p_message_text => 'Business response оставлен READY: ошибка отправки в XXL. ' || cFunc, p_details_text => SQLERRM,
-               p_inf_id => cInf_id,
-               p_req_id => l_req_id,
-               p_itm_id => l_itm_id,
-               p_rsp_id => l_rsp_id
-            );
-
-      END;
-
-   END IF;
-
-   CALL MI_logger.exit_f( p_logger_name=>cLogger, p_message_text=>cFunc, p_details_text=>'p_ret_code = ' || coalesce( p_ret_code::text, 'null' ) || ', p_ret_info = ' || coalesce( p_ret_info, 'null' ) );
-
-END;
-$procedure$
-
 
 /* Конец пакета */
 ;
