@@ -86,7 +86,6 @@ BEGIN
 
    CALL mi_0008_src.assert_Result( p_source => 'DEP', p_result => l_calc_ret );
 
-
    INSERT INTO pg_temp.mi_0008_acc_tmp AS work
    (
       s_icusnum,
@@ -142,7 +141,27 @@ CREATE PROCEDURE prepare_Crd (
 AS
 $procedure$
    #package
+DECLARE
+   l_ret varchar(2000);
 BEGIN
+
+   CREATE TEMP TABLE IF NOT EXISTS mi_0008_ed_tmp
+   (
+      icusnum  numeric(12),
+      itype    numeric(2),
+      msum     numeric(22,2)
+   )
+   ON COMMIT PRESERVE ROWS
+   ;
+
+   truncate table pg_temp.mi_0008_ed_tmp;
+
+
+   l_ret := AC.Get_Value2 (
+      cDefint  => 'SMEV3.SM008.Load_ExtData'::VARCHAR,
+      tabParam => array[ p_iyear::VARCHAR, p_launch_itype::varchar ]
+   );
+
 
    INSERT INTO pg_temp.mi_0008_acc_tmp AS work
    (
@@ -156,13 +175,17 @@ BEGIN
    )
    SELECT src.icusnum,
           true,
-          true,
+          true
+          ,
           NULLIF( sum(src.msum) FILTER ( WHERE src.itype = 1 ), 0 )::numeric(22,2) AS msum_f_crd,
           NULLIF( sum(src.msum) FILTER ( WHERE src.itype = 2 ), 0 )::numeric(22,2) AS msum_i_crd
-     FROM xxi.sm_008_ed_tmp AS src
-     LEFT JOIN pg_temp.mi_0008_acc_tmp AS scope
-       ON scope.s_icusnum = src.icusnum
-    WHERE src.icusnum IS NOT NULL AND src.itype IN (1, 2) AND src.msum IS NOT NULL
+     FROM pg_temp.mi_0008_ed_tmp AS src
+     LEFT 
+          JOIN pg_temp.mi_0008_acc_tmp AS scope
+       ON 
+          scope.s_icusnum = src.icusnum
+    WHERE 
+          src.icusnum IS NOT NULL AND src.itype IN (1, 2) AND src.msum IS NOT NULL
       /*
        * Полный запуск:
        *   отсутствие строки в work означает обычного нового клиента;
@@ -251,7 +274,7 @@ BEGIN
 
           NULLIF(sum(src.msum1), 0)::numeric(22,2)
 
-     FROM xxi.perc_temp AS src
+     FROM pg_temp.perc_temp AS src
 
      LEFT JOIN pg_temp.mi_0008_acc_tmp AS scope
        ON scope.s_icusnum = src.inum

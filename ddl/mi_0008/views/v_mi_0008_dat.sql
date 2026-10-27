@@ -1,15 +1,12 @@
 --
 -- View       : xxi.v_mi_0008_dat
--- РќР°Р·РЅР°С‡РµРЅРёРµ : Р”РѕС…РѕРґС‹ С„РёР· Р»РёС†. Р”Р°РЅРЅС‹Рµ РґР»СЏ РІС‹РіСЂСѓР·РєРё
--- РћРїРёСЃР°РЅРёРµ   : РЎРћР±СЂР°РЅРЅС‹Рµ РґР°РЅРЅС‹Рµ РґР»СЏ РІС‹РіСЂСѓР·РєРё
+-- Назначение : Доходы физ лиц. Данные для выгрузки
+-- Описание   : СОбранные данные для выгрузки
 CREATE OR REPLACE VIEW xxi.v_mi_0008_dat
 AS
 SELECT m.itm_id,
        m.external_uuid,
-       m.req_id,
        m.created_at,
-       m.icusnum,
-       m.person_id,
        m.iyear,
        m.icorr,
        m.inum,
@@ -20,19 +17,20 @@ SELECT m.itm_id,
        p.middle_name,
        p.ctzn_country_code,
        p.inn,
-       p.doc_type_id,
        p.doc_type_code,
        p.doc_ser,
        p.doc_num,
        p.doc_issue_date,
-       p.doc_issuer_code,
-       p.doc_expire_date,
-       p.doc_issuer_name,
-       p.birth_date
+       p.birth_date,
+       r.ctaxreq_id tax_req_id,
+       r.i2 corr_sign,
+       m.rkind
   FROM xxi.mi_0008 AS m
-  JOIN xxi.mi_person AS p
+  JOIN xxi.mi_person AS p  
     ON p.person_id = m.person_id
+  JOIN xxi.mi_req AS r
+    ON r.req_id = m.req_id 
 ;
 COMMENT ON VIEW xxi.v_mi_0008_dat IS
-   'MI-edo. Р”РѕС…РѕРґС‹ С„РёР· Р»РёС†. Р”Р°РЅРЅС‹Рµ РґР»СЏ РІС‹РіСЂСѓР·РєРё. (8, 81 Р’РЎ). 1.0.1. {$Id$}'
+   'MI-edo. Доходы физ лиц. Данные для выгрузки. (8, 81 ВС). 1.0.1. {$Id$}'
 ;

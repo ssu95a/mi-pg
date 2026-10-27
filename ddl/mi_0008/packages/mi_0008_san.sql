@@ -729,22 +729,12 @@ BEGIN
                 /*
                  * Пустой ИНН и строка из пробелов трактуются одинаково.
                  */
-                WHEN NULLIF(
-                        btrim(work.inn),
-                        ''
-                     ) IS NULL
-                  OR length(
-                        NULLIF(
-                           btrim(work.inn),
-                           ''
-                        )
-                     ) > 12
-                   THEN c_result_bad_inn
-
+                WHEN NULLIF( btrim(work.inn), '' ) IS NULL OR length( NULLIF( btrim(work.inn), '' ) ) > 12
+                     THEN c_result_bad_inn
                 WHEN work.birth_date IS NULL
-                   THEN c_result_no_birth
-
-                ELSE NULL
+                     THEN c_result_no_birth
+                ELSE    
+                     NULL
              END::varchar(50) AS result_code
 
         FROM pg_temp.mi_0008_acc_tmp AS work
@@ -787,51 +777,33 @@ BEGIN
                       decision.result_code
                 END,
 
-             san_result_data =
-                jsonb_strip_nulls(
-                   jsonb_build_object(
-                      'stage',
-                      'ROOT_VALIDATION',
+            san_result_data = jsonb_strip_nulls (
+               jsonb_build_object (
+                  'stage', 'ROOT_VALIDATION',
+                  'doc_issue_date', decision.doc_issue_date,
+                  'report_year', p_iyear
+               )
+            )::text
 
-                      'doc_issue_date',
-                      decision.doc_issue_date,
-
-                      'report_year',
-                      p_iyear
-                   )
-                )::text
-
-        FROM decision
-
-       WHERE work.s_icusnum = decision.s_icusnum
-         AND decision.result_code IS NOT NULL
-
-      RETURNING work.s_icusnum
+        FROM 
+             decision
+       WHERE 
+             work.s_icusnum = decision.s_icusnum 
+         AND 
+             decision.result_code IS NOT NULL
+   RETURNING 
+             work.s_icusnum
    )
    SELECT count(*) AS root_count,
-
-          count(*) FILTER
-          (
-             WHERE decision.result_code IS NOT NULL
-          ) AS reject_count,
-
-          count(*) FILTER
-          (
-             WHERE decision.result_code IS NULL
-               AND decision.ctzn_country_code IS NULL
-          ) AS citizen_warn_count,
-
-          (
-             SELECT count(*)
-               FROM updated
-          ) AS updated_count
-
+          count(*) FILTER ( WHERE decision.result_code IS NOT NULL ) AS reject_count,
+          count(*) FILTER ( WHERE decision.result_code IS NULL AND decision.ctzn_country_code IS NULL ) AS citizen_warn_count,
+          ( SELECT count(*) FROM updated ) AS updated_count
      INTO p_root_count,
           p_reject_count,
           p_citizen_warn,
           l_updated_count
-
-     FROM decision;
+     FROM 
+          decision;
 
    /*
     * Для каждого вычисленного rejection должна быть изменена
