@@ -13,7 +13,7 @@ AS
 $init$
 DECLARE
 
-   cVersion Constant VARCHAR( 100 ) := '$Id: {1.0.1} {06.10.2026} Sulimoff$';
+   cVersion Constant VARCHAR( 100 ) := '$Id: {1.0.2} {28.10.2026} Sukhotina$';
 
    RET_OK   Constant numeric := 0;
    RET_FAIL Constant numeric := -1;
@@ -23,7 +23,8 @@ DECLARE
 
    g_inf_Attrs MI_Person_Api.inf_Attrs_t[] := array[
       ( array[74,75], array['doc_type_id', 'doc_ser', 'doc_num', 'doc_issue_date'] )::MI_Person_Api.inf_Attrs_t,
-      ( array[1],     array['snils'] )::MI_Person_Api.inf_Attrs_t
+      ( array[1],     array['snils'] )::MI_Person_Api.inf_Attrs_t,
+      ( array[202],   array['last_name', 'first_name', 'doc_type_id', 'doc_ser', 'doc_num', 'doc_issue_date'] )::MI_Person_Api.inf_Attrs_t
    ];
 
 BEGIN
