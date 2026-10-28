@@ -64,31 +64,40 @@ COMMENT ON FUNCTION mi_0202_srv.get_item_json(numeric) IS
 CREATE OR REPLACE FUNCTION mi_0202_srv.get_item_row(p_itm_id numeric)
     RETURNS mi_0202_srv.t_item_t AS $$
 DECLARE
-    l_res mi_0202_srv.t_item_t;
+    l_item      xxi.mi_0202%ROWTYPE;
+    l_person    xxi.mi_person%ROWTYPE;
+    l_addresses mi_0202_srv.t_addr_t[];
+    l_res       mi_0202_srv.t_item_t;
 BEGIN
-    SELECT * INTO STRICT l_res.item
+    SELECT * INTO STRICT l_item
       FROM xxi.mi_0202
      WHERE itm_id = p_itm_id;
 
-    IF l_res.item.person_id IS NOT NULL THEN
-        SELECT * INTO STRICT l_res.person
+    IF l_item.person_id IS NOT NULL THEN
+        SELECT * INTO STRICT l_person
           FROM xxi.mi_person
-         WHERE person_id = l_res.item.person_id;
+         WHERE person_id = l_item.person_id;
 
         SELECT array_agg(
                   (a.itype, a.dbeg_reg, a.dend_reg, ad)::mi_0202_srv.t_addr_t
                )
-          INTO l_res.addresses
+          INTO l_addresses
           FROM xxi.mi_p2a a
                JOIN xxi.mi_addr ad ON ad.addr_id = a.addr_id
-         WHERE a.person_id = l_res.item.person_id;
+         WHERE a.person_id = l_item.person_id;
+
+        l_addresses := coalesce(l_addresses, '{}'::mi_0202_srv.t_addr_t[]);
     ELSE
-        l_res.addresses := '{}'::mi_0202_srv.t_addr_t[];
+        l_addresses := '{}'::mi_0202_srv.t_addr_t[];
     END IF;
+
+    l_res.item      := l_item;
+    l_res.person    := l_person;
+    l_res.addresses := l_addresses;
 
     RETURN l_res;
 END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION mi_0202_srv.get_item_row(numeric) IS
-'MI-edo. Социальные счета. Возвращает запись mi_0202 с персоной и адресами в виде составного типа по itm_id. $id: {1.0.1} {23.10.2026} Sukhotina$';
+'MI-edo. Социальные счета. Возвращает запись mi_0202 с персоной и адресами в виде составного типа по itm_id. $id: {1.0.1} {26.10.2026} Sukhotina$';
