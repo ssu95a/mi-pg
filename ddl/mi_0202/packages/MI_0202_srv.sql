@@ -46,7 +46,8 @@ BEGIN
           INTO l_addresses
           FROM xxi.mi_p2a a
                JOIN xxi.mi_addr ad ON ad.addr_id = a.addr_id
-         WHERE a.person_id = l_item.person_id;
+         WHERE a.person_id = l_item.person_id
+            AND ad.itm_id  = l_item.itm_id;
     END IF;
 
     RETURN jsonb_build_object(
@@ -84,7 +85,8 @@ BEGIN
           INTO l_addresses
           FROM xxi.mi_p2a a
                JOIN xxi.mi_addr ad ON ad.addr_id = a.addr_id
-         WHERE a.person_id = l_item.person_id;
+         WHERE a.person_id = l_item.person_id
+            AND ad.itm_id  = l_item.itm_id;;
 
         l_addresses := coalesce(l_addresses, '{}'::mi_0202_srv.t_addr_t[]);
     ELSE
