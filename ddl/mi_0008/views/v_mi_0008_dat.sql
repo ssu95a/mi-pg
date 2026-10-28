@@ -24,7 +24,9 @@ SELECT m.itm_id,
        p.birth_date,
        r.ctaxreq_id tax_req_id,
        r.i2 corr_sign,
-       r.i3 ireq_kind
+       r.i3 ireq_kind,
+       NULL::numeric(22,2) AS dly_sum_f,
+       NULL::numeric(22,2) AS dly_sum_i
   FROM xxi.mi_0008 AS m
   JOIN xxi.mi_person AS p  
     ON p.person_id = m.person_id
