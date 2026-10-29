@@ -18,7 +18,7 @@ BEGIN
    ALTER TABLE xxi.mi_req_0081 OWNER TO "XXI"
    ;
    COMMENT ON TABLE xxi.mi_req_0081 IS
-      'MI-edo. Заголовки входящих запросов ФНС, ВС 81. {$Id$}'
+      'MI-edo. Заголовки входящих запросов ФНС, ВС 81, 1.0.3. {$Id$}'
    ;
    END IF
    ;
