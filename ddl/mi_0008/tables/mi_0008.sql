@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008 (
       msum_i_crd    numeric(22,2) NULL,
       msum_i_acc    numeric(22,2) NULL,
       msum_f_acc    numeric(22,2) NULL,
+      
 -- constraints
 -- PK
    constraint pk_mi_0008 primary key (itm_id) using index tablespace indexes,
