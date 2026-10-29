@@ -26,7 +26,8 @@ SELECT m.itm_id,
        r.i2 corr_sign,
        r.i3 ireq_kind,
        NULL::numeric(22,2) AS dly_sum_f,
-       NULL::numeric(22,2) AS dly_sum_i
+       NULL::numeric(22,2) AS dly_sum_i,
+       m.req_id
   FROM xxi.mi_0008 AS m
   JOIN xxi.mi_person AS p  
     ON p.person_id = m.person_id
