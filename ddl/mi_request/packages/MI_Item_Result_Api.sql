@@ -133,8 +133,8 @@ $procedure$
    #package
 DECLARE
 
-   cAlready_applied constant int4 := 1;
-   cOther_applied   constant int4 := 2;
+   c_Already_applied      CONSTANT int4 := 1;
+   c_Other_applied        CONSTANT int4 := 2;
 
    l_itm_id               numeric(12);
    l_req_Id               numeric(12);
@@ -144,6 +144,7 @@ DECLARE
    l_payload_type         varchar;
    l_payload_json         jsonb;
    l_payload_xml          xml;
+
    l_item_Result          MI_Item_Result_Api.item_Result;
 
    l_row_Count            int4;
@@ -227,7 +228,7 @@ BEGIN
       call MI_Item_Result_Api.try_Complete_Request( p_item_Table, l_req_Id, l_row_Count );
 
       IF l_current_message_uuid = p_message_uuid THEN
-         p_ret_code := cAlready_applied;
+         p_ret_code := c_Already_applied;
          p_ret_info := 'Item already applied';
          
          RETURN;
@@ -235,7 +236,8 @@ BEGIN
       END IF;
 
       p_ret_info := 'item already applied by another message: current_message_uuid=' || l_current_message_uuid || ', new_message_uuid=' || p_message_uuid;
-      p_ret_code := cOther_applied;
+      p_ret_code := c_Other_applied;
+
       RETURN;
 
    END IF;
@@ -245,17 +247,29 @@ BEGIN
 
       IF p_payload_text IS NULL OR btrim(p_payload_text) = '' THEN
          p_ret_info := 'p_payload_text is null or empty for successful item';
+
          RETURN;
+
       END IF;
 
       IF l_payload_type = 'json' THEN
 
          -- разбор PayLoad
-         call MI_Item_Result_Api.parse_Json_Payload( p_payload_text, l_payload_json, p_ret_code, p_ret_info );
+         DECLARE
+            l_parse_ret_code int4;
+            l_parse_ret_info varchar;
+         BEGIN
 
-         if p_ret_code <> ret_OK then
-            RETURN;
-         end if;
+            call MI_Item_Result_Api.parse_Json_Payload( p_payload_text, l_payload_json, l_parse_ret_code, l_parse_ret_info );
+
+            IF l_parse_ret_code IS DISTINCT FROM ret_OK THEN
+               p_ret_info := coalesce( l_parse_ret_info, 'JSON payload parsing failed');
+            
+               RETURN;
+            
+            END IF;
+
+         END;
 
          -- маппинг payload
          BEGIN
