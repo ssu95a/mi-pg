@@ -6,7 +6,7 @@ AS
 $init$
 DECLARE
 
-   cVersion     CONSTANT varchar(100) := '1.0.1';
+   cVersion     CONSTANT varchar(100) := '$id: {1.0.2} {29.10.2026} Sukhotina$';
 
    cPkg_Name    CONSTANT varchar(20 ) := 'mi_0001_Api'; 
    cLogger      CONSTANT varchar(20 ) := 'mi.0001'; 
@@ -238,7 +238,7 @@ begin
             
       elsif r.status_Cd IN ( 2, 3 ) then
          -- есть запрос в обработке, но если он долго висит, то формируем новый
-         if ( round( current_timestamp - r.created_At, 0 ) * 24 ) > p_wait_Hour_Range then
+         if ( extract(epoch from (current_timestamp - r.created_At)) / 3600 ) > p_wait_Hour_Range then
 
             call MI_0001_Api.log_Auto (  
                'Для клиента ' || p_cus.icusnum || ' удаляем подвисший запрос', r.person_Id, p_cus.icusnum
@@ -361,7 +361,7 @@ BEGIN
       call MI_logger.info ( 
          p_logger_name  => cLogger_Auto, 
          p_message_text => 'Для клиента удалено ' || array_length( p_ids4Remove, 1) || ' старых записей', 
-         p_details_text => 'mi_0001.itm_id: ' || p_ids4Remove,
+         p_details_text => 'mi_0001.itm_id: ' || array_to_string(p_ids4Remove, ','),
          p_inf_id       => p_inf_Id, 
          p_action_cd    => 'create_Item', 
          p_icusnum      => null
@@ -517,6 +517,7 @@ declare
    l_handle_Not_Found boolean := MI_prp.get_Wsp_Property( 1, 'HANDLE_NOT_FOUND','false' )::boolean; 
    l_doCreate         boolean := false;  
    l_ids4Remove       numeric[];
+   l_error_Count      int4    := 0;
 
 begin
 
@@ -574,11 +575,13 @@ declare
    l_result MI_Item_Result_Api.Item_Result;
 begin
 
-   l_valInn := l_payload ->> 'innPhP';
+   l_valInn := p_payload ->> 'innPhP';
 
    if l_valInn is null then
       l_result.cRes_info := 'Данные не найдены';
       l_result.iRes_Code := 1; -- 'NO_DATA_FOUND';
+   else
+      l_result.iRes_Code := 0; -- успех
    end if;
 
    update xxi.mi_0001 
