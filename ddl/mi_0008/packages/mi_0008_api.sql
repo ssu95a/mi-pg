@@ -1365,14 +1365,14 @@ $procedure$
  * immutable snapshots не должны дублироваться.
  */
 CREATE PROCEDURE create_Person_Snapshots(
-   IN  p_ctx  mi_0008_api.run_context_t
+   IN  p_ctx  mi_0008_api.run_context_t,
+   IN  p_expected_count bigint
 )
 AS
 $procedure$
    #package
    #private
 DECLARE
-   l_emit_count     bigint;
    l_existing_count bigint;
    l_linked_count   bigint;
    l_person_count   bigint;
@@ -1380,30 +1380,17 @@ BEGIN
 
    l_linked_count := 0;
 
-   SELECT count(*),
-
-          count(*) FILTER
-          (
-             WHERE work.person_id IS NOT NULL
-          )
-
-     INTO l_emit_count,
-          l_existing_count
-
-     FROM pg_temp.mi_0008_acc_tmp AS work
-
-    WHERE work.decision_code = 'EMIT';
-
-   /*
-    * Защита от случайного повторного вызова:
-    * второй immutable snapshot создавать нельзя.
-    */
-   CALL mi_0008_api.assert_Cardinality(
-      p_expected    => 0,
-      p_actual      => l_existing_count,
-      p_result_code => 'MI_0008_API#PERSON_ALREADY_CREATED',
-      p_entity      => 'EMIT-строки с уже заданным person_id'
-   );
+   IF EXISTS
+      (
+         SELECT 1
+           FROM pg_temp.mi_0008_acc_tmp AS work WHERE work.decision_code = 'EMIT' AND work.person_id IS NOT NULL
+      )
+   THEN
+      CALL MI_resultCtx.raise_fail(
+         p_result_code => 'MI_0008_API#PERSON_ALREADY_CREATED',
+         p_result_info => 'EMIT-строка уже содержит person_id'
+      );
+   END IF;
 
    /*
     * Создаём новый snapshot для каждой строки EMIT.
@@ -1477,7 +1464,7 @@ BEGIN
     * ровно один immutable snapshot.
     */
    CALL mi_0008_api.assert_Cardinality (
-      p_expected    => l_emit_count,
+      p_expected    => p_expected_count,
       p_actual      => l_person_count,
       p_result_code => 'MI_0008_API#PERSON_CARDINALITY',
       p_entity      => 'Immutable person snapshots'
@@ -1540,14 +1527,14 @@ $procedure$
 CREATE PROCEDURE write_Items(
    IN  p_ctx           mi_0008_api.run_context_t,
    IN  p_req_id        numeric,
-   OUT p_written_count bigint
+   IN  p_expected_count bigint
 )
 AS
 $procedure$
    #package
    #private
 DECLARE
-   l_emit_count    bigint;
+   l_written_count bigint;
    l_invalid_count bigint;
 BEGIN
 
@@ -1566,27 +1553,16 @@ BEGIN
 
    END IF;
 
-   /*
-    * Считаем готовые к записи строки.
-    *
-    * target_icorr=100 допустим только как промежуточное значение:
-    * resolve_Final_State должен исключить такую строку из EMIT.
-    */
-   SELECT count(*),
-
-          count(*) FILTER
-          (
-             WHERE work.person_id IS NULL
-                OR work.target_icorr IS NULL
-                OR work.target_icorr NOT BETWEEN 0 AND 99
-          )
-
-     INTO l_emit_count,
-          l_invalid_count
-
+   SELECT count(*)
+     INTO l_invalid_count
      FROM pg_temp.mi_0008_acc_tmp AS work
+    WHERE work.decision_code = 'EMIT'
+      AND (
+             work.person_id IS NULL
+          OR work.target_icorr IS NULL
+          OR work.target_icorr NOT BETWEEN 0 AND 99
+      );
 
-    WHERE work.decision_code = 'EMIT';
 
    /*
     * Все EMIT-строки должны иметь:
@@ -1659,7 +1635,7 @@ BEGIN
     * ровно одна строка xxi.mi_0008.
     */
    CALL mi_0008_api.assert_Cardinality(
-      p_expected    => l_emit_count,
+      p_expected    => p_expected_count,
       p_actual      => p_written_count,
       p_result_code => 'MI_0008_API#WRITE_CARDINALITY',
       p_entity      => 'Строки отчёта MI_0008',
@@ -1715,7 +1691,6 @@ DECLARE
    l_icorr_diag_count  bigint := 0;
    l_san_reject_count  bigint := 0;
 
-   l_written_count     bigint := 0;
 BEGIN
 
    p_req_id    := NULL;
@@ -1854,7 +1829,8 @@ BEGIN
     * и связываем его с фактическим inf_id запуска.
     */
    CALL mi_0008_api.create_Person_Snapshots(
-      p_ctx => p_ctx
+      p_ctx => p_ctx,
+      p_expected_count => l_emit_count
    );
 
    /*
@@ -1863,7 +1839,7 @@ BEGIN
    CALL mi_0008_api.write_Items(
       p_ctx           => p_ctx,
       p_req_id        => p_req_id,
-      p_written_count => l_written_count
+      p_expected_count => l_emit_count
    );
 
 
@@ -1871,7 +1847,7 @@ BEGIN
    p_cres_info := format(
       'OK: accepted_roots=%s, written=%s, unchanged=%s, san_rejected=%s, diagnostics=%s',
       l_candidate_count,
-      l_written_count,
+      l_emit_count,
       l_unchanged_count,
       l_san_reject_count,
       l_diag_count
