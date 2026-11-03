@@ -770,18 +770,6 @@ $procedure$
    #private
 BEGIN
 
-   /*
-    * Процедура должна быть идемпотентной внутри одной сессии:
-    * повторный вызов полностью заменяет результат history resolution.
-    */
-   UPDATE pg_temp.mi_0008_acc_tmp
-      SET has_primary    = false,
-          hist_itm_id    = NULL,
-          hist_icorr     = NULL,
-          hist_inum      = NULL,
-          hist_person_id = NULL;
-
-
    WITH latest AS MATERIALIZED
    (
       SELECT DISTINCT ON (work.s_icusnum)
@@ -835,7 +823,6 @@ $procedure$
  */
 CREATE PROCEDURE finish_Run(
    IN p_ctx       mi_0008_api.run_context_t,
-   IN p_status_cd varchar,
    IN p_req_id    numeric,
    IN p_ires_code int4,
    IN p_cres_info text
@@ -849,15 +836,14 @@ DECLARE
 BEGIN
    
    UPDATE xxi.mi_0008_lsr AS l
-      SET status_cd   = p_status_cd,
+      SET status_cd   = 'COMPLETED',
           stage_cd    = 'FINISHED',
           finished_at = clock_timestamp(),
           req_id      = p_req_id,
           ires_code   = p_ires_code,
           cres_info   = p_cres_info
     WHERE l.lsr_id = p_ctx.lsr_id
-      AND l.status_cd = 'RUNNING'
-      AND l.finished_at IS NULL;
+      AND l.status_cd   = 'RUNNING' AND l.finished_at IS NULL;
 
    GET DIAGNOSTICS l_count = ROW_COUNT;
 
