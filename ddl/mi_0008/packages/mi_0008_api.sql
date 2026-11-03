@@ -1968,7 +1968,6 @@ DECLARE
    l_ctx             mi_0008_api.run_context_t;
 
    l_scope_count     bigint;
-   l_acc_count       bigint;
    l_san_code        int4;
    l_san_info        varchar;
 
@@ -2104,23 +2103,35 @@ BEGIN
    CALL mi_0008_api.prune_Excluded( );
 
 
-   SELECT count(*) INTO l_acc_count FROM pg_temp.mi_0008_acc_tmp;
-
-   IF l_acc_count = 0 THEN
+   IF NOT EXISTS
+      (
+         SELECT 1
+           FROM pg_temp.mi_0008_acc_tmp
+      )
+   THEN
       p_ires_code := c_result_no_data;
-      p_cres_info := format('NO_DATA: candidate_scope=%s, accumulator=0',
-                            l_scope_count);
-      CALL mi_0008_api.finish_Run(
-         l_ctx, NULL, p_ires_code, p_cres_info
+      p_cres_info := format(
+         'NO_DATA: candidate_scope=%s, accumulator=0',
+         l_scope_count
       );
+
+      CALL mi_0008_api.finish_Run(
+         l_ctx,
+         NULL,
+         p_ires_code,
+         p_cres_info
+      );
+
       CALL MI_logger.exit_f(
          p_logger_name  => cLogger,
          p_message_text => p_cres_info,
          p_inf_id       => p_inf_id,
          p_object_id    => p_lsr_id
       );
+
       RETURN;
    END IF;
+
 
    ANALYZE pg_temp.mi_0008_acc_tmp;
 
