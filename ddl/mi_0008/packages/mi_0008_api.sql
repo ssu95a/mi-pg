@@ -556,18 +556,6 @@ BEGIN
       p_scope_count
    );
 
-   ---------------------------------------------------------------------------
-   -- is_requested не распространяется:
-   -- это признак только явно выбранного клиента.
-   ---------------------------------------------------------------------------
-   SELECT count(*)
-     INTO p_scope_count
-
-     FROM pg_temp.mi_0008_acc_tmp AS work
-
-    WHERE work.in_scope
-      AND NOT work.is_excluded;
-
 END;
 $procedure$
 
