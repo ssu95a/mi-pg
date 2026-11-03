@@ -1373,7 +1373,8 @@ $procedure$
    #package
    #private
 DECLARE
-   l_person_count   bigint;
+   l_person_count bigint;
+   l_linked_count bigint;
 BEGIN
 
    l_linked_count := 0;
@@ -1902,8 +1903,6 @@ DECLARE
    l_ctx             mi_0008_api.run_context_t;
 
    l_scope_count     bigint;
-   l_san_code        int4;
-   l_san_info        varchar;
 
 BEGIN
 
@@ -2066,17 +2065,8 @@ BEGIN
 
    CALL mi_0008_san.resolve_Cus (
       l_ctx.lsr_id,
-      l_ctx.inf_id,
-      l_san_code,
-      l_san_info
+      l_ctx.inf_id
    );
-
-   IF l_san_code IS DISTINCT FROM ret_OK THEN
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_API#SAN_FAILED',
-         p_result_info => coalesce(l_san_info, 'Sanitarium failed')
-      );
-   END IF;
 
    CALL mi_0008_api.collapse_To_Roots();
 
@@ -2088,17 +2078,8 @@ BEGIN
       p_iyear        => l_ctx.iyear,
       p_launch_itype => l_ctx.launch_itype,
       p_irsn_corr    => l_ctx.irsn_corr,
-      p_ireq_kind    => l_ctx.ireq_kind,
-      p_ires_code    => l_san_code,
-      p_cres_info    => l_san_info
+      p_ireq_kind    => l_ctx.ireq_kind
    );
-
-   IF l_san_code IS DISTINCT FROM ret_OK THEN
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_API#ROOT_SAN_FAILED',
-         p_result_info => coalesce(l_san_info, 'Root validation failed')
-      );
-   END IF;
 
    CALL mi_0008_api.prune_Rejected_Roots();
 

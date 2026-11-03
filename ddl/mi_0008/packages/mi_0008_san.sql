@@ -16,9 +16,6 @@ DECLARE
    cPkg_Name CONSTANT varchar(20)  := 'mi_0008_san';
    cLogger   CONSTANT varchar(20)  := 'mi.0008';
 
-   ret_OK    CONSTANT int4 := 0;
-   ret_FAIL  CONSTANT int4 := -1;
-
    c_link_type_17      CONSTANT numeric(3)  := 17;
    c_result_cus_map    CONSTANT varchar(50) := 'CUS_MAP';
    c_result_cycle      CONSTANT varchar(50) := 'SAN17_CYCLE';
@@ -650,9 +647,7 @@ $procedure$
  */
 CREATE PROCEDURE resolve_Cus (
    IN  p_lsr_id    numeric,
-   IN  p_inf_id    numeric,
-   OUT p_ires_code int4,
-   OUT p_cres_info varchar
+   IN  p_inf_id    numeric
 )
 AS
 $procedure$
@@ -665,10 +660,9 @@ DECLARE
    l_special_count  bigint;
    l_reject_count   bigint;
 
-BEGIN
+   l_info varchar;
 
-   p_ires_code := ret_FAIL;
-   p_cres_info := NULL;
+BEGIN
 
    CALL mi_0008_san.assert_Active_Run(
       p_lsr_id => p_lsr_id
@@ -685,15 +679,18 @@ BEGIN
      FROM pg_temp.mi_0008_acc_tmp;
 
    IF l_source_count = 0 THEN
-      p_ires_code := ret_OK;
-      p_cres_info := 'Sanitarium: no clients';
+      
+      l_info := 'Sanitarium: no clients';
+
       CALL MI_logger.exit_f(
          p_logger_name  => cLogger,
          p_message_text => p_cres_info,
          p_inf_id       => p_inf_id,
          p_object_id    => p_lsr_id
       );
+
       RETURN;
+
    END IF;
 
 
@@ -706,15 +703,14 @@ BEGIN
       p_lsr_id
    );
 
-   p_ires_code := ret_OK;
-   p_cres_info := format(
+   l_info := format(
       'Sanitarium: source=%s, special=%s, rejected=%s',
       l_source_count, l_special_count, l_reject_count
    );
 
    CALL MI_logger.exit_f(
       p_logger_name  => cLogger,
-      p_message_text => p_cres_info,
+      p_message_text => l_info,
       p_inf_id       => p_inf_id,
       p_object_id    => p_lsr_id
    );
@@ -742,6 +738,7 @@ EXCEPTION
             p_object_id     => p_lsr_id
          );
       END;
+
       RAISE;
 END;
 $procedure$
@@ -1010,9 +1007,7 @@ CREATE PROCEDURE validate_Root_Cus(
    IN  p_iyear         numeric,
    IN  p_launch_itype  numeric,
    IN  p_irsn_corr     numeric,
-   IN  p_ireq_kind     numeric,
-   OUT p_ires_code     int4,
-   OUT p_cres_info     varchar
+   IN  p_ireq_kind     numeric
 )
 AS
 $procedure$
@@ -1024,10 +1019,10 @@ DECLARE
    l_root_count   bigint;
    l_reject_count bigint;
    l_citizen_warn bigint;
-BEGIN
 
-   p_ires_code := ret_FAIL;
-   p_cres_info := NULL;
+   l_info varchar;
+
+BEGIN
 
    CALL mi_0008_san.assert_Active_Run(
       p_lsr_id => p_lsr_id
@@ -1054,12 +1049,11 @@ BEGIN
    
    IF l_root_count = 0 THEN
 
-      p_ires_code := ret_OK;
-      p_cres_info := 'Sanitarium root validation: no clients';
+      l_info := 'Sanitarium root validation: no clients';
 
       CALL MI_logger.exit_f (
          p_logger_name  => cLogger,
-         p_message_text => p_cres_info,
+         p_message_text => l_info,
          p_inf_id       => p_inf_id,
          p_object_id    => p_lsr_id
       );
@@ -1083,9 +1077,7 @@ BEGIN
       );
    END IF;
 
-   p_ires_code := ret_OK;
-
-   p_cres_info := format(
+   l_info := format(
       'Sanitarium root validation: roots=%s, rejected=%s, citizenship_warnings=%s',
       l_root_count,
       l_reject_count,
@@ -1094,7 +1086,7 @@ BEGIN
 
    CALL MI_logger.exit_f (
       p_logger_name  => cLogger,
-      p_message_text => p_cres_info,
+      p_message_text => l_info,
       p_inf_id       => p_inf_id,
       p_object_id    => p_lsr_id
    );
