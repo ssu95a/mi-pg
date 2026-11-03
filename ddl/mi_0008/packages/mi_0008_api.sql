@@ -1365,20 +1365,19 @@ $procedure$
  * immutable snapshots не должны дублироваться.
  */
 CREATE PROCEDURE create_Person_Snapshots(
-   IN  p_ctx            mi_0008_api.run_context_t,
-   OUT p_person_count   bigint
+   IN  p_ctx  mi_0008_api.run_context_t
 )
 AS
 $procedure$
    #package
    #private
 DECLARE
-   l_emit_count          bigint;
-   l_existing_count      bigint;
-   l_linked_count        bigint;
+   l_emit_count     bigint;
+   l_existing_count bigint;
+   l_linked_count   bigint;
+   l_person_count   bigint;
 BEGIN
 
-   p_person_count := 0;
    l_linked_count := 0;
 
    SELECT count(*),
@@ -1479,7 +1478,7 @@ BEGIN
     WHERE work.s_icusnum = person.icusnum
       AND work.decision_code = 'EMIT';
 
-   GET DIAGNOSTICS p_person_count = ROW_COUNT;
+   GET DIAGNOSTICS l_person_count = ROW_COUNT;
 
    /*
     * На каждую EMIT-строку должен быть создан и сопоставлен
@@ -1487,7 +1486,7 @@ BEGIN
     */
    CALL mi_0008_api.assert_Cardinality (
       p_expected    => l_emit_count,
-      p_actual      => p_person_count,
+      p_actual      => l_person_count,
       p_result_code => 'MI_0008_API#PERSON_CARDINALITY',
       p_entity      => 'Immutable person snapshots'
    );
@@ -1741,7 +1740,6 @@ DECLARE
    l_icorr_diag_count  bigint := 0;
    l_san_reject_count  bigint := 0;
 
-   l_person_count      bigint := 0;
    l_written_count     bigint := 0;
 BEGIN
 
@@ -1894,8 +1892,7 @@ BEGIN
     * и связываем его с фактическим inf_id запуска.
     */
    CALL mi_0008_api.create_Person_Snapshots(
-      p_ctx          => p_ctx,
-      p_person_count => l_person_count
+      p_ctx => p_ctx
    );
 
    /*
