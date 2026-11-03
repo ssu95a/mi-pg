@@ -423,7 +423,8 @@ $procedure$
 
 
 /*
- * Формирует область клиентов запуска и распространяет по active relation-17:
+ * Распространяем scope/exclusion по подготовленным
+ * weak components relation-17.
  *
  *   in_scope    — клиент относится к текущему запуску;
  *   is_excluded — клиент либо его component уже представлен primary-history.
@@ -433,7 +434,6 @@ $procedure$
  */
 CREATE PROCEDURE build_Scope (
    IN  p_ctx         mi_0008_api.run_context_t,
-   OUT p_scope_all   boolean,
    OUT p_scope_count bigint
 )
 AS
@@ -441,8 +441,6 @@ $procedure$
    #package
    #private
 BEGIN
-
-   p_scope_all := p_ctx.launch_itype = 1 AND p_ctx.cus_marker IS NULL;
 
    -- Явно заданный marker.
    --
@@ -2003,7 +2001,6 @@ DECLARE
    cAction_Name CONSTANT varchar(50) := cPkg_Name || '.prepare_Report';
 
    l_ctx             mi_0008_api.run_context_t;
-   l_scope_all       boolean;
 
    l_scope_count     bigint;
    l_acc_count       bigint;
@@ -2113,17 +2110,23 @@ BEGIN
       RETURN;
    END IF;
 
-   l_ctx := ROW(
-      p_lsr_id, p_inf_id, p_iyear, p_itype, p_irsn_corr, p_ireq_kind,
-      p_cus_marker, p_pack_num, false
+   l_ctx := ROW (
+      p_lsr_id,
+      p_inf_id,
+      p_iyear,
+      p_itype,
+      p_irsn_corr,
+      p_ireq_kind,
+      p_cus_marker,
+      p_pack_num,
+      p_itype = 1 AND p_cus_marker IS NULL
    )::mi_0008_api.run_context_t;
 
    CALL mi_0008_api.create_Temp_Tables();
 
    CALL mi_0008_san.prepare_Link_Graph();
 
-   CALL mi_0008_api.build_Scope(l_ctx, l_scope_all, l_scope_count);
-   l_ctx.scope_all := l_scope_all;
+   CALL mi_0008_api.build_Scope(l_ctx, l_scope_count);
 
    IF p_itype IN (1, 2) AND p_ireq_kind = c_kind_sum THEN
       CALL mi_0008_api.load_Sources(l_ctx);
