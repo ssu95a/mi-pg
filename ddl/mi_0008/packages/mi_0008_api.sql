@@ -1373,8 +1373,6 @@ $procedure$
    #package
    #private
 DECLARE
-   l_existing_count bigint;
-   l_linked_count   bigint;
    l_person_count   bigint;
 BEGIN
 
@@ -1496,7 +1494,7 @@ BEGIN
     * означает нарушение внутреннего контракта.
     */
    CALL mi_0008_api.assert_Cardinality(
-      p_expected    => l_emit_count,
+      p_expected    => p_expected_count,
       p_actual      => l_linked_count,
       p_result_code => 'MI_0008_API#PERSON_LINK_CARDINALITY',
       p_entity      => 'Связи person/inf'
@@ -1537,8 +1535,6 @@ DECLARE
    l_written_count bigint;
    l_invalid_count bigint;
 BEGIN
-
-   p_written_count := 0;
 
    /*
     * Заголовок запроса должен быть создан write_Report
@@ -1628,7 +1624,7 @@ BEGIN
 
     WHERE work.decision_code = 'EMIT';
 
-   GET DIAGNOSTICS p_written_count = ROW_COUNT;
+   GET DIAGNOSTICS l_written_count  = ROW_COUNT;
 
    /*
     * На каждую EMIT-строку должна быть записана
@@ -1636,7 +1632,7 @@ BEGIN
     */
    CALL mi_0008_api.assert_Cardinality(
       p_expected    => p_expected_count,
-      p_actual      => p_written_count,
+      p_actual      => l_written_count ,
       p_result_code => 'MI_0008_API#WRITE_CARDINALITY',
       p_entity      => 'Строки отчёта MI_0008',
       p_context     => format(
