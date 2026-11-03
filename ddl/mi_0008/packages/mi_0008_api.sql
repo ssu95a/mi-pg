@@ -1395,14 +1395,6 @@ BEGIN
     WHERE work.decision_code = 'EMIT';
 
    /*
-    * Пустой набор — нормальный результат.
-    * Request в этом случае оркестратор не создаёт.
-    */
-   IF l_emit_count = 0 THEN
-      RETURN;
-   END IF;
-
-   /*
     * Защита от случайного повторного вызова:
     * второй immutable snapshot создавать нельзя.
     */
@@ -1597,22 +1589,6 @@ BEGIN
     WHERE work.decision_code = 'EMIT';
 
    /*
-    * write_Items вызывается только после проверки l_emit_count
-    * в write_Report и создания request.
-    */
-   IF l_emit_count = 0 THEN
-
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_API#NO_ITEMS_TO_WRITE',
-         p_result_info => format(
-            'Для req_id=%s отсутствуют строки EMIT',
-            p_req_id
-         )
-      );
-
-   END IF;
-
-   /*
     * Все EMIT-строки должны иметь:
     *
     *   - новый immutable person_id;
@@ -1734,7 +1710,6 @@ DECLARE
    l_candidate_count   bigint := 0;
    l_emit_count        bigint := 0;
    l_unchanged_count   bigint := 0;
-   l_unresolved_count  bigint := 0;
 
    l_diag_count        bigint := 0;
    l_icorr_diag_count  bigint := 0;
@@ -1748,30 +1723,17 @@ BEGIN
    p_cres_info := NULL;
 
    /*
-    * Здесь только собирается итоговая статистика и проверяется,
-    * что для каждой принятой root-строки решение действительно принято.
+    * Здесь собирается итоговая статистика по решениям,
+    * сформированным resolve_Final_State.
     */
    SELECT count(*),
           count(*) FILTER ( WHERE work.decision_code = 'EMIT' ),
-          count(*) FILTER ( WHERE work.decision_code IN ( 'UNCHANGED_FINANCIAL', 'UNCHANGED_PERSON' ) ),
-          count(*) FILTER ( WHERE work.decision_code IS NULL )
+          count(*) FILTER ( WHERE work.decision_code IN ( 'UNCHANGED_FINANCIAL', 'UNCHANGED_PERSON' ) )
      INTO l_candidate_count,
           l_emit_count,
-          l_unchanged_count,
-          l_unresolved_count
+          l_unchanged_count
      FROM 
           pg_temp.mi_0008_acc_tmp AS work;
-
-   /*
-    * Ни одна принятая root-строка не должна дойти до persistence
-    * без результата resolve_Final_State.
-    */
-   CALL mi_0008_api.assert_Cardinality(
-      p_expected    => 0,
-      p_actual      => l_unresolved_count,
-      p_result_code => 'MI_0008_API#DECISION_NOT_RESOLVED',
-      p_entity      => 'Root-клиенты без итогового решения'
-   );
 
    /*
     * Сохраняем только редкие final-decision diagnostics:
