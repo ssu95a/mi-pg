@@ -421,237 +421,6 @@ END;
 $procedure$
 
 
-/*
- * Формирует итоговые суммы и расчётный icorr для каждого
- * принятого root-клиента.
- *
- * До вызова должны быть выполнены:
- *
- *   - project_Current_Person;
- *   - validate_Root_Cus;
- *   - prune_Rejected_Roots;
- *   - resolve_History.
- *
- * Правила выбора сумм:
- *
- *   отмена:
- *      все суммы NULL;
- *
- *   коррекция:
- *      суммы последней исторической строки;
- *
- *   FNS дул:
- *      для явно запрошенного клиента, не пришедшего из текущих
- *      источников, используются исторические суммы;
- *
- *   остальные режимы:
- *      текущие рассчитанные суммы.
- */
-CREATE PROCEDURE resolve_Output_Amounts(
-   IN p_ctx mi_0008_api.run_context_t
-)
-AS
-$procedure$
-   #package
-   #private
-DECLARE
-   l_candidate_count       bigint;
-   l_missing_history_count bigint;
-   l_updated_count         bigint;
-BEGIN
-
-   WITH source_data AS MATERIALIZED
-   (
-      SELECT work.s_icusnum,
-
-             work.hist_itm_id,
-             work.hist_icorr,
-
-             /*
-              * Текущий финансовый snapshot.
-              */
-             ROW(
-                work.msum_f_dep,
-                work.msum_i_dep,
-                work.msum_f_crd,
-                work.msum_i_crd,
-                work.msum_f_acc,
-                work.msum_i_acc
-             )::mi_0008_api.amounts_t AS current_amounts,
-
-             /*
-              * Финансовый snapshot последней допустимой истории.
-              *
-              * Если hist_itm_id отсутствует, получается корректный
-              * amounts_t со всеми NULL.
-              */
-             ROW(
-                history.msum_f_dep,
-                history.msum_i_dep,
-                history.msum_f_crd,
-                history.msum_i_crd,
-                history.msum_f_acc,
-                history.msum_i_acc
-             )::mi_0008_api.amounts_t AS history_amounts,
-
-             /*
-              * Cancellation всегда очищает все суммы.
-              */
-             p_ctx.launch_itype = 3 AS is_cancellation,
-
-             /*
-              * Исторические суммы используются:
-              *
-              *   - при уточнении person-данных;
-              *   - при финансовом запросе ФНС, когда явно
-              *     запрошенный клиент отсутствует в source results.
-              */
-             p_ctx.launch_itype = 2
-             AND
-             (
-                p_ctx.ireq_kind = c_kind_person
-
-                OR
-
-                (
-                   p_ctx.ireq_kind = c_kind_sum
-                   AND p_ctx.irsn_corr = c_reason_fns
-                   AND work.is_requested
-                   AND NOT work.source_seen
-                )
-             )
-                AS use_history,
-
-             /*
-              * hist_itm_id был найден resolve_History, но сама строка
-              * истории внезапно отсутствует.
-              *
-              * Это нарушение внутреннего контракта, а не обычный
-              * сценарий "истории нет".
-              */
-             work.hist_itm_id IS NOT NULL AND history.itm_id IS NULL AS history_missing
-
-        FROM pg_temp.mi_0008_acc_tmp AS work
-
-        LEFT JOIN xxi.mi_0008 AS history
-          ON history.itm_id = work.hist_itm_id
-
-       /*
-        * После prune_Rejected_Roots здесь должны находиться
-        * только принятые root-строки.
-        */
-       WHERE work.san_result_code IS NULL
-   ),
-   calculated AS MATERIALIZED
-   (
-      SELECT src.s_icusnum,
-
-             /*
-              * Один CASE выбирает сразу весь набор из шести сумм.
-              */
-             CASE
-                WHEN src.is_cancellation THEN
-                   ROW(
-                      NULL::numeric(22,2),
-                      NULL::numeric(22,2),
-                      NULL::numeric(22,2),
-                      NULL::numeric(22,2),
-                      NULL::numeric(22,2),
-                      NULL::numeric(22,2)
-                   )::mi_0008_api.amounts_t
-
-                WHEN src.use_history THEN
-                     src.history_amounts
-                ELSE
-                   src.current_amounts
-             END
-                AS output_amounts,
-
-             /*
-              * Номер корректировки.
-              *
-              * Значение 100 после исторического icorr=99 допустимо
-              * как промежуточный результат. resolve_Decisions
-              * присвоит такой строке ICORR_AFTER_CANCEL, поэтому
-              * в xxi.mi_0008 значение 100 не попадёт.
-              */
-             CASE
-                WHEN p_ctx.launch_itype = 1 THEN
-                   0
-                WHEN p_ctx.launch_itype = 3 THEN
-                   99
-                WHEN src.hist_itm_id IS NULL THEN
-                   0
-                ELSE
-                   src.hist_icorr + 1
-             END::numeric(3)
-                AS target_icorr,
-
-             src.history_missing
-
-        FROM source_data AS src
-   ),
-   updated AS
-   (
-      UPDATE pg_temp.mi_0008_acc_tmp AS work
-         SET out_msum_f_dep =
-                (result.output_amounts).f_dep,
-             out_msum_i_dep =
-                (result.output_amounts).i_dep,
-             out_msum_f_crd =
-                (result.output_amounts).f_crd,
-             out_msum_i_crd =
-                (result.output_amounts).i_crd,
-             out_msum_f_acc =
-                (result.output_amounts).f_acc,
-             out_msum_i_acc =
-                (result.output_amounts).i_acc,
-             target_icorr =
-                result.target_icorr
-
-        FROM calculated AS result
-
-       WHERE work.s_icusnum = result.s_icusnum
-         AND NOT result.history_missing
-
-      RETURNING work.s_icusnum
-   )
-   SELECT
-      (
-         SELECT count(*) FROM calculated
-      ),
-      (
-         SELECT count(*) FROM calculated WHERE history_missing
-      ),
-      (
-         SELECT count(*) FROM updated
-      )
-     INTO l_candidate_count,
-          l_missing_history_count,
-          l_updated_count;
-
-
-   CALL mi_0008_api.assert_Cardinality(
-      p_expected    => 0,
-      p_actual      => l_missing_history_count,
-      p_result_code => 'MI_0008_API#HISTORY_ITEM_NOT_FOUND',
-      p_entity      => 'Повреждённые ссылки на history'
-   );
-
-   /*
-    * Для каждого принятого root-клиента должен быть рассчитан ровно один итоговый набор сумм.
-    */
-   CALL mi_0008_api.assert_Cardinality(
-      p_expected    => l_candidate_count,
-      p_actual      => l_updated_count,
-      p_result_code => 'MI_0008_API#OUTPUT_CARDINALITY',
-      p_entity      => 'Рассчитанные итоговые суммы'
-   );
-
-END;
-$procedure$
-
-
 
 /*
  * Формирует область клиентов запуска и распространяет по active relation-17:
@@ -1193,16 +962,20 @@ $procedure$
 
 
 /*
- * Определяет итоговое действие по каждому принятому root-клиенту.
+ * Формирует окончательное состояние каждого принятого root-клиента:
+ *
+ *   - итоговые суммы;
+ *   - target_icorr;
+ *   - итоговое business-решение.
  *
  * До вызова должны быть выполнены:
  *
- *   - resolve_History;
- *   - resolve_Output_Amounts.
- *
- * Процедура только принимает решение и записывает decision_code.
+ *   - project_Current_Person;
+ *   - validate_Root_Cus;
+ *   - prune_Rejected_Roots;
+ *   - resolve_History.
  */
-CREATE PROCEDURE resolve_Decisions(
+CREATE PROCEDURE resolve_Final_State(
    IN p_ctx mi_0008_api.run_context_t
 )
 AS
@@ -1210,89 +983,84 @@ $procedure$
    #package
    #private
 DECLARE
-   l_candidate_count bigint;
-   l_updated_count   bigint;
+   l_candidate_count       bigint;
+   l_missing_history_count bigint;
+   l_updated_count         bigint;
 BEGIN
 
-   WITH facts AS MATERIALIZED
+   WITH source_data AS MATERIALIZED
    (
       SELECT work.s_icusnum,
 
              work.has_primary,
              work.hist_itm_id,
              work.hist_icorr,
-             work.target_icorr,
+             work.hist_person_id,
+
+             work.is_requested,
+             work.source_seen,
 
              /*
-              * Общая сумма используется только для проверки
-              * неположительного финансового результата.
+              * Текущий финансовый snapshot.
               */
-               coalesce(work.out_msum_f_dep, 0)
-             + coalesce(work.out_msum_i_dep, 0)
-             + coalesce(work.out_msum_f_crd, 0)
-             + coalesce(work.out_msum_i_crd, 0)
-             + coalesce(work.out_msum_f_acc, 0)
-             + coalesce(work.out_msum_i_acc, 0) AS financial_total,
+             ROW(
+                work.msum_f_dep,
+                work.msum_i_dep,
+                work.msum_f_crd,
+                work.msum_i_crd,
+                work.msum_f_acc,
+                work.msum_i_acc
+             )::mi_0008_api.amounts_t AS current_amounts,
 
              /*
-              * NULL-safe сравнение всего финансового snapshot.
+              * Последний сохранённый финансовый snapshot.
               */
-             (
-                ROW(
-                   work.out_msum_f_dep,
-                   work.out_msum_i_dep,
-                   work.out_msum_f_crd,
-                   work.out_msum_i_crd,
-                   work.out_msum_f_acc,
-                   work.out_msum_i_acc
-                )::mi_0008_api.amounts_t
-
-                IS NOT DISTINCT FROM
-
-                ROW(
-                   history.msum_f_dep,
-                   history.msum_i_dep,
-                   history.msum_f_crd,
-                   history.msum_i_crd,
-                   history.msum_f_acc,
-                   history.msum_i_acc
-                )::mi_0008_api.amounts_t
-             ) AS financial_unchanged,
+             ROW(
+                history.msum_f_dep,
+                history.msum_i_dep,
+                history.msum_f_crd,
+                history.msum_i_crd,
+                history.msum_f_acc,
+                history.msum_i_acc
+             )::mi_0008_api.amounts_t AS history_amounts,
 
              /*
-              * Oracle-набор полей для определения изменения person.
-              *
-              * Расширенные поля ДУЛ здесь намеренно не участвуют.
+              * Текущий person snapshot.
               */
-             (
-                ROW(
-                   work.first_name,
-                   work.last_name,
-                   work.middle_name,
-                   work.ctzn_country_code,
-                   work.birth_date,
-                   work.inn,
-                   work.doc_type_id,
-                   work.doc_ser,
-                   work.doc_num,
-                   work.doc_issue_date
-                )
+             ROW(
+                work.first_name,
+                work.last_name,
+                work.middle_name,
+                work.ctzn_country_code,
+                work.birth_date,
+                work.inn,
+                work.doc_type_id,
+                work.doc_ser,
+                work.doc_num,
+                work.doc_issue_date
+             )
+             IS NOT DISTINCT FROM
+             ROW(
+                old_person.first_name,
+                old_person.last_name,
+                old_person.middle_name,
+                old_person.ctzn_country_code,
+                old_person.birth_date,
+                old_person.inn,
+                old_person.doc_type_id,
+                old_person.doc_ser,
+                old_person.doc_num,
+                old_person.doc_issue_date
+             )
+                AS person_unchanged,
 
-                IS NOT DISTINCT FROM
-
-                ROW(
-                   old_person.first_name,
-                   old_person.last_name,
-                   old_person.middle_name,
-                   old_person.ctzn_country_code,
-                   old_person.birth_date,
-                   old_person.inn,
-                   old_person.doc_type_id,
-                   old_person.doc_ser,
-                   old_person.doc_num,
-                   old_person.doc_issue_date
-                )
-             ) AS person_unchanged
+             /*
+              * История была разрешена, но сама строка исчезла.
+              * Это нарушение внутреннего контракта.
+              */
+             work.hist_itm_id IS NOT NULL
+             AND history.itm_id IS NULL
+                AS history_missing
 
         FROM pg_temp.mi_0008_acc_tmp AS work
 
@@ -1304,36 +1072,125 @@ BEGIN
 
        WHERE work.san_result_code IS NULL
    ),
-   updated AS
+
+   calculated AS MATERIALIZED
    (
-      UPDATE pg_temp.mi_0008_acc_tmp AS work
-         SET decision_code =
+      SELECT src.*,
+
+             /*
+              * Итоговый набор сумм.
+              */
+             CASE
+                WHEN p_ctx.launch_itype = 3 THEN
+                   ROW(
+                      NULL::numeric(22,2),
+                      NULL::numeric(22,2),
+                      NULL::numeric(22,2),
+                      NULL::numeric(22,2),
+                      NULL::numeric(22,2),
+                      NULL::numeric(22,2)
+                   )::mi_0008_api.amounts_t
+
+                WHEN p_ctx.launch_itype = 2
+                 AND
+                 (
+                    p_ctx.ireq_kind = c_kind_person
+
+                    OR
+
+                    (
+                       p_ctx.ireq_kind = c_kind_sum
+                       AND p_ctx.irsn_corr = c_reason_fns
+                       AND src.is_requested
+                       AND NOT src.source_seen
+                    )
+                 )
+                   THEN src.history_amounts
+
+                ELSE
+                   src.current_amounts
+             END
+                AS output_amounts,
+
+             /*
+              * Итоговый номер корректировки.
+              */
+             CASE
+                WHEN p_ctx.launch_itype = 1 THEN
+                   0
+
+                WHEN p_ctx.launch_itype = 3 THEN
+                   99
+
+                WHEN src.hist_itm_id IS NULL THEN
+                   0
+
+                ELSE
+                   src.hist_icorr + 1
+             END::numeric(3)
+                AS target_icorr
+
+        FROM source_data AS src
+   ),
+
+   facts AS MATERIALIZED
+   (
+      SELECT calc.*,
+
+               coalesce((calc.output_amounts).f_dep, 0)
+             + coalesce((calc.output_amounts).i_dep, 0)
+             + coalesce((calc.output_amounts).f_crd, 0)
+             + coalesce((calc.output_amounts).i_crd, 0)
+             + coalesce((calc.output_amounts).f_acc, 0)
+             + coalesce((calc.output_amounts).i_acc, 0)
+                AS financial_total,
+
+             (
+                calc.output_amounts
+                IS NOT DISTINCT FROM
+                calc.history_amounts
+             )
+                AS financial_unchanged
+
+        FROM calculated AS calc
+   ),
+
+   resolved AS MATERIALIZED
+   (
+      SELECT facts.*,
+
              CASE
                 /*
-                 * Аннулирование — terminal state.
+                 * Аннулирование уже является terminal state.
                  */
-                WHEN facts.hist_icorr = 99 THEN 'ICORR_AFTER_CANCEL'
+                WHEN facts.hist_icorr = 99 THEN
+                   'ICORR_AFTER_CANCEL'
 
                 /*
-                 * Повторный primary для того же inf_id и года.
+                 * Повторный primary.
                  */
-                WHEN p_ctx.launch_itype = 1 AND facts.has_primary THEN 'ALREADY_PRIMARY'
+                WHEN p_ctx.launch_itype = 1
+                 AND facts.has_primary THEN
+                   'ALREADY_PRIMARY'
 
                 /*
                  * Person correction невозможна без истории.
                  */
-                WHEN p_ctx.launch_itype = 2 AND p_ctx.ireq_kind = c_kind_person AND facts.hist_itm_id IS NULL THEN 'PERSON_NO_HISTORY'
+                WHEN p_ctx.launch_itype = 2
+                 AND p_ctx.ireq_kind = c_kind_person
+                 AND facts.hist_itm_id IS NULL THEN
+                   'PERSON_NO_HISTORY'
 
                 /*
-                 * Обычная correction не может занимать
-                 * зарезервированные icorr 98 и 99.
+                 * 98/99 зарезервированы.
                  */
                 WHEN p_ctx.launch_itype = 2
-                 AND facts.hist_icorr IN (97, 98) THEN 'ICORR_EXHAUSTED'
+                 AND facts.hist_icorr IN (97, 98) THEN
+                   'ICORR_EXHAUSTED'
 
                 /*
-                 * Неположительная сумма не превращается
-                 * автоматически в cancellation.
+                 * Неположительный финансовый результат
+                 * самостоятельно cancellation не создаёт.
                  */
                 WHEN p_ctx.launch_itype IN (1, 2)
                  AND p_ctx.ireq_kind = c_kind_sum
@@ -1341,10 +1198,8 @@ BEGIN
                    'NONPOSITIVE_TOTAL'
 
                 /*
-                 * Банк не создаёт финансовую correction,
-                 * если суммы не изменились.
-                 *
-                 * Для ФНС строка создаётся даже без изменений.
+                 * Банковская финансовая correction:
+                 * без изменения сумм строку не создаём.
                  */
                 WHEN p_ctx.launch_itype = 2
                  AND p_ctx.ireq_kind = c_kind_sum
@@ -1354,8 +1209,8 @@ BEGIN
                    'UNCHANGED_FINANCIAL'
 
                 /*
-                 * Банк не создаёт person correction,
-                 * если значимые person-поля не изменились.
+                 * Банковская person correction:
+                 * без изменения значимых person-полей строку не создаём.
                  */
                 WHEN p_ctx.launch_itype = 2
                  AND p_ctx.ireq_kind = c_kind_person
@@ -1364,7 +1219,7 @@ BEGIN
                    'UNCHANGED_PERSON'
 
                 /*
-                 * Физический ключ таблицы не содержит inf_id.
+                 * Физический ключ таблицы MI_0008 не содержит inf_id.
                  */
                 WHEN EXISTS
                      (
@@ -1373,38 +1228,68 @@ BEGIN
                          WHERE occupied.icusnum = facts.s_icusnum
                            AND occupied.iyear   = p_ctx.iyear
                            AND occupied.icorr   = facts.target_icorr
-                     ) THEN
-                   'ITEM_KEY_EXISTS'
+                     )
+                   THEN 'ITEM_KEY_EXISTS'
 
                 ELSE
                    'EMIT'
              END::varchar(50)
+                AS decision_code
 
         FROM facts
+   ),
 
-       WHERE work.s_icusnum = facts.s_icusnum
+   updated AS
+   (
+      UPDATE pg_temp.mi_0008_acc_tmp AS work
+         SET out_msum_f_dep = (result.output_amounts).f_dep,
+             out_msum_i_dep = (result.output_amounts).i_dep,
+             out_msum_f_crd = (result.output_amounts).f_crd,
+             out_msum_i_crd = (result.output_amounts).i_crd,
+             out_msum_f_acc = (result.output_amounts).f_acc,
+             out_msum_i_acc = (result.output_amounts).i_acc,
+
+             target_icorr = result.target_icorr,
+             decision_code = result.decision_code
+
+        FROM resolved AS result
+
+       WHERE work.s_icusnum = result.s_icusnum
+         AND NOT result.history_missing
 
       RETURNING work.s_icusnum
    )
-   SELECT
-      (
-         SELECT count(*)
-           FROM facts
-      ),
-      (
-         SELECT count(*)
-           FROM updated
-      )
 
+   SELECT
+      ( SELECT count(*) FROM resolved ),
+      ( SELECT count(*) FROM resolved WHERE history_missing ),
+      ( SELECT count(*) FROM updated )
      INTO l_candidate_count,
+          l_missing_history_count,
           l_updated_count;
 
-      CALL mi_0008_api.assert_Cardinality(
-         p_expected    => l_candidate_count,
-         p_actual      => l_updated_count,
-         p_result_code => 'MI_0008_API#DECISION_CARDINALITY',
-         p_entity      => 'Решения по root-клиентам'
-      );
+
+   /*
+    * Ссылка на history была разрешена resolve_History,
+    * но строка history исчезла.
+    */
+   CALL mi_0008_api.assert_Cardinality(
+      p_expected    => 0,
+      p_actual      => l_missing_history_count,
+      p_result_code => 'MI_0008_API#HISTORY_ITEM_NOT_FOUND',
+      p_entity      => 'Повреждённые ссылки на history'
+   );
+
+   /*
+    * На каждый принятый root должно быть принято ровно одно
+    * окончательное решение.
+    */
+   CALL mi_0008_api.assert_Cardinality(
+      p_expected    => l_candidate_count,
+      p_actual      => l_updated_count,
+      p_result_code => 'MI_0008_API#DECISION_CARDINALITY',
+      p_entity      => 'Итоговые состояния root-клиентов'
+   );
 
 END;
 $procedure$
@@ -1946,9 +1831,8 @@ $procedure$
  *   - validate_Root_Cus;
  *   - prune_Rejected_Roots;
  *   - resolve_History;
- *   - resolve_Output_Amounts;
- *   - resolve_Decisions.
- *
+ *   - resolve_Final_State.
+ 
  * Процедура:
  *
  *   - не читает CUS/CUS_DOCUM;
@@ -2404,14 +2288,9 @@ BEGIN
       p_ctx => l_ctx
    );
 
-   CALL mi_0008_api.resolve_Output_Amounts(
+   CALL mi_0008_api.resolve_Final_State(
       p_ctx => l_ctx
    );
-
-   CALL mi_0008_api.resolve_Decisions(
-      p_ctx => l_ctx
-   );
-
 
    CALL mi_0008_api.write_Report(
       l_ctx, p_ctaxreq_id, l_req_id, l_write_code, l_write_info
