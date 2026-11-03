@@ -552,84 +552,9 @@ BEGIN
 
    -- Один обход active relation-17.
    --
-   -- В одной component могут находиться разные семена:
-   --
-   --   (in_scope=true,  is_excluded=false)
-   --   (in_scope=false, is_excluded=true)
-   --
-   -- UNION распространяет оба состояния, а expanded объединяет их bool_or.
-   WITH RECURSIVE
-   active_links AS MATERIALIZED
-   (
-      SELECT DISTINCT link.id_cus_parent, link.id_cus_child
-        FROM xxi.cus_lnk AS link
-       WHERE link.id_lnk_type = 17
-         AND ( link.date_end IS NULL OR link.date_end >= CURRENT_DATE )
-   ),
-   walk
-   (
-      icusnum,
-      in_scope,
-      is_excluded
-   )
-   AS
-   (
-      SELECT work.s_icusnum,
-             work.in_scope,
-             work.is_excluded
-
-        FROM pg_temp.mi_0008_acc_tmp AS work
-
-       WHERE work.in_scope
-          OR work.is_excluded
-
-      UNION
-
-      SELECT CASE
-                WHEN link.id_cus_parent = walk.icusnum
-                   THEN link.id_cus_child
-                ELSE link.id_cus_parent
-             END AS icusnum,
-
-             walk.in_scope,
-             walk.is_excluded
-
-        FROM walk
-
-        JOIN active_links AS link
-          ON link.id_cus_parent = walk.icusnum
-          OR link.id_cus_child  = walk.icusnum
-   ),
-   expanded AS
-   (
-      SELECT walk.icusnum,
-             bool_or(walk.in_scope)     AS in_scope,
-             bool_or(walk.is_excluded)  AS is_excluded
-
-        FROM walk
-
-       GROUP BY walk.icusnum
-   )
-   INSERT INTO pg_temp.mi_0008_acc_tmp AS current_work
-   (
-      s_icusnum,
-      in_scope,
-      is_excluded
-   )
-   SELECT expanded.icusnum,
-          expanded.in_scope,
-          expanded.is_excluded
-
-     FROM expanded
-
-   ON CONFLICT (s_icusnum) DO UPDATE
-      SET in_scope =
-             current_work.in_scope
-             OR EXCLUDED.in_scope,
-
-          is_excluded =
-             current_work.is_excluded
-             OR EXCLUDED.is_excluded;
+   CALL mi_0008_san.expand_Scope(
+      p_scope_count
+   );
 
    ---------------------------------------------------------------------------
    -- is_requested не распространяется:
@@ -2206,6 +2131,8 @@ BEGIN
    )::mi_0008_api.run_context_t;
 
    CALL mi_0008_api.create_Temp_Tables();
+
+   CALL mi_0008_san.prepare_Link_Graph();
 
    CALL mi_0008_api.build_Scope(l_ctx, l_scope_all, l_scope_count);
    l_ctx.scope_all := l_scope_all;

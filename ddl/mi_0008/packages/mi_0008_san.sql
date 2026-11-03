@@ -102,6 +102,114 @@ END;
 $procedure$
 
 
+/** */
+CREATE PROCEDURE prepare_Link_Graph()
+AS
+$procedure$
+   #package
+DECLARE
+   l_graph_node_count bigint;
+BEGIN
+
+   CALL mi_0008_san.create_Graph_Tables();
+
+   CALL mi_0008_san.load_Link_Graph(
+      l_graph_node_count
+   );
+
+   CALL mi_0008_san.resolve_Components(
+      l_graph_node_count
+   );
+
+   CALL mi_0008_san.resolve_Roots(
+      l_graph_node_count
+   );
+
+END;
+$procedure$
+
+
+/* */
+CREATE PROCEDURE expand_Scope(
+   OUT p_scope_count bigint
+)
+AS
+$procedure$
+   #package
+BEGIN
+
+   /*
+    * Для каждой weak-component собираем флаги её seed-клиентов.
+    *
+    * is_requested намеренно не распространяется.
+    */
+   WITH component_flags AS MATERIALIZED
+   (
+      SELECT node.component_id,
+
+             bool_or(work.in_scope)
+                AS in_scope,
+
+             bool_or(work.is_excluded)
+                AS is_excluded
+
+        FROM pg_temp.mi_0008_acc_tmp AS work
+
+        JOIN pg_temp.mi_0008_san_node AS node
+          ON node.icusnum = work.s_icusnum
+
+       WHERE work.in_scope
+          OR work.is_excluded
+
+       GROUP BY node.component_id
+   ),
+
+   expanded AS MATERIALIZED
+   (
+      SELECT node.icusnum,
+             flags.in_scope,
+             flags.is_excluded
+
+        FROM pg_temp.mi_0008_san_node AS node
+
+        JOIN component_flags AS flags
+          ON flags.component_id = node.component_id
+   )
+
+   INSERT INTO pg_temp.mi_0008_acc_tmp AS work
+   (
+      s_icusnum,
+      in_scope,
+      is_excluded
+   )
+   SELECT expanded.icusnum,
+          expanded.in_scope,
+          expanded.is_excluded
+     FROM expanded
+
+   ON CONFLICT (s_icusnum) DO UPDATE
+      SET in_scope =
+             work.in_scope
+             OR EXCLUDED.in_scope,
+
+          is_excluded =
+             work.is_excluded
+             OR EXCLUDED.is_excluded;
+
+
+   /*
+    * Seed, которого вообще нет в relation-17 graph,
+    * остаётся собственной одноэлементной component.
+    */
+   SELECT count(*)
+     INTO p_scope_count
+     FROM pg_temp.mi_0008_acc_tmp AS work
+    WHERE work.in_scope
+      AND NOT work.is_excluded;
+
+END;
+$procedure$
+
 /* */
 CREATE PROCEDURE resolve_Components (
    IN p_graph_node_count bigint
@@ -550,12 +658,13 @@ AS
 $procedure$
    #package
 DECLARE
+
    cAction_Name CONSTANT varchar(50) := cPkg_Name || '.resolve_Cus';
 
-   l_source_count     bigint;
-   l_graph_node_count bigint;
-   l_special_count    bigint;
-   l_reject_count     bigint;
+   l_source_count   bigint;
+   l_special_count  bigint;
+   l_reject_count   bigint;
+
 BEGIN
 
    p_ires_code := ret_FAIL;
@@ -565,7 +674,7 @@ BEGIN
       p_lsr_id => p_lsr_id
    );
 
-   CALL MI_logger.enter_f(
+   CALL MI_logger.enter_f (
       p_logger_name   => cLogger,
       p_function_name => cAction_Name,
       p_inf_id        => p_inf_id,
@@ -587,11 +696,6 @@ BEGIN
       RETURN;
    END IF;
 
-   CALL mi_0008_san.create_Graph_Tables();
-   CALL mi_0008_san.load_Link_Graph(l_graph_node_count);
-
-   CALL mi_0008_san.resolve_Components(l_graph_node_count);
-   CALL mi_0008_san.resolve_Roots(l_graph_node_count);
 
    CALL mi_0008_san.apply_Cus_Mapping(
       l_special_count,
