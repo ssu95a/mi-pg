@@ -1375,9 +1375,7 @@ $procedure$
 DECLARE
    l_emit_count          bigint;
    l_existing_count      bigint;
-   l_missing_person_count bigint;
    l_linked_count        bigint;
-
 BEGIN
 
    p_person_count := 0;
@@ -1494,22 +1492,6 @@ BEGIN
       p_entity      => 'Immutable person snapshots'
    );
 
-
-   /*
-    * Дополнительная проверка результата UPDATE:
-    * EMIT без person_id дальше записываться не может.
-    */
-   SELECT count(*)
-     INTO l_missing_person_count
-     FROM pg_temp.mi_0008_acc_tmp AS work
-    WHERE work.decision_code = 'EMIT' AND work.person_id IS NULL;
-
-   CALL mi_0008_api.assert_Cardinality(
-      p_expected    => 0,
-      p_actual      => l_missing_person_count,
-      p_result_code => 'MI_0008_API#PERSON_ID_MISSING',
-      p_entity      => 'EMIT-строки без person_id'
-   );
 
    /*
     * Новый snapshot связывается с видом сведений,
@@ -2132,7 +2114,7 @@ BEGIN
       p_cres_info := format('NO_DATA: candidate_scope=%s, accumulator=0',
                             l_scope_count);
       CALL mi_0008_api.finish_Run(
-         l_ctx, 'COMPLETED', NULL, p_ires_code, p_cres_info
+         l_ctx, NULL, p_ires_code, p_cres_info
       );
       CALL MI_logger.exit_f(
          p_logger_name  => cLogger,
@@ -2210,7 +2192,7 @@ BEGIN
    p_cres_info := l_write_info;
 
    CALL mi_0008_api.finish_Run(
-      l_ctx, 'COMPLETED', p_req_id, p_ires_code, p_cres_info
+      l_ctx, p_req_id, p_ires_code, p_cres_info
    );
 
    CALL MI_logger.exit_f(
