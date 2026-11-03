@@ -490,59 +490,52 @@ $procedure$
 
 
 /* */
-CREATE PROCEDURE assert_Run(
-   IN p_lsr_id          numeric,
-   IN p_expected_stage  varchar
+CREATE PROCEDURE assert_Active_Run (
+   IN p_lsr_id numeric
 )
 AS
 $procedure$
    #package
    #private
 DECLARE
-   l_status_cd varchar(12);
-   l_stage_cd  varchar(20);
+   l_status_cd   varchar(12);
+   l_finished_at timestamptz;
 BEGIN
 
    SELECT l.status_cd,
-          l.stage_cd
+          l.finished_at
      INTO l_status_cd,
-          l_stage_cd
+          l_finished_at
      FROM xxi.mi_0008_lsr AS l
-    WHERE l.lsr_id = p_lsr_id
-      FOR UPDATE;
+    WHERE l.lsr_id = p_lsr_id;
 
    IF NOT FOUND THEN
       CALL MI_resultCtx.raise_fail(
          p_result_code => 'MI_0008_SAN#RUN_NOT_FOUND',
-         p_result_info => format('LSR %s does not exist', p_lsr_id)
-      );
-   END IF;
-
-   IF l_status_cd <> 'RUNNING' THEN
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_SAN#BAD_STATUS',
          p_result_info => format(
-            'LSR %s has status %s',
-            p_lsr_id,
-            l_status_cd
+            'LSR %s does not exist',
+            p_lsr_id
          )
       );
    END IF;
 
-   IF l_stage_cd <> p_expected_stage THEN
+   IF l_status_cd <> 'RUNNING'
+      OR l_finished_at IS NOT NULL
+   THEN
       CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_SAN#BAD_STAGE',
+         p_result_code => 'MI_0008_SAN#RUN_NOT_ACTIVE',
          p_result_info => format(
-            'LSR %s has stage %s, expected %s',
+            'LSR %s is not active: status=%s, finished_at=%s',
             p_lsr_id,
-            l_stage_cd,
-            p_expected_stage
+            l_status_cd,
+            l_finished_at
          )
       );
    END IF;
 
 END;
 $procedure$
+
 
 /*
  * Public technical entry point used by mi_0008_api.prepare_Report.
@@ -568,9 +561,8 @@ BEGIN
    p_ires_code := ret_FAIL;
    p_cres_info := NULL;
 
-   CALL mi_0008_san.assert_Run(
-      p_lsr_id         => p_lsr_id,
-      p_expected_stage => 'SANITARIUM'
+   CALL mi_0008_san.assert_Active_Run(
+      p_lsr_id => p_lsr_id
    );
 
    CALL MI_logger.enter_f(
@@ -933,9 +925,8 @@ BEGIN
    p_ires_code := ret_FAIL;
    p_cres_info := NULL;
 
-   CALL mi_0008_san.assert_Run (
-      p_lsr_id         => p_lsr_id,
-      p_expected_stage => 'SANITARIUM'
+   CALL mi_0008_san.assert_Active_Run(
+      p_lsr_id => p_lsr_id
    );
 
    CALL MI_logger.enter_f (

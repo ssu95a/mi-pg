@@ -2332,9 +2332,6 @@ BEGIN
    CALL mi_0008_api.build_Scope(l_ctx, l_scope_all, l_scope_count);
    l_ctx.scope_all := l_scope_all;
 
-   UPDATE xxi.mi_0008_lsr SET stage_cd = 'SOURCE_CALC'
-    WHERE lsr_id = p_lsr_id;
-
    IF p_itype IN (1, 2) AND p_ireq_kind = c_kind_sum THEN
       CALL mi_0008_api.load_Sources(l_ctx);
    END IF;
@@ -2365,9 +2362,6 @@ BEGIN
    END IF;
 
    ANALYZE pg_temp.mi_0008_acc_tmp;
-
-   UPDATE xxi.mi_0008_lsr SET stage_cd = 'SANITARIUM'
-    WHERE lsr_id = p_lsr_id;
 
    CALL mi_0008_san.resolve_Cus (
       l_ctx.lsr_id,
@@ -2418,10 +2412,6 @@ BEGIN
    CALL mi_0008_api.resolve_Decisions(
       p_ctx => l_ctx
    );
-
-   UPDATE xxi.mi_0008_lsr
-      SET stage_cd = 'FINAL_WRITE'
-    WHERE lsr_id = p_lsr_id;
 
 
    CALL mi_0008_api.write_Report(

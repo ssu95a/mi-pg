@@ -64,6 +64,7 @@ $function$
  * Регистрирует весь входящий запрос ФНС в автономной транзакции.
  *
  * При нормальном приёме создаёт один или два заголовка mi_req и все позиции.
+
  * При повторном original_request_uuid или requestId создаёт только запись
  * об отказе и одну диагностическую позицию, не выполняя бизнес-обработку.
  *
@@ -71,11 +72,14 @@ $function$
  * возвращает существующий READY/SENT response без новых INSERT.
  */
 CREATE PROCEDURE register_Request_AT(
+   
    IN  p_original_request_uuid uuid,
    IN  p_correlation_id        uuid,
    IN  p_message_uuid          uuid,
+
    IN  p_ctaxreq_id            varchar,
    IN  p_iyear                 numeric,
+   
    IN  p_positions             jsonb,
 
    OUT p_doc_req_id            numeric,
