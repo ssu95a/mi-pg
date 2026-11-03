@@ -40,10 +40,8 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0008_lsr_itm
    CONSTRAINT ck_mi_0008_lsr_itm_result_code CHECK (btrim(result_code) <> ''),
 
    -- Каждая разрешающая запись должна однозначно указывать, реального клиента.
-   CONSTRAINT ck_mi_0008_lsr_itm_cus_map CHECK ( result_code <> 'CUS_MAP' OR r_icusnum IS NOT NULL ),
+   CONSTRAINT ck_mi_0008_lsr_itm_cus_map CHECK ( result_code <> 'CUS_MAP' OR r_icusnum IS NOT NULL )
 
-   -- До выполнения Sanitarium реальный клиент ещё не определён.
-   CONSTRAINT ck_mi_0008_lsr_itm__pending CHECK ( result_code <> 'CUS_PENDING' OR r_icusnum IS NULL )
 )
 TABLESPACE users
 ;
@@ -93,7 +91,7 @@ COMMENT ON COLUMN xxi.mi_0008_lsr_itm.r_icusnum IS
 ;
 
 COMMENT ON COLUMN xxi.mi_0008_lsr_itm.result_code IS
-   'Состояние/решение Sanitarium: CUS_PENDING — ожидает проверки, CUS_MAP — допущен к расчёту; остальные значения содержат коды отказа.'
+   'Состояние/решение Sanitarium: CUS_MAP — допущен к расчёту; остальные значения содержат коды отказа.'
 ;
 
 COMMENT ON COLUMN xxi.mi_0008_lsr_itm.result_info IS

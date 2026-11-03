@@ -127,7 +127,6 @@ $procedure$
    #private
 BEGIN
 
-   DROP TABLE IF EXISTS pg_temp.mi_0008_scope_tmp;
    DROP TABLE IF EXISTS pg_temp.mi_0008_acc_tmp;
 
    CREATE TEMPORARY TABLE mi_0008_acc_tmp
