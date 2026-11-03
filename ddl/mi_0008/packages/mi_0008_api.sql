@@ -233,7 +233,7 @@ $procedure$
  * Выбранные здесь данные:
  *
  *   - проверяет  validate_Root_Cus;
- *   - сравнивает resolve_Decisions;
+ *   - сравнивает resolve_Final_State;
  *   - сохраняет  create_Person_Snapshots.
  *
  * Повторное чтение CUS/CUS_DOCUM в последующих стадиях не требуется.
@@ -995,7 +995,6 @@ BEGIN
              work.has_primary,
              work.hist_itm_id,
              work.hist_icorr,
-             work.hist_person_id,
 
              work.is_requested,
              work.source_seen,
@@ -1454,9 +1453,8 @@ $procedure$
  * и связывает их с фактическим inf_id запуска.
  *
  * До вызова должны быть выполнены:
- *
+ *   - resolve_Final_State
  *   - project_Current_Person;
- *   - resolve_Decisions.
  *
  * Процедура:
  *
@@ -1657,8 +1655,7 @@ $procedure$
  * До вызова должны быть выполнены:
  *
  *   - resolve_History;
- *   - resolve_Output_Amounts;
- *   - resolve_Decisions;
+ *   - resolve_Final_State;
  *   - create_Person_Snapshots.
  *
  * Процедура:
@@ -1703,7 +1700,7 @@ BEGIN
     * Считаем готовые к записи строки.
     *
     * target_icorr=100 допустим только как промежуточное значение:
-    * resolve_Decisions должен исключить такую строку из EMIT.
+    * resolve_Final_State должен исключить такую строку из EMIT.
     */
    SELECT count(*),
 
@@ -1832,7 +1829,7 @@ $procedure$
  *   - prune_Rejected_Roots;
  *   - resolve_History;
  *   - resolve_Final_State.
- 
+
  * Процедура:
  *
  *   - не читает CUS/CUS_DOCUM;
@@ -1874,8 +1871,6 @@ BEGIN
    p_cres_info := NULL;
 
    /*
-    * Решения уже сформированы resolve_Decisions.
-    *
     * Здесь только собирается итоговая статистика и проверяется,
     * что для каждой принятой root-строки решение действительно принято.
     */
@@ -1892,7 +1887,7 @@ BEGIN
 
    /*
     * Ни одна принятая root-строка не должна дойти до persistence
-    * без результата resolve_Decisions.
+    * без результата resolve_Final_State.
     */
    CALL mi_0008_api.assert_Cardinality(
       p_expected    => 0,
