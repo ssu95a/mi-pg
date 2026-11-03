@@ -1732,7 +1732,7 @@ BEGIN
      INTO l_candidate_count,
           l_emit_count,
           l_unchanged_count
-     FROM 
+     FROM
           pg_temp.mi_0008_acc_tmp AS work;
 
    /*
@@ -1932,11 +1932,6 @@ DECLARE
    l_scope_count     bigint;
    l_san_code        int4;
    l_san_info        varchar;
-
-   l_req_id          numeric;
-
-   l_write_code      int4;
-   l_write_info      text;
 
 BEGIN
 
@@ -2144,23 +2139,13 @@ BEGIN
    );
 
    CALL mi_0008_api.write_Report(
-      l_ctx, p_ctaxreq_id, l_req_id, l_write_code, l_write_info
+      p_ctx        => l_ctx,
+      p_ctaxreq_id => p_ctaxreq_id,
+      p_req_id     => p_req_id,
+      p_ires_code  => p_ires_code,
+      p_cres_info  => p_cres_info
    );
-
-   IF l_write_code NOT IN (ret_Ok, c_result_no_data)
-      OR (l_write_code = ret_Ok AND l_req_id IS NULL)
-      OR (l_write_code <> ret_Ok AND l_req_id IS NOT NULL)
-   THEN
-      CALL MI_resultCtx.raise_fail(
-         p_result_code => 'MI_0008_API#BAD_WRITE_RESULT',
-         p_result_info => format('code=%s, req_id=%s', l_write_code, l_req_id)
-      );
-   END IF;
-
-   p_req_id := l_req_id;
-   p_ires_code := l_write_code;
-   p_cres_info := l_write_info;
-
+   
    CALL mi_0008_api.finish_Run(
       l_ctx, p_req_id, p_ires_code, p_cres_info
    );
