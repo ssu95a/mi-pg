@@ -9,7 +9,6 @@ CREATE OR REPLACE PACKAGE mi_0008_api
 CREATE TYPE mi_0008_api.run_context_t AS
 (
    lsr_id       numeric(12),
-   c_Inf_Id       numeric(6),
    iyear        numeric(4),
    launch_itype numeric(2),
    irsn_corr    numeric(2),
@@ -1431,7 +1430,7 @@ BEGIN
      FROM pg_temp.mi_0008_acc_tmp AS work
     WHERE 
           work.decision_code = 'EMIT'
-       ON CONFLICT (person_id, c_Inf_Id) DO NOTHING;
+       ON CONFLICT (person_id, inf_id) DO NOTHING;
 
    GET DIAGNOSTICS l_linked_count = ROW_COUNT;
 
@@ -1996,7 +1995,6 @@ BEGIN
    ---------------------------------------------------------------------------
    l_ctx := ROW (
       p_lsr_id,
-      c_Inf_Id,
       p_iyear,
       p_itype,
       p_irsn_corr,
