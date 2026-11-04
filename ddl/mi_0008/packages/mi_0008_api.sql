@@ -1470,8 +1470,8 @@ $procedure$
  *   - проверяет cardinality итоговой вставки.
  */
 CREATE PROCEDURE write_Items(
-   IN  p_ctx           mi_0008_api.run_context_t,
-   IN  p_req_id        numeric,
+   IN  p_ctx            mi_0008_api.run_context_t,
+   IN  p_req_id         numeric,
    IN  p_expected_count bigint
 )
 AS
@@ -1482,10 +1482,7 @@ DECLARE
    l_written_count bigint;
 BEGIN
 
-   /*
-    * Заголовок запроса должен быть создан write_Report
-    * до вызова этой процедуры.
-    */
+   /* Заголовок запроса должен быть создан write_Report, до вызова этой процедуры. */
    IF p_req_id IS NULL THEN
 
       CALL MI_resultCtx.raise_fail(
@@ -1525,10 +1522,7 @@ BEGIN
           p_ctx.iyear,
           work.target_icorr,
 
-          coalesce(
-             work.hist_inum,
-             nextval('xxi.s_mi_0008__inum')
-          ),
+          coalesce( work.hist_inum, nextval('xxi.s_mi_0008__inum')  ),
 
           work.person_id,
 
