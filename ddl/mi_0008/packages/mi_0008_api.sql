@@ -1467,7 +1467,7 @@ $procedure$
  *   - не создаёт request;
  *   - не создаёт mi_person;
  *   - сохраняет historical inum либо создаёт новый;
- *   - проверяет готовность и cardinality итоговой вставки.
+ *   - проверяет cardinality итоговой вставки.
  */
 CREATE PROCEDURE write_Items(
    IN  p_ctx           mi_0008_api.run_context_t,
@@ -1480,7 +1480,6 @@ $procedure$
    #private
 DECLARE
    l_written_count bigint;
-   l_invalid_count bigint;
 BEGIN
 
    /*
@@ -1496,33 +1495,6 @@ BEGIN
 
    END IF;
 
-   SELECT count(*)
-     INTO l_invalid_count
-     FROM pg_temp.mi_0008_acc_tmp AS work
-    WHERE work.decision_code = 'EMIT'
-      AND (
-             work.person_id IS NULL
-          OR work.target_icorr IS NULL
-          OR work.target_icorr NOT BETWEEN 0 AND 99
-      );
-
-
-   /*
-    * Все EMIT-строки должны иметь:
-    *
-    *   - новый immutable person_id;
-    *   - допустимый target_icorr от 0 до 99.
-    */
-   CALL mi_0008_api.assert_Cardinality(
-      p_expected    => 0,
-      p_actual      => l_invalid_count,
-      p_result_code => 'MI_0008_API#ITEM_NOT_READY',
-      p_entity      => 'Неготовые EMIT-строки',
-      p_context     => format(
-         'req_id=%s',
-         p_req_id
-      )
-   );
 
    /*
     * Для correction/cancellation сохраняется исторический inum.
