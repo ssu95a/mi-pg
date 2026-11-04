@@ -127,9 +127,7 @@ $procedure$
 
 
 /* */
-CREATE PROCEDURE expand_Scope(
-   OUT p_scope_count bigint
-)
+CREATE PROCEDURE expand_Scope( )
 AS
 $procedure$
    #package
@@ -192,17 +190,6 @@ BEGIN
           is_excluded =
              work.is_excluded
              OR EXCLUDED.is_excluded;
-
-
-   /*
-    * Seed, которого вообще нет в relation-17 graph,
-    * остаётся собственной одноэлементной component.
-    */
-   SELECT count(*)
-     INTO p_scope_count
-     FROM pg_temp.mi_0008_acc_tmp AS work
-    WHERE work.in_scope
-      AND NOT work.is_excluded;
 
 END;
 $procedure$

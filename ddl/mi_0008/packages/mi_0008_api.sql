@@ -433,8 +433,7 @@ $procedure$
  * Направление relation-17 здесь игнорируется только для определения охвата.
  */
 CREATE PROCEDURE build_Scope (
-   IN  p_ctx         mi_0008_api.run_context_t,
-   OUT p_scope_count bigint
+   IN  p_ctx         mi_0008_api.run_context_t
 )
 AS
 $procedure$
@@ -549,10 +548,7 @@ BEGIN
    END IF;
 
    -- Один обход active relation-17.
-   --
-   CALL mi_0008_san.expand_Scope(
-      p_scope_count
-   );
+   CALL mi_0008_san.expand_Scope( );
 
 END;
 $procedure$
@@ -621,14 +617,10 @@ $procedure$
 
 
 /*
- * Принятые строки источников сворачиваются к canonical/root клиентам
- * в том же рабочем наборе.
+ * Сворачивает relation-17 mappings к canonical/root клиентам.
  *
- * До процедуры:
- *   одна строка = один source CUS.
- *
- * После процедуры:
- *   одна строка = один canonical/root CUS.
+ * Обрабатываются только компоненты, в которых есть CUS_MAP.
+ * Клиенты без mapping уже являются своими root и не переписываются.
  *
  * Это единственное место, где допускается сложение сумм
  * разных клиентов.
@@ -640,13 +632,95 @@ $procedure$
    #private
 BEGIN
 
+   /*
+    * Root-клиенты, для которых реально требуется collapse.
+    *
+    * Для CUS_MAP r_icusnum всегда заполнен Sanitarium.
+    */
+   WITH affected_roots AS MATERIALIZED
+   (
+      SELECT DISTINCT
+             work.r_icusnum AS root_icusnum
+
+        FROM pg_temp.mi_0008_acc_tmp AS work
+
+       WHERE work.san_result_code = 'CUS_MAP'
+   ),
+
+   collapsed AS MATERIALIZED
+   (
+      SELECT coalesce(
+                work.r_icusnum,
+                work.s_icusnum
+             ) AS root_icusnum,
+
+             bool_or(work.in_scope)     AS in_scope,
+             bool_or(work.is_requested) AS is_requested,
+             bool_or(work.source_seen)  AS source_seen,
+
+             NULLIF(
+                sum(work.msum_f_dep),
+                0
+             )::numeric(22,2) AS msum_f_dep,
+
+             NULLIF(
+                sum(work.msum_i_dep),
+                0
+             )::numeric(22,2) AS msum_i_dep,
+
+             NULLIF(
+                sum(work.msum_f_crd),
+                0
+             )::numeric(22,2) AS msum_f_crd,
+
+             NULLIF(
+                sum(work.msum_i_crd),
+                0
+             )::numeric(22,2) AS msum_i_crd,
+
+             NULLIF(
+                sum(work.msum_f_acc),
+                0
+             )::numeric(22,2) AS msum_f_acc,
+
+             NULLIF(
+                sum(work.msum_i_acc),
+                0
+             )::numeric(22,2) AS msum_i_acc
+
+        FROM pg_temp.mi_0008_acc_tmp AS work
+
+        JOIN affected_roots AS affected
+          ON affected.root_icusnum =
+             coalesce(
+                work.r_icusnum,
+                work.s_icusnum
+             )
+
+       /*
+        * В collapse участвуют:
+        *
+        *   - canonical root;
+        *   - его CUS_MAP children.
+        *
+        * Graph rejects в суммы не входят.
+        */
+       WHERE work.san_result_code IS NULL
+          OR work.san_result_code = 'CUS_MAP'
+
+       GROUP BY
+             coalesce(
+                work.r_icusnum,
+                work.s_icusnum
+             )
+   )
+
    INSERT INTO pg_temp.mi_0008_acc_tmp AS work
    (
       s_icusnum,
 
       in_scope,
       is_requested,
-      is_excluded,
       source_seen,
 
       msum_f_dep,
@@ -654,70 +728,26 @@ BEGIN
       msum_f_crd,
       msum_i_crd,
       msum_f_acc,
-      msum_i_acc,
-
-      r_icusnum,
-      san_result_code,
-      san_result_info,
-      san_result_data
+      msum_i_acc
    )
-   SELECT coalesce( a.r_icusnum, a.s_icusnum ) AS root_icusnum,
+   SELECT collapsed.root_icusnum,
 
-          bool_or(a.in_scope),
-          bool_or(a.is_requested),
-          false,
-          bool_or(a.source_seen),
+          collapsed.in_scope,
+          collapsed.is_requested,
+          collapsed.source_seen,
 
-          NULLIF(
-             sum(a.msum_f_dep),
-             0
-          )::numeric(22,2),
+          collapsed.msum_f_dep,
+          collapsed.msum_i_dep,
+          collapsed.msum_f_crd,
+          collapsed.msum_i_crd,
+          collapsed.msum_f_acc,
+          collapsed.msum_i_acc
 
-          NULLIF(
-             sum(a.msum_i_dep),
-             0
-          )::numeric(22,2),
+     FROM collapsed
 
-          NULLIF(
-             sum(a.msum_f_crd),
-             0
-          )::numeric(22,2),
-
-          NULLIF(
-             sum(a.msum_i_crd),
-             0
-          )::numeric(22,2),
-
-          NULLIF(
-             sum(a.msum_f_acc),
-             0
-          )::numeric(22,2),
-
-          NULLIF(
-             sum(a.msum_i_acc),
-             0
-          )::numeric(22,2),
-
-          /*
-           * После collapse строка уже является root-строкой.
-           * Предыдущее graph-решение ей больше не требуется.
-           */
-          NULL::numeric,
-          NULL::varchar,
-          NULL::text,
-          NULL::text
-
-     FROM pg_temp.mi_0008_acc_tmp AS a
-
-    WHERE a.san_result_code IS NULL
-       OR a.san_result_code = 'CUS_MAP'
-    GROUP BY coalesce( a.r_icusnum, a.s_icusnum )
-
-       ON CONFLICT (s_icusnum) 
-       DO UPDATE
+   ON CONFLICT (s_icusnum) DO UPDATE
       SET in_scope     = EXCLUDED.in_scope,
           is_requested = EXCLUDED.is_requested,
-          is_excluded  = false,
           source_seen  = EXCLUDED.source_seen,
 
           msum_f_dep = EXCLUDED.msum_f_dep,
@@ -727,24 +757,25 @@ BEGIN
           msum_f_acc = EXCLUDED.msum_f_acc,
           msum_i_acc = EXCLUDED.msum_i_acc,
 
+          /*
+           * После collapse строка является canonical/root.
+           */
           r_icusnum       = NULL,
           san_result_code = NULL,
           san_result_info = NULL,
           san_result_data = NULL;
 
+
    /*
-    * К этому моменту:
+    * CUS_MAP children уже включены в root.
+    * Graph rejects уже сохранены в mi_0008_lsr_itm.
     *
-    *   - root-строки созданы или обновлены;
-    *   - CUS_MAP children уже включены в суммы root;
-    *   - graph rejects уже сохранены в mi_0008_lsr_itm.
-    *
-    * Поэтому все special source-строки удаляются.
+    * Обычные root-строки имеют san_result_code IS NULL
+    * и остаются в accumulator.
     */
    DELETE
      FROM pg_temp.mi_0008_acc_tmp
-    WHERE 
-          san_result_code IS NOT NULL;
+    WHERE san_result_code IS NOT NULL;
 
 END;
 $procedure$
@@ -761,7 +792,7 @@ $procedure$
  * Latest выбирается по фактическому порядку создания request/item,
  * а не через MAX(icorr).
  */
-CREATE PROCEDURE resolve_History(
+CREATE PROCEDURE resolve_History (
    IN p_ctx mi_0008_api.run_context_t
 )
 AS
@@ -770,36 +801,29 @@ $procedure$
    #private
 BEGIN
 
-   WITH latest AS MATERIALIZED
+   WITH latest AS MATERIALIZED 
    (
-      SELECT DISTINCT ON (work.s_icusnum)
-             work.s_icusnum,
-
-             bool_or(item.icorr = 0)
-                OVER (
-                   PARTITION BY work.s_icusnum
-                ) AS has_primary,
-
-             item.itm_id,
-             item.icorr,
-             item.inum,
-             item.person_id
-
-        FROM pg_temp.mi_0008_acc_tmp AS work
-
-        JOIN xxi.mi_0008 AS item
-          ON item.icusnum = work.s_icusnum
-         AND item.iyear   = p_ctx.iyear
-
-        JOIN xxi.mi_req AS request
-          ON request.req_id = item.req_id
-         AND request.inf_id = p_ctx.inf_id
-         AND request.status_cd IN (1, 2, 3)
-
-       ORDER BY work.s_icusnum,
-                request.created_at DESC,
-                request.req_id DESC,
-                item.itm_id DESC
+      SELECT DISTINCT ON( work.s_icusnum )
+            work.s_icusnum,
+            bool_or(item.icorr = 0) OVER ( PARTITION BY work.s_icusnum ) AS has_primary,
+            item.itm_id,
+            item.icorr,
+            item.inum,
+            item.person_id
+       FROM
+            pg_temp.mi_0008_acc_tmp AS work
+       JOIN xxi.mi_0008 AS item
+         ON item.icusnum = work.s_icusnum
+        AND item.iyear   = p_ctx.iyear
+       JOIN xxi.mi_req AS request
+         ON request.req_id = item.req_id
+        AND request.inf_id = p_ctx.inf_id
+        AND request.status_cd IN (1, 2, 3)
+      ORDER BY
+            work.s_icusnum, 
+            request.created_at DESC,
+            request.req_id DESC,
+            item.itm_id DESC
    )
    UPDATE pg_temp.mi_0008_acc_tmp AS work
       SET has_primary    = history.has_primary,
@@ -807,10 +831,9 @@ BEGIN
           hist_icorr     = history.icorr,
           hist_inum      = history.inum,
           hist_person_id = history.person_id
-
      FROM latest AS history
-
-    WHERE work.s_icusnum = history.s_icusnum;
+    WHERE
+          work.s_icusnum = history.s_icusnum;
 
 END;
 $procedure$
@@ -842,8 +865,11 @@ BEGIN
           req_id      = p_req_id,
           ires_code   = p_ires_code,
           cres_info   = p_cres_info
-    WHERE l.lsr_id = p_ctx.lsr_id
-      AND l.status_cd   = 'RUNNING' AND l.finished_at IS NULL;
+    WHERE
+          l.lsr_id    = p_ctx.lsr_id
+      AND l.status_cd = 'RUNNING' 
+      AND l.finished_at
+          IS NULL;
 
    GET DIAGNOSTICS l_count = ROW_COUNT;
 
@@ -854,6 +880,7 @@ BEGIN
       p_entity      => 'Закрытие активного LSR',
       p_context     => format( 'lsr_id=%s', p_ctx.lsr_id )
    );
+
 END;
 $procedure$
 
@@ -1815,13 +1842,13 @@ $procedure$
 
 
 /*
- * Основная бизнес-точка входа. 
-
-   Процедура формирует один запрос отчёта и его не отправляет. 
-   Бизнес-результаты возвращаются через OUT-параметры;
-   технические ошибки логируются и пробрасываются повторно. 
-
-   COMMIT выполняет вызывающая сторона.
+ * Основная бизнес-точка входа.
+ *
+ * Процедура формирует один запрос отчёта и его не отправляет.
+ * Бизнес-результаты возвращаются через OUT-параметры;
+ * технические ошибки логируются и пробрасываются повторно.
+ *
+ * COMMIT выполняет вызывающая сторона.
  */
 CREATE PROCEDURE prepare_Report (
    IN  p_inf_id       numeric,
@@ -1842,110 +1869,179 @@ AS
 $procedure$
    #package
 DECLARE
-   cAction_Name CONSTANT varchar(50) := cPkg_Name || '.prepare_Report';
+   c_Action_Name CONSTANT varchar(50) := cPkg_Name || '.prepare_Report';
 
-   l_ctx             mi_0008_api.run_context_t;
-
-   l_scope_count     bigint;
-
+   l_ctx mi_0008_api.run_context_t;
 BEGIN
 
    p_lsr_id    := NULL;
    p_req_id    := NULL;
+
    p_ires_code := ret_Fail;
    p_cres_info := NULL;
 
    CALL MI_logger.enter_f (
       p_logger_name   => cLogger,
-      p_function_name => cAction_Name,
+      p_function_name => c_Action_Name,
       p_inf_id        => p_inf_id,
-      p_parameters    => format(
-         'year=%s,type=%s,reason=%s,kind=%s,marker=%s,pack=%s',
-         p_iyear, p_itype, p_irsn_corr, p_ireq_kind,
-         p_cus_marker, p_pack_num
-      )
+      p_parameters    => format( 'year=%s,type=%s,reason=%s,kind=%s,marker=%s,pack=%s', p_iyear, p_itype, p_irsn_corr, p_ireq_kind, p_cus_marker, p_pack_num )
    );
 
+
    ---------------------------------------------------------------------------
-   -- Проверка бизнес-параметров. Для некорректного запроса LSR не создаётся.
+   -- Проверка бизнес-параметров.
+   -- Для некорректного запроса LSR не создаётся.
    ---------------------------------------------------------------------------
    IF p_inf_id IS NULL OR p_inf_id NOT IN (8, 81) THEN
       p_cres_info := 'INVALID_INF_ID: allowed values are 8 and 81';
-   ELSIF p_iyear IS NULL OR p_iyear <> trunc(p_iyear)
-         OR p_iyear NOT BETWEEN 1 AND 9999 THEN
+
+   ELSIF p_iyear IS NULL
+      OR p_iyear <> trunc(p_iyear)
+      OR p_iyear NOT BETWEEN 1 AND 9999
+   THEN
       p_cres_info := 'INVALID_YEAR';
+
    ELSIF p_itype IS NULL OR p_itype NOT IN (1, 2, 3, 4) THEN
       p_cres_info := 'INVALID_ITYPE';
+
    ELSIF p_itype = 4 THEN
       p_cres_info := 'NOT_SUPPORTED: p_itype=4';
+
    ELSIF p_irsn_corr IS NULL OR p_irsn_corr NOT IN (1, 2) THEN
       p_cres_info := 'INVALID_REASON';
+
    ELSIF p_ireq_kind IS NULL OR p_ireq_kind NOT IN (1, 2) THEN
       p_cres_info := 'INVALID_REQUEST_KIND';
-   ELSIF p_inf_id = 81 AND NULLIF(btrim(p_ctaxreq_id), '') IS NULL THEN
+
+   ELSIF p_inf_id = 81
+      AND NULLIF(btrim(p_ctaxreq_id), '') IS NULL
+   THEN
       p_cres_info := 'CTAXREQ_ID_REQUIRED_FOR_INF_81';
-   ELSIF p_itype = 1 AND p_ireq_kind <> c_kind_sum THEN
+
+   ELSIF p_itype = 1
+      AND p_ireq_kind <> c_kind_sum
+   THEN
       p_cres_info := 'PRIMARY_REQUIRES_FINANCIAL_KIND';
-   ELSIF p_itype = 1 AND p_cus_marker IS NOT NULL AND p_pack_num IS NULL THEN
+
+   ELSIF p_itype = 1
+      AND p_cus_marker IS NOT NULL
+      AND p_pack_num IS NULL
+   THEN
       p_cres_info := 'PACK_NUM_REQUIRED_FOR_PRIMARY_MARKER';
-   ELSIF p_itype = 2 AND p_irsn_corr = c_reason_fns
-         AND p_cus_marker IS NULL THEN
+
+   ELSIF p_itype = 2
+      AND p_irsn_corr = c_reason_fns
+      AND p_cus_marker IS NULL
+   THEN
       p_cres_info := 'MARKER_REQUIRED_FOR_FNS_CORRECTION';
-   ELSIF p_itype = 3 AND p_cus_marker IS NULL THEN
+
+   ELSIF p_itype = 3
+      AND p_cus_marker IS NULL
+   THEN
       p_cres_info := 'MARKER_REQUIRED_FOR_CANCELLATION';
+
    END IF;
 
+
    IF p_cres_info IS NOT NULL THEN
+
       CALL MI_logger.exit_f(
          p_logger_name  => cLogger,
          p_message_text => p_cres_info,
          p_inf_id       => p_inf_id
       );
+
       RETURN;
+
    END IF;
 
+
    ---------------------------------------------------------------------------
-   -- Неблокирующая защита. Частичный уникальный индекс остаётся вторым уровнем
+   -- Неблокирующая защита одного расчёта на год.
+   --
+   -- Частичный unique index на активный LSR остаётся вторым уровнем
    -- защиты для путей выполнения вне этого пакета.
    ---------------------------------------------------------------------------
    IF NOT pg_catalog.pg_try_advisory_xact_lock(
       pg_catalog.hashtext('mi_0008.prepare_report')::int4,
       p_iyear::int4
-   ) THEN
+   )
+   THEN
+
       p_ires_code := c_result_busy;
-      p_cres_info := format('BUSY: inf_id=%s, year=%s', p_inf_id, p_iyear);
+      p_cres_info := format(
+         'BUSY: inf_id=%s, year=%s',
+         p_inf_id,
+         p_iyear
+      );
+
       CALL MI_logger.exit_f(
          p_logger_name  => cLogger,
          p_message_text => p_cres_info,
          p_inf_id       => p_inf_id
       );
+
       RETURN;
+
    END IF;
 
+
+   ---------------------------------------------------------------------------
+   -- Регистрируем запуск.
+   ---------------------------------------------------------------------------
    INSERT INTO xxi.mi_0008_lsr
    (
-      itype, iyear, irsn_corr, ireq_kind,
-      status_cd, stage_cd, started_at
+      itype,
+      iyear,
+      irsn_corr,
+      ireq_kind,
+
+      status_cd,
+      stage_cd,
+      started_at
    )
    VALUES
    (
-      p_itype, p_iyear, p_irsn_corr, p_ireq_kind,
-      'RUNNING', 'CREATED', clock_timestamp()
+      p_itype,
+      p_iyear,
+      p_irsn_corr,
+      p_ireq_kind,
+
+      'RUNNING',
+      'CREATED',
+      clock_timestamp()
    )
-   ON CONFLICT (iyear) WHERE finished_at IS NULL DO NOTHING
-   RETURNING lsr_id INTO p_lsr_id;
+
+   ON CONFLICT (iyear)
+      WHERE finished_at IS NULL
+      DO NOTHING
+
+   RETURNING lsr_id
+        INTO p_lsr_id;
+
 
    IF NOT FOUND THEN
+
       p_ires_code := c_result_busy;
-      p_cres_info := format('BUSY: active LSR for year=%s', p_iyear);
+      p_cres_info := format(
+         'BUSY: active LSR for year=%s',
+         p_iyear
+      );
+
       CALL MI_logger.exit_f(
          p_logger_name  => cLogger,
          p_message_text => p_cres_info,
          p_inf_id       => p_inf_id
       );
+
       RETURN;
+
    END IF;
 
+
+   ---------------------------------------------------------------------------
+   -- Immutable context текущего запуска.
+   ---------------------------------------------------------------------------
    l_ctx := ROW (
       p_lsr_id,
       p_inf_id,
@@ -1955,67 +2051,91 @@ BEGIN
       p_ireq_kind,
       p_cus_marker,
       p_pack_num,
+
+      /*
+       * Полный primary без marker:
+       * источники обрабатывают весь доступный набор клиентов.
+       */
       p_itype = 1 AND p_cus_marker IS NULL
    )::mi_0008_api.run_context_t;
 
+
+   ---------------------------------------------------------------------------
+   -- Рабочие структуры.
+   ---------------------------------------------------------------------------
    CALL mi_0008_api.create_Temp_Tables();
 
+   /*
+    * Один snapshot active relation-17 используется далее
+    * и для scope, и для canonical/root mapping.
+    */
    CALL mi_0008_san.prepare_Link_Graph();
 
-   CALL mi_0008_api.build_Scope(l_ctx, l_scope_count);
 
-   IF p_itype IN (1, 2) AND p_ireq_kind = c_kind_sum THEN
-      CALL mi_0008_api.load_Sources(l_ctx);
-   END IF;
-
-   /*
-    * Person correction и cancellation не запускают источники,
-    * но их кандидаты уже были созданы build_Scope.
-    */
-   CALL mi_0008_api.prune_Excluded( );
-
-
-   IF NOT EXISTS
-      (
-         SELECT 1
-           FROM pg_temp.mi_0008_acc_tmp
-      )
-   THEN
-      p_ires_code := c_result_no_data;
-      p_cres_info := format(
-         'NO_DATA: candidate_scope=%s, accumulator=0',
-         l_scope_count
-      );
-
-      CALL mi_0008_api.finish_Run(
-         l_ctx,
-         NULL,
-         p_ires_code,
-         p_cres_info
-      );
-
-      CALL MI_logger.exit_f(
-         p_logger_name  => cLogger,
-         p_message_text => p_cres_info,
-         p_inf_id       => p_inf_id,
-         p_object_id    => p_lsr_id
-      );
-
-      RETURN;
-   END IF;
-
-
-   ANALYZE pg_temp.mi_0008_acc_tmp;
-
-   CALL mi_0008_san.resolve_Cus (
-      l_ctx.lsr_id,
-      l_ctx.inf_id
+   ---------------------------------------------------------------------------
+   -- Scope.
+   ---------------------------------------------------------------------------
+   CALL mi_0008_api.build_Scope(
+      p_ctx => l_ctx
    );
 
+
+   ---------------------------------------------------------------------------
+   -- Финансовые источники.
+   --
+   -- Person correction и cancellation источники не запускают:
+   -- необходимые кандидаты уже созданы build_Scope.
+   ---------------------------------------------------------------------------
+   IF p_itype IN (1, 2)
+      AND p_ireq_kind = c_kind_sum
+   THEN
+
+      CALL mi_0008_api.load_Sources(
+         p_ctx => l_ctx
+      );
+
+   END IF;
+
+
+   ---------------------------------------------------------------------------
+   -- Исключённые relation-17 components в дальнейший расчёт не входят.
+   ---------------------------------------------------------------------------
+   CALL mi_0008_api.prune_Excluded();
+
+
+   /*
+    * Пустой accumulator является обычным состоянием pipeline.
+    *
+    * Все последующие стадии корректно работают с пустым набором;
+    * окончательное решение NO_DATA принимает write_Report().
+    */
+   ANALYZE pg_temp.mi_0008_acc_tmp;
+
+
+   ---------------------------------------------------------------------------
+   -- Relation-17: source CUS -> canonical/root CUS.
+   ---------------------------------------------------------------------------
+   CALL mi_0008_san.resolve_Cus(
+      p_lsr_id => l_ctx.lsr_id,
+      p_inf_id => l_ctx.inf_id
+   );
+
+
+   /*
+    * Суммы source-клиентов relation-17 сворачиваются в canonical roots.
+    */
    CALL mi_0008_api.collapse_To_Roots();
 
+
+   ---------------------------------------------------------------------------
+   -- Текущий snapshot клиента.
+   ---------------------------------------------------------------------------
    CALL mi_0008_api.project_Current_Person();
 
+
+   ---------------------------------------------------------------------------
+   -- Sanitarium итоговых root-клиентов.
+   ---------------------------------------------------------------------------
    CALL mi_0008_san.validate_Root_Cus(
       p_lsr_id       => l_ctx.lsr_id,
       p_inf_id       => l_ctx.inf_id,
@@ -2025,16 +2145,31 @@ BEGIN
       p_ireq_kind    => l_ctx.ireq_kind
    );
 
+
    CALL mi_0008_api.prune_Rejected_Roots();
 
+
+   ---------------------------------------------------------------------------
+   -- История и final-state.
+   ---------------------------------------------------------------------------
    CALL mi_0008_api.resolve_History(
       p_ctx => l_ctx
    );
+
 
    CALL mi_0008_api.resolve_Final_State(
       p_ctx => l_ctx
    );
 
+
+   ---------------------------------------------------------------------------
+   -- Persistence.
+   --
+   -- write_Report:
+   --   - сохраняет final diagnostics;
+   --   - при отсутствии EMIT возвращает NO_DATA без создания request;
+   --   - иначе создаёт request/person/items.
+   ---------------------------------------------------------------------------
    CALL mi_0008_api.write_Report(
       p_ctx        => l_ctx,
       p_ctaxreq_id => p_ctaxreq_id,
@@ -2042,10 +2177,18 @@ BEGIN
       p_ires_code  => p_ires_code,
       p_cres_info  => p_cres_info
    );
-   
+
+
+   ---------------------------------------------------------------------------
+   -- Закрываем LSR одним общим путём и для OK, и для NO_DATA.
+   ---------------------------------------------------------------------------
    CALL mi_0008_api.finish_Run(
-      l_ctx, p_req_id, p_ires_code, p_cres_info
+      p_ctx       => l_ctx,
+      p_req_id    => p_req_id,
+      p_ires_code => p_ires_code,
+      p_cres_info => p_cres_info
    );
+
 
    CALL MI_logger.exit_f(
       p_logger_name  => cLogger,
@@ -2055,11 +2198,13 @@ BEGIN
       p_object_id    => p_lsr_id
    );
 
+
 EXCEPTION
    WHEN OTHERS THEN
       DECLARE
          ex TS.T_StackedDiagnostics;
       BEGIN
+
          GET STACKED DIAGNOSTICS
             ex.RETURNED_SQLSTATE    = RETURNED_SQLSTATE,
             ex.MESSAGE_TEXT         = MESSAGE_TEXT,
@@ -2069,17 +2214,20 @@ EXCEPTION
 
          CALL MI_logger.error(
             p_logger_name   => cLogger,
-            p_message_text  => cAction_Name || ' failed',
+            p_message_text  => c_Action_Name || ' failed',
             p_inf_id        => p_inf_id,
             p_req_id        => p_req_id,
-            p_details_text  => TS.WhenOthersError(cAction_Name, ex),
+            p_details_text  => TS.WhenOthersError(c_Action_Name, ex),
             p_action_cd     => 'exception',
             p_context_value => ex.RETURNED_SQLSTATE,
             p_object_name   => cPkg_Name,
             p_object_id     => p_lsr_id
          );
+
       END;
+
       RAISE;
+
 END;
 $procedure$
 
