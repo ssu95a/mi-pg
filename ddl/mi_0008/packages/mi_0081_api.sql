@@ -464,14 +464,17 @@ BEGIN
    p_ret_code := -1;
    p_ret_info := NULL;
 
-   IF num_nulls(p_message_uuid, p_original_request_uuid,
-                p_correlation_id, p_request_time, p_payload_text) > 0
-      OR btrim(p_payload_text) = '' THEN
+   IF num_nulls(p_message_uuid, p_original_request_uuid, p_correlation_id, p_request_time, p_payload_text) > 0
+   OR 
+      btrim(p_payload_text) = '' THEN
+      
       p_ret_info := 'INVALID_REQUEST_PARAMETERS';
+      
       RETURN;
+
    END IF;
 
-   /* Только ошибка чтения JSON превращается в ошибку формата. */
+   /* Ошибка чтения JSON превращается в ошибку формата. */
    BEGIN
       l_payload := p_payload_text::jsonb;
    EXCEPTION WHEN OTHERS THEN

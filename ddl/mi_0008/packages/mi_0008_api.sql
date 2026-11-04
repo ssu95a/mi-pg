@@ -9,7 +9,7 @@ CREATE OR REPLACE PACKAGE mi_0008_api
 CREATE TYPE mi_0008_api.run_context_t AS
 (
    lsr_id       numeric(12),
-   inf_id       numeric(6),
+   c_Inf_Id       numeric(6),
    iyear        numeric(4),
    launch_itype numeric(2),
    irsn_corr    numeric(2),
@@ -43,6 +43,8 @@ DECLARE
    cVersion  CONSTANT varchar(100) := '1.2.0';
    cPkg_Name CONSTANT varchar(20)  := 'mi_0008_api';
    cLogger   CONSTANT varchar(20)  := 'mi.0008';
+
+   c_Inf_Id  CONSTANT numeric(6) := 8;
 
    ret_Ok    CONSTANT int4 := 0;
    ret_Fail  CONSTANT int4 := -1;
@@ -433,7 +435,7 @@ $procedure$
  * Направление relation-17 здесь игнорируется только для определения охвата.
  */
 CREATE PROCEDURE build_Scope (
-   IN  p_ctx         mi_0008_api.run_context_t
+   IN  p_ctx  mi_0008_api.run_context_t
 )
 AS
 $procedure$
@@ -501,7 +503,7 @@ BEGIN
         JOIN xxi.mi_req AS request
           ON request.req_id = item.req_id
 
-       WHERE request.inf_id = p_ctx.inf_id
+       WHERE request.inf_Id = c_Inf_Id
          AND request.status_cd IN (1, 2, 3)
          AND item.iyear = p_ctx.iyear
          AND (
@@ -537,7 +539,7 @@ BEGIN
         JOIN xxi.mi_req AS request
           ON request.req_id = item.req_id
 
-       WHERE request.inf_id = p_ctx.inf_id
+       WHERE request.inf_Id = c_Inf_Id
          AND request.status_cd IN (1, 2, 3)
          AND item.iyear = p_ctx.iyear
          AND item.icorr = 0
@@ -565,7 +567,7 @@ $procedure$
 BEGIN
 
    CALL mi_0008_src.prepare_Dep (
-      p_inf_id       => p_ctx.inf_id,
+      p_inf_id       => c_Inf_Id,
       p_iyear        => p_ctx.iyear,
       p_launch_itype => p_ctx.launch_itype,
       p_irsn_corr    => p_ctx.irsn_corr,
@@ -575,7 +577,7 @@ BEGIN
    );
 
    CALL mi_0008_src.prepare_Crd (
-      p_inf_id       => p_ctx.inf_id,
+      p_inf_id       => c_Inf_Id,
       p_iyear        => p_ctx.iyear,
       p_launch_itype => p_ctx.launch_itype,
       p_irsn_corr    => p_ctx.irsn_corr,
@@ -585,7 +587,7 @@ BEGIN
    );
 
    CALL mi_0008_src.prepare_Acc(
-      p_inf_id       => p_ctx.inf_id,
+      p_inf_id       => c_Inf_Id,
       p_iyear        => p_ctx.iyear,
       p_launch_itype => p_ctx.launch_itype,
       p_irsn_corr    => p_ctx.irsn_corr,
@@ -785,7 +787,7 @@ $procedure$
  * Находит последнюю допустимую историю для каждого итогового клиента.
  *
  * History определяется по:
- *   - тому же inf_id;
+ *   - тому же c_Inf_Id;
  *   - тому же отчётному году;
  *   - status_cd IN (1, 2, 3).
  *
@@ -817,7 +819,7 @@ BEGIN
         AND item.iyear   = p_ctx.iyear
        JOIN xxi.mi_req AS request
          ON request.req_id = item.req_id
-        AND request.inf_id = p_ctx.inf_id
+        AND request.inf_Id = c_Inf_Id
         AND request.status_cd IN (1, 2, 3)
       ORDER BY
             work.s_icusnum, 
@@ -1142,7 +1144,7 @@ BEGIN
                    'UNCHANGED_PERSON'
 
                 /*
-                 * Физический ключ таблицы MI_0008 не содержит inf_id.
+                 * Физический ключ таблицы MI_0008 не содержит c_Inf_Id.
                  */
                 WHEN EXISTS
                      (
@@ -1293,7 +1295,7 @@ $procedure$
 
 /*
  * Создаёт immutable mi_person snapshots для строк с решением EMIT
- * и связывает их с фактическим inf_id запуска.
+ * и связывает их с фактическим c_Inf_Id запуска.
  *
  * До вызова должны быть выполнены:
  *   - resolve_Final_State
@@ -1423,16 +1425,13 @@ BEGIN
    INSERT INTO xxi.mi_p2i
    (
       person_id,
-      inf_id
+      inf_Id
    )
-   SELECT work.person_id,
-          p_ctx.inf_id
-
+   SELECT work.person_id, c_Inf_Id
      FROM pg_temp.mi_0008_acc_tmp AS work
-
-    WHERE work.decision_code = 'EMIT'
-
-   ON CONFLICT (person_id, inf_id) DO NOTHING;
+    WHERE 
+          work.decision_code = 'EMIT'
+       ON CONFLICT (person_id, c_Inf_Id) DO NOTHING;
 
    GET DIAGNOSTICS l_linked_count = ROW_COUNT;
 
@@ -1681,7 +1680,7 @@ BEGIN
             'Для %s клиентов записана диагностика формирования отчёта',
             l_diag_count
          ),
-         p_inf_id      => p_ctx.inf_id,
+         p_inf_id      => c_Inf_Id,
          p_action_cd   => 'write_report',
          p_object_name => cPkg_Name,
          p_object_id   => p_ctx.lsr_id
@@ -1698,7 +1697,7 @@ BEGIN
             'Для %s клиентов достигнута граница номера корректировки',
             l_icorr_diag_count
          ),
-         p_inf_id      => p_ctx.inf_id,
+         p_inf_id      => c_Inf_Id,
          p_action_cd   => 'icorr',
          p_object_name => cPkg_Name,
          p_object_id   => p_ctx.lsr_id
@@ -1735,11 +1734,8 @@ BEGIN
     * тип каждой строки определяется через icorr.
     */
    p_req_id := MI_Request_Api.create_Request(
-      p_inf_id     => p_ctx.inf_id,
-      p_ctaxreq_id => NULLIF(
-                         btrim(p_ctaxreq_id),
-                         ''
-                      ),
+      p_inf_id     => c_Inf_Id,
+      p_ctaxreq_id => NULLIF( btrim(p_ctaxreq_id), '' ),
       p_status_cd  => 0::numeric,
       p_itype      => NULL::numeric,
       p_i1         => p_ctx.iyear,
@@ -1817,7 +1813,6 @@ $procedure$
  * COMMIT выполняет вызывающая сторона.
  */
 CREATE PROCEDURE prepare_Report (
-   IN  p_inf_id       numeric,
    IN  p_iyear        numeric,
    IN  p_itype        numeric,
    IN  p_irsn_corr    numeric,
@@ -1849,7 +1844,7 @@ BEGIN
    CALL MI_logger.enter_f (
       p_logger_name   => cLogger,
       p_function_name => c_Action_Name,
-      p_inf_id        => p_inf_id,
+      p_inf_id        => c_Inf_Id,
       p_parameters    => format( 'year=%s,type=%s,reason=%s,kind=%s,marker=%s,pack=%s', p_iyear, p_itype, p_irsn_corr, p_ireq_kind, p_cus_marker, p_pack_num )
    );
 
@@ -1858,10 +1853,7 @@ BEGIN
    -- Проверка бизнес-параметров.
    -- Для некорректного запроса LSR не создаётся.
    ---------------------------------------------------------------------------
-   IF p_inf_id IS NULL OR p_inf_id NOT IN (8, 81) THEN
-      p_cres_info := 'INVALID_INF_ID: allowed values are 8 and 81';
-
-   ELSIF p_iyear IS NULL
+   IF p_iyear IS NULL
       OR p_iyear <> trunc(p_iyear)
       OR p_iyear NOT BETWEEN 1 AND 9999
    THEN
@@ -1878,12 +1870,6 @@ BEGIN
 
    ELSIF p_ireq_kind IS NULL OR p_ireq_kind NOT IN (1, 2) THEN
       p_cres_info := 'INVALID_REQUEST_KIND';
-
-   ELSIF p_inf_id = 81
-      AND NULLIF(btrim(p_ctaxreq_id), '') IS NULL
-   THEN
-      p_cres_info := 'CTAXREQ_ID_REQUIRED_FOR_INF_81';
-
    ELSIF p_itype = 1
       AND p_ireq_kind <> c_kind_sum
    THEN
@@ -1914,7 +1900,7 @@ BEGIN
       CALL MI_logger.exit_f(
          p_logger_name  => cLogger,
          p_message_text => p_cres_info,
-         p_inf_id       => p_inf_id
+         p_inf_id       => c_Inf_Id
       );
 
       RETURN;
@@ -1936,15 +1922,15 @@ BEGIN
 
       p_ires_code := c_result_busy;
       p_cres_info := format(
-         'BUSY: inf_id=%s, year=%s',
-         p_inf_id,
+         'BUSY: c_Inf_Id=%s, year=%s',
+         c_Inf_Id,
          p_iyear
       );
 
       CALL MI_logger.exit_f(
          p_logger_name  => cLogger,
          p_message_text => p_cres_info,
-         p_inf_id       => p_inf_id
+         p_inf_id       => c_Inf_Id
       );
 
       RETURN;
@@ -1997,7 +1983,7 @@ BEGIN
       CALL MI_logger.exit_f(
          p_logger_name  => cLogger,
          p_message_text => p_cres_info,
-         p_inf_id       => p_inf_id
+         p_inf_id       => c_Inf_Id
       );
 
       RETURN;
@@ -2010,7 +1996,7 @@ BEGIN
    ---------------------------------------------------------------------------
    l_ctx := ROW (
       p_lsr_id,
-      p_inf_id,
+      c_Inf_Id,
       p_iyear,
       p_itype,
       p_irsn_corr,
@@ -2083,7 +2069,7 @@ BEGIN
    ---------------------------------------------------------------------------
    CALL mi_0008_san.resolve_Cus(
       p_lsr_id => l_ctx.lsr_id,
-      p_inf_id => l_ctx.inf_id
+      p_inf_id => c_Inf_Id
    );
 
 
@@ -2104,7 +2090,7 @@ BEGIN
    ---------------------------------------------------------------------------
    CALL mi_0008_san.validate_Root_Cus(
       p_lsr_id       => l_ctx.lsr_id,
-      p_inf_id       => l_ctx.inf_id,
+      p_inf_id       => c_Inf_Id,
       p_iyear        => l_ctx.iyear,
       p_launch_itype => l_ctx.launch_itype,
       p_irsn_corr    => l_ctx.irsn_corr,
@@ -2159,7 +2145,7 @@ BEGIN
    CALL MI_logger.exit_f(
       p_logger_name  => cLogger,
       p_message_text => p_cres_info,
-      p_inf_id       => p_inf_id,
+      p_inf_id       => c_Inf_Id,
       p_req_id       => p_req_id,
       p_object_id    => p_lsr_id
    );
@@ -2181,7 +2167,7 @@ EXCEPTION
          CALL MI_logger.error(
             p_logger_name   => cLogger,
             p_message_text  => c_Action_Name || ' failed',
-            p_inf_id        => p_inf_id,
+            p_inf_id        => c_Inf_Id,
             p_req_id        => p_req_id,
             p_details_text  => TS.WhenOthersError(c_Action_Name, ex),
             p_action_cd     => 'exception',
