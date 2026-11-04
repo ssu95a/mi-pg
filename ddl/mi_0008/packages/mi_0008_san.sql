@@ -44,7 +44,7 @@ END;
 $function$
 
 
-/* Recreate only the graph work tables.  The accumulator belongs to API. */
+/* Recreate only the graph work tables. The accumulator belongs to API. */
 CREATE PROCEDURE create_Graph_Tables()
 AS
 $procedure$
@@ -206,6 +206,7 @@ BEGIN
 
 END;
 $procedure$
+
 
 /* */
 CREATE PROCEDURE resolve_Components (
@@ -612,29 +613,23 @@ BEGIN
      INTO l_status_cd,
           l_finished_at
      FROM xxi.mi_0008_lsr AS l
-    WHERE l.lsr_id = p_lsr_id;
+    WHERE 
+          l.lsr_id = p_lsr_id;
 
    IF NOT FOUND THEN
+
       CALL MI_resultCtx.raise_fail(
          p_result_code => 'MI_0008_SAN#RUN_NOT_FOUND',
-         p_result_info => format(
-            'LSR %s does not exist',
-            p_lsr_id
-         )
+         p_result_info => format( 'LSR %s does not exist', p_lsr_id )
       );
+
    END IF;
 
-   IF l_status_cd <> 'RUNNING'
-      OR l_finished_at IS NOT NULL
+   IF l_status_cd <> 'RUNNING' OR l_finished_at IS NOT NULL
    THEN
       CALL MI_resultCtx.raise_fail(
          p_result_code => 'MI_0008_SAN#RUN_NOT_ACTIVE',
-         p_result_info => format(
-            'LSR %s is not active: status=%s, finished_at=%s',
-            p_lsr_id,
-            l_status_cd,
-            l_finished_at
-         )
+         p_result_info => format( 'LSR %s is not active: status=%s, finished_at=%s', p_lsr_id, l_status_cd, l_finished_at )
       );
    END IF;
 
@@ -660,7 +655,7 @@ DECLARE
    l_special_count  bigint;
    l_reject_count   bigint;
 
-   l_info varchar;
+   l_info           varchar;
 
 BEGIN
 
@@ -675,8 +670,10 @@ BEGIN
       p_object_id     => p_lsr_id
    );
 
-   SELECT count(*) INTO l_source_count
-     FROM pg_temp.mi_0008_acc_tmp;
+   SELECT count(*) 
+          INTO l_source_count
+     FROM 
+          pg_temp.mi_0008_acc_tmp;
 
    IF l_source_count = 0 THEN
       
@@ -684,7 +681,7 @@ BEGIN
 
       CALL MI_logger.exit_f(
          p_logger_name  => cLogger,
-         p_message_text => p_cres_info,
+         p_message_text => l_info,
          p_inf_id       => p_inf_id,
          p_object_id    => p_lsr_id
       );

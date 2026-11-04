@@ -1192,7 +1192,7 @@ $procedure$
 
 
 /*
- * Сохраняет исключительные результаты final-decision в протокол LSR.
+ * Сохраняет exceptional final-decision results в протокол LSR.
  *
  * Обычные business-skips:
  *
@@ -1202,144 +1202,63 @@ $procedure$
  *   - UNCHANGED_PERSON;
  *
  * в mi_0008_lsr_itm не записываются.
- *
- * Процедура не изменяет рабочий набор и возвращает:
- *
- *   p_diag_count       — общее количество сохранённых диагностик;
- *   p_icorr_diag_count — количество диагностик границы icorr.
  */
 CREATE PROCEDURE persist_Decision_Diagnostics(
-   IN  p_ctx                mi_0008_api.run_context_t,
-   OUT p_diag_count         bigint,
-   OUT p_icorr_diag_count   bigint
+   IN p_ctx mi_0008_api.run_context_t
 )
 AS
 $procedure$
    #package
    #private
-DECLARE
-   l_written_count bigint;
 BEGIN
 
-   p_diag_count       := 0;
-   p_icorr_diag_count := 0;
-   l_written_count    := 0;
-
-   WITH diagnostics AS MATERIALIZED
+   INSERT INTO xxi.mi_0008_lsr_itm
    (
-      SELECT work.s_icusnum,
-
-             work.decision_code
-                AS result_code,
-
-             CASE work.decision_code
-
-                WHEN 'ICORR_EXHAUSTED' THEN
-                   format(
-                      'Обычная коррекция после icorr=%s попадает в зарезервированный диапазон',
-                      work.hist_icorr
-                   )
-
-                WHEN 'ICORR_AFTER_CANCEL' THEN
-                   'Последняя допустимая историческая строка является аннулированием icorr=99'
-
-                WHEN 'PERSON_NO_HISTORY' THEN
-                   'Для уточнения сведений о физическом лице отсутствует допустимая историческая строка'
-
-                WHEN 'ITEM_KEY_EXISTS' THEN
-                   format(
-                      'Итоговый ключ строки уже существует: год=%s, icorr=%s',
-                      p_ctx.iyear,
-                      work.target_icorr
-                   )
-
-                ELSE
-                   work.decision_code
-             END AS result_info,
-
-             jsonb_strip_nulls(
-                jsonb_build_object(
-                   'history_itm_id',
-                   work.hist_itm_id,
-
-                   'history_icorr',
-                   work.hist_icorr,
-
-                   'target_icorr',
-                   work.target_icorr
-                )
-             )::text AS result_data
-
-        FROM pg_temp.mi_0008_acc_tmp AS work
-
-       WHERE work.decision_code IN
-             (
-                'ICORR_EXHAUSTED',
-                'ICORR_AFTER_CANCEL',
-                'PERSON_NO_HISTORY',
-                'ITEM_KEY_EXISTS'
-             )
-   ),
-   written AS
-   (
-      INSERT INTO xxi.mi_0008_lsr_itm
-      (
-         lsr_id,
-         s_icusnum,
-         r_icusnum,
-         result_code,
-         result_info,
-         result_data
-      )
-      SELECT p_ctx.lsr_id,
-             diag.s_icusnum,
-             diag.s_icusnum,
-             diag.result_code,
-             diag.result_info,
-             diag.result_data
-
-        FROM diagnostics AS diag
-
-      ON CONFLICT (lsr_id, s_icusnum) DO UPDATE
-         SET r_icusnum   = EXCLUDED.r_icusnum,
-             result_code = EXCLUDED.result_code,
-             result_info = EXCLUDED.result_info,
-             result_data = EXCLUDED.result_data
-
-      RETURNING 1
+      lsr_id,
+      s_icusnum,
+      r_icusnum,
+      result_code,
+      result_info,
+      result_data
    )
-   SELECT count(*),
+   SELECT p_ctx.lsr_id,
+          work.s_icusnum,
+          work.s_icusnum,
 
-          count(*) FILTER
-          (
-             WHERE diag.result_code IN
-                   (
-                      'ICORR_EXHAUSTED',
-                      'ICORR_AFTER_CANCEL'
-                   )
-          ),
+          work.decision_code,
 
+          CASE work.decision_code
+             WHEN 'ICORR_EXHAUSTED'    THEN format( 'Обычная коррекция после icorr=%s попадает в зарезервированный диапазон', work.hist_icorr )
+             WHEN 'ICORR_AFTER_CANCEL' THEN 'Последняя допустимая историческая строка является аннулированием icorr=99'
+             WHEN 'PERSON_NO_HISTORY'  THEN 'Для уточнения сведений о физическом лице отсутствует допустимая историческая строка'
+             WHEN 'ITEM_KEY_EXISTS'    THEN format('Итоговый ключ строки уже существует: год=%s, icorr=%s', p_ctx.iyear, work.target_icorr )
+             ELSE
+                  work.decision_code
+          END,
+
+          jsonb_strip_nulls(
+             jsonb_build_object(
+                'history_itm_id', work.hist_itm_id,
+                'history_icorr',  work.hist_icorr,
+                'target_icorr',   work.target_icorr
+             )
+          )::text
+
+     FROM pg_temp.mi_0008_acc_tmp AS work
+
+    WHERE work.decision_code IN
           (
-             SELECT count(*)
-               FROM written
+             'ICORR_EXHAUSTED',
+             'ICORR_AFTER_CANCEL',
+             'PERSON_NO_HISTORY',
+             'ITEM_KEY_EXISTS'
           )
 
-     INTO p_diag_count,
-          p_icorr_diag_count,
-          l_written_count
-
-     FROM diagnostics AS diag;
-
-   /*
-    * INSERT и ON CONFLICT DO UPDATE должны обработать
-    * ровно одну строку на каждую диагностику.
-    */
-   CALL mi_0008_api.assert_Cardinality(
-      p_expected    => p_diag_count,
-      p_actual      => l_written_count,
-      p_result_code => 'MI_0008_API#DIAGNOSTIC_CARDINALITY',
-      p_entity      => 'Диагностические записи LSR'
-   );
+   ON CONFLICT (lsr_id, s_icusnum) DO UPDATE
+      SET r_icusnum   = EXCLUDED.r_icusnum,
+          result_code = EXCLUDED.result_code,
+          result_info = EXCLUDED.result_info,
+          result_data = EXCLUDED.result_data;
 
 END;
 $procedure$
@@ -1656,87 +1575,110 @@ $procedure$
  *   - prune_Rejected_Roots;
  *   - resolve_History;
  *   - resolve_Final_State.
-
+ *
  * Процедура:
  *
  *   - не читает CUS/CUS_DOCUM;
  *   - не перечитывает историю;
  *   - не пересчитывает суммы;
  *   - не принимает повторно business-решения;
- *   - не создаёт дополнительные временные таблицы;
  *   - создаёт request только при наличии строк EMIT;
  *   - создаёт immutable person snapshots;
  *   - записывает итоговые строки MI_0008.
  */
 CREATE PROCEDURE write_Report(
-   IN  p_ctx          mi_0008_api.run_context_t,
-   IN  p_ctaxreq_id   varchar,
-   OUT p_req_id       numeric,
-   OUT p_ires_code    int4,
-   OUT p_cres_info    text
+   IN  p_ctx        mi_0008_api.run_context_t,
+   IN  p_ctaxreq_id varchar,
+   OUT p_req_id     numeric,
+   OUT p_ires_code  int4,
+   OUT p_cres_info  text
 )
 AS
 $procedure$
    #package
    #private
 DECLARE
-   l_candidate_count   bigint := 0;
-   l_emit_count        bigint := 0;
-   l_unchanged_count   bigint := 0;
+   l_candidate_count  bigint := 0;
+   l_emit_count       bigint := 0;
+   l_unchanged_count  bigint := 0;
 
-   l_diag_count        bigint := 0;
-   l_icorr_diag_count  bigint := 0;
-   l_san_reject_count  bigint := 0;
-
+   l_san_reject_count bigint := 0;
+   l_diag_count       bigint := 0;
+   l_icorr_diag_count bigint := 0;
 BEGIN
 
    p_req_id    := NULL;
+
    p_ires_code := c_result_no_data;
    p_cres_info := NULL;
 
    /*
-    * Здесь собирается итоговая статистика по решениям,
-    * сформированным resolve_Final_State.
+    * Статистика итоговых решений.
+    * Все decision_code уже сформированы resolve_Final_State.
     */
    SELECT count(*),
           count(*) FILTER ( WHERE work.decision_code = 'EMIT' ),
           count(*) FILTER ( WHERE work.decision_code IN ( 'UNCHANGED_FINANCIAL', 'UNCHANGED_PERSON' ) )
+
      INTO l_candidate_count,
           l_emit_count,
           l_unchanged_count
-     FROM
-          pg_temp.mi_0008_acc_tmp AS work;
+
+     FROM pg_temp.mi_0008_acc_tmp AS work;
+
 
    /*
-    * Сохраняем только редкие final-decision diagnostics:
+    * Сохраняем exceptional final decisions в протокол LSR.
     *
-    *   ICORR_EXHAUSTED;
-    *   ICORR_AFTER_CANCEL;
-    *   PERSON_NO_HISTORY;
-    *   ITEM_KEY_EXISTS.
+    * Обычные business-skips сюда не попадают.
     */
    CALL mi_0008_api.persist_Decision_Diagnostics(
-      p_ctx              => p_ctx,
-      p_diag_count       => l_diag_count,
-      p_icorr_diag_count => l_icorr_diag_count
+      p_ctx => p_ctx
    );
 
+
    /*
-    * В статистику входят все отклонения Sanitarium:
+    * Статистика фактически сохранённого протокола LSR.
     *
-    *   - graph rejects;
-    *   - отсутствующий CUS;
-    *   - некорректный ИНН;
-    *   - отсутствующие дата рождения или ДУЛ;
-    *   - ДУЛ после отчётного периода.
+    * SAN%:
+    *   graph/root sanitarium rejects.
     *
-    * CUS_MAP не начинается с SAN и сюда не входит.
+    * diagnostics:
+    *   exceptional final-state decisions.
     */
-   SELECT count(*)
-     INTO l_san_reject_count
+   SELECT count(*) FILTER
+          (
+             WHERE item.result_code LIKE 'SAN%'
+          ),
+
+          count(*) FILTER
+          (
+             WHERE item.result_code IN
+                   (
+                      'ICORR_EXHAUSTED',
+                      'ICORR_AFTER_CANCEL',
+                      'PERSON_NO_HISTORY',
+                      'ITEM_KEY_EXISTS'
+                   )
+          ),
+
+          count(*) FILTER
+          (
+             WHERE item.result_code IN
+                   (
+                      'ICORR_EXHAUSTED',
+                      'ICORR_AFTER_CANCEL'
+                   )
+          )
+
+     INTO l_san_reject_count,
+          l_diag_count,
+          l_icorr_diag_count
+
      FROM xxi.mi_0008_lsr_itm AS item
-    WHERE item.lsr_id = p_ctx.lsr_id
-      AND item.result_code LIKE 'SAN%';
+
+    WHERE item.lsr_id = p_ctx.lsr_id;
+
 
    IF l_diag_count > 0 THEN
 
@@ -1754,6 +1696,7 @@ BEGIN
 
    END IF;
 
+
    IF l_icorr_diag_count > 0 THEN
 
       CALL MI_logger.warn(
@@ -1770,16 +1713,14 @@ BEGIN
 
    END IF;
 
+
    /*
     * Пустой request не создаём.
     *
-    * Все diagnostics уже сохранены, поэтому NO_DATA не теряет
-    * информацию о причинах исключения клиентов.
+    * Diagnostics уже сохранены в LSR, поэтому NO_DATA
+    * не теряет информацию о причинах исключения клиентов.
     */
    IF l_emit_count = 0 THEN
-
-      p_req_id    := NULL;
-      p_ires_code := c_result_no_data;
 
       p_cres_info := format(
          'NO_DATA: accepted_roots=%s, emitted=0, unchanged=%s, san_rejected=%s, diagnostics=%s',
@@ -1793,8 +1734,9 @@ BEGIN
 
    END IF;
 
+
    /*
-    * Заголовок создаётся только после подтверждения наличия строк EMIT.
+    * Заголовок создаётся только при наличии строк EMIT.
     *
     * Общий report-level itype для MI_0008 не используется:
     * тип каждой строки определяется через icorr.
@@ -1821,26 +1763,28 @@ BEGIN
 
    END IF;
 
+
    /*
-    * Создаём один immutable mi_person snapshot на каждую строку EMIT
-    * и связываем его с фактическим inf_id запуска.
+    * Один immutable person snapshot на каждую EMIT-строку.
     */
    CALL mi_0008_api.create_Person_Snapshots(
-      p_ctx => p_ctx,
+      p_ctx            => p_ctx,
       p_expected_count => l_emit_count
    );
 
+
    /*
-    * Записываем готовые строки отчёта непосредственно из acc_tmp.
+    * Записываем итоговые строки отчёта.
     */
    CALL mi_0008_api.write_Items(
-      p_ctx           => p_ctx,
-      p_req_id        => p_req_id,
+      p_ctx            => p_ctx,
+      p_req_id         => p_req_id,
       p_expected_count => l_emit_count
    );
 
 
    p_ires_code := ret_OK;
+
    p_cres_info := format(
       'OK: accepted_roots=%s, written=%s, unchanged=%s, san_rejected=%s, diagnostics=%s',
       l_candidate_count,
