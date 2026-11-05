@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0081 (
       iyear          numeric(4)   NOT NULL,
       inum           numeric(12)  NOT NULL,
       icorr          numeric(2)   NOT NULL,
+      kind           numeric(1)   NULL,  -- 1=Doc, 2=Sum; NULL допускается для старых записей
 
    -- NULL = успешное сопоставление; NOT_FOUND = исходная позиция отсутствует.
       result_code    varchar(30) NULL,
@@ -45,7 +46,8 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0081 (
    -- CHECK
       CONSTRAINT ck_mi_0081__iyear CHECK (iyear BETWEEN 1 AND 9999),
 
-      CONSTRAINT ck_mi_0081__icorr CHECK (icorr BETWEEN 0 AND 99)
+      CONSTRAINT ck_mi_0081__icorr CHECK (icorr BETWEEN 0 AND 99),
+      CONSTRAINT ck_mi_0081__kind CHECK (kind IN (1, 2))
 )
 TABLESPACE users
 ;
@@ -86,6 +88,9 @@ COMMENT ON COLUMN xxi.mi_0081.inum IS
 ;
 COMMENT ON COLUMN xxi.mi_0081.icorr IS
    'Номер корректировки исходной позиции из Payload ФНС'
+;
+COMMENT ON COLUMN xxi.mi_0081.kind IS
+   'Вид запрашиваемой коррекции: 1 = документы, 2 = суммы'
 ;
 COMMENT ON COLUMN xxi.mi_0081.result_code IS
    'Диагностика сопоставления: NULL означает успех; NOT_FOUND — исходная позиция не найдена'
