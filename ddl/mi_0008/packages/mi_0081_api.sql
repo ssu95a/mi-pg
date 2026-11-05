@@ -657,6 +657,7 @@ BEGIN
    END IF;
 
    IF r_source.status_cd <> c_Status_Done
+      OR r_source.kind IS NULL
       OR r_source.kind NOT IN (c_Kind_Doc, c_Kind_Sum)
       OR r_source.result_code IS NOT NULL
       OR NULLIF(btrim(r_source.ctaxreq_id), '') IS NULL
