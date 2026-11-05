@@ -4,13 +4,13 @@
 -- Версия     : 0.2.0
 --
 -- Контракты:
---   1. Один входящий payload -> один или два mi_req (81), по kind=1/2.
+--   1. Один входящий payload -> один mi_req (81), kind хранится в позициях.
 --   2. Успешное сопоставление -> source_itm_id, result_code=NULL.
 --   3. Не найдена позиция -> source_itm_id=NULL, result_code='NOT_FOUND'.
 --   4. Повтор original_request_uuid ИЛИ requestId -> отказ без повторной обработки.
 --   5. Отказ имеет собственные mi_req + диагностическую позицию mi_0081
 --      для привязки ответа к itm_id (не создаёт Doc/Sum).
---   6. После READY оба mi_req (81) переводятся в DONE атомарно.
+--   6. После READY один mi_req (81) переводится в DONE атомарно.
 --   7. Отправка response выполняется после завершения автономной транзакции.
 --   8. Формирование исходящих запросов ВС 8 здесь не выполняется.
 --
@@ -82,8 +82,7 @@ CREATE PROCEDURE register_Request_AT(
    
    IN  p_positions             jsonb,
 
-   OUT p_doc_req_id            numeric,
-   OUT p_sum_req_id            numeric,
+   OUT p_req_id_81 numeric,
    OUT p_reject_req_id         numeric,
    OUT p_rsp_id                numeric,
    OUT p_is_rejected           boolean,
@@ -96,11 +95,10 @@ $procedure$
    #private
 DECLARE
 
-   l_has_doc        boolean;
-   l_has_sum        boolean;
+   
 
    l_position_count bigint;
-   l_expected_count bigint;
+   
 
    l_inserted       bigint;
    l_done_count     bigint;
@@ -121,8 +119,7 @@ DECLARE
 
 BEGIN AUTONOMOUS
 
-   p_doc_req_id      := NULL;
-   p_sum_req_id      := NULL;
+   p_req_id_81 := NULL;
    p_reject_req_id   := NULL;
    p_rsp_id          := NULL;
    p_is_rejected     := false;
@@ -130,15 +127,10 @@ BEGIN AUTONOMOUS
    p_found_count     := 0;
    p_not_found_count := 0;
 
-   SELECT coalesce(bool_or(x.elem ->> 'kind' = '1'), false),
-          coalesce(bool_or(x.elem ->> 'kind' = '2'), false),
-          count(*)
-     INTO
-         l_has_doc, l_has_sum, l_position_count
-     FROM
-         jsonb_array_elements(p_positions) AS x(elem);
+   SELECT count(*) INTO l_position_count
+     FROM jsonb_array_elements(p_positions) AS x(elem);
 
-   IF l_position_count = 0 OR NOT (l_has_doc OR l_has_sum) THEN
+   IF l_position_count = 0 THEN
       RAISE EXCEPTION 'MI_0081: empty or invalid positions';
    END IF;
 
@@ -166,7 +158,7 @@ BEGIN AUTONOMOUS
      FROM xxi.mi_req AS r
     WHERE r.inf_id = c_Inf_Id
       AND (r.original_request_uuid = p_original_request_uuid OR r.ctaxreq_id = p_ctaxreq_id)
-    ORDER BY (r.i3 IN (1, 2)) DESC NULLS LAST, r.created_at, r.req_id
+    ORDER BY (r.i3 = 0) DESC NULLS LAST, r.created_at, r.req_id
     LIMIT 1;
 
    IF l_existing_req_id IS NOT NULL THEN
@@ -207,7 +199,7 @@ BEGIN AUTONOMOUS
 
       /*
        * Служебный заголовок отказа: i3=NULL, поэтому не занимает
-       * уникальные ключи запросов Doc/Sum в партиции mi_req_0081.
+       * уникальный ключ принятого запроса (i3=0).
        * parent_req_id указывает на ранее зарегистрированный запрос.
        */
       p_reject_req_id := MI_Request_Api.create_Request(
@@ -234,13 +226,14 @@ BEGIN AUTONOMOUS
        */
       INSERT INTO xxi.mi_0081
       (
-         req_id, source_itm_id, iyear, inum, icorr, result_code
+         req_id, source_itm_id, iyear, inum, icorr, kind, result_code
       )
       SELECT p_reject_req_id,
              NULL::numeric,
              p_iyear,
              (x.elem ->> 'number')::numeric,
              (x.elem ->> 'correctionNumber')::numeric,
+             (x.elem ->> 'kind')::numeric,
              c_Rsp_Reject_Code
         FROM jsonb_array_elements(p_positions) WITH ORDINALITY AS x(elem, ord)
        ORDER BY x.ord
@@ -248,7 +241,7 @@ BEGIN AUTONOMOUS
              RETURNING itm_id INTO l_anchor_itm_id;
 
       l_anchor_req_id := p_reject_req_id;
-      l_expected_count := 1;
+      
       l_rsp_category := c_Rsp_Reject_Category;
       l_rsp_code     := c_Rsp_Reject_Code;
       l_rsp_info     := CASE l_duplicate_reason
@@ -263,41 +256,20 @@ BEGIN AUTONOMOUS
 
    ELSE
 
-      /* Новый входящий запрос: раздельные заголовки Doc и Sum. */
-      IF l_has_doc THEN
-
-         p_doc_req_id := MI_Request_Api.create_Request(
-            p_inf_id                => c_Inf_Id,
-            p_correlation_id        => p_correlation_id,
-            p_original_request_uuid => p_original_request_uuid,
-            p_ctaxreq_id            => p_ctaxreq_id,
-            p_message_uuid          => p_message_uuid,
-            p_status_cd             => c_Status_New,
-            p_i1                    => p_iyear,
-            p_i2                    => 2,
-            p_i3                    => c_Kind_Doc
-         );
-
-      END IF;
-
-      IF l_has_sum THEN
-
-         p_sum_req_id := MI_Request_Api.create_Request(
-            p_inf_id                => c_Inf_Id,
-            p_correlation_id        => p_correlation_id,
-            p_original_request_uuid => p_original_request_uuid,
-            p_ctaxreq_id            => p_ctaxreq_id,
-            p_message_uuid          => p_message_uuid,
-            p_status_cd             => c_Status_New,
-            p_i1                    => p_iyear,
-            p_i2                    => 2,
-            p_i3                    => c_Kind_Sum
-         );
-
-      END IF;
-
-      IF ( l_has_doc AND p_doc_req_id IS NULL) OR ( l_has_sum AND p_sum_req_id IS NULL ) THEN
-         RAISE EXCEPTION 'MI_0081: cannot create Doc/Sum request';
+      /* Один заголовок 81 для всего payload. */
+      p_req_id_81 := MI_Request_Api.create_Request(
+         p_inf_id                => c_Inf_Id,
+         p_correlation_id        => p_correlation_id,
+         p_original_request_uuid => p_original_request_uuid,
+         p_ctaxreq_id            => p_ctaxreq_id,
+         p_message_uuid          => p_message_uuid,
+         p_status_cd             => c_Status_New,
+         p_i1                    => p_iyear,
+         p_i2                    => 2,
+         p_i3                    => 0::numeric
+      );
+      IF p_req_id_81 IS NULL THEN
+         RAISE EXCEPTION 'MI_0081: cannot create incoming request';
       END IF;
 
       /*
@@ -329,11 +301,11 @@ BEGIN AUTONOMOUS
       )
       INSERT INTO xxi.mi_0081
       (
-         req_id, source_itm_id, iyear, inum, icorr, result_code
+         req_id, source_itm_id, iyear, inum, icorr, kind, result_code
       )
-      SELECT CASE WHEN s.rkind = 1 THEN p_doc_req_id ELSE p_sum_req_id END,
+      SELECT p_req_id_81,
              s.source_itm_id,
-             p_iyear, s.inum, s.icorr,
+             p_iyear, s.inum, s.icorr, s.rkind,
              CASE WHEN s.match_count = 0 THEN 'NOT_FOUND' ELSE NULL END
         FROM 
              resolved AS s
@@ -351,17 +323,16 @@ BEGIN AUTONOMOUS
              count(*) FILTER (WHERE i.source_itm_id IS NULL)
         INTO p_found_count, p_not_found_count
         FROM xxi.mi_0081 AS i
-       WHERE i.req_id = p_doc_req_id
-          OR i.req_id = p_sum_req_id;
+       WHERE i.req_id = p_req_id_81;
 
-      l_anchor_req_id := coalesce(p_doc_req_id, p_sum_req_id);
+      l_anchor_req_id := p_req_id_81;
 
       SELECT min(i.itm_id)
         INTO l_anchor_itm_id
         FROM xxi.mi_0081 AS i
        WHERE i.req_id = l_anchor_req_id;
 
-      l_expected_count := l_has_doc::integer + l_has_sum::integer;
+      
       l_rsp_category := c_Rsp_Accept_Category;
       l_rsp_code     := c_Rsp_Accept_Code;
       l_rsp_info     := format(
@@ -402,7 +373,7 @@ BEGIN AUTONOMOUS
 
    /*
     * Успешный приём (в том числе зарегистрированный отказ) завершён.
-    * Вся группа mi_req (81) переходит в DONE атомарно с mi_rsp.READY.
+    * Единственный mi_req (81) переходит в DONE атомарно с mi_rsp.READY.
     */
    UPDATE xxi.mi_req AS r
       SET status_cd   = c_Status_Done,
@@ -410,12 +381,12 @@ BEGIN AUTONOMOUS
           result_info = CASE WHEN p_is_rejected THEN l_duplicate_reason ELSE NULL END,
           result_time = clock_timestamp()
     WHERE r.inf_id = c_Inf_Id AND r.status_cd = c_Status_New
-      AND (r.req_id = p_doc_req_id OR r.req_id = p_sum_req_id OR r.req_id = p_reject_req_id);
+      AND r.req_id = coalesce(p_req_id_81, p_reject_req_id);
 
    GET DIAGNOSTICS l_done_count = ROW_COUNT;
 
-   IF l_done_count <> l_expected_count THEN
-      RAISE EXCEPTION 'MI_0081: DONE cardinality mismatch: expected=%, updated=%', l_expected_count, l_done_count;
+   IF l_done_count <> 1 THEN
+      RAISE EXCEPTION 'MI_0081: DONE cardinality mismatch: expected=1, updated=%', l_done_count;
    END IF;
 
 END;
@@ -451,8 +422,7 @@ DECLARE
    l_invalid_count bigint;
    l_dupe_count    bigint;
 
-   l_doc_req_id    numeric;
-   l_sum_req_id    numeric;
+   l_req_id_81 numeric;
    l_reject_req_id numeric;
    l_rsp_id        numeric;
    l_is_rejected   boolean;
@@ -551,8 +521,7 @@ BEGIN
       p_ctaxreq_id            => l_ctaxreq_id,
       p_iyear                 => l_iyear,
       p_positions             => l_positions,
-      p_doc_req_id            => l_doc_req_id,
-      p_sum_req_id            => l_sum_req_id,
+      p_req_id_81 => l_req_id_81,
       p_reject_req_id         => l_reject_req_id,
       p_rsp_id                => l_rsp_id,
       p_is_rejected           => l_is_rejected,
@@ -577,9 +546,8 @@ BEGIN
       p_ret_info := format( 'REJECTED_DUPLICATE: reject_req_id=%s, rsp_id=%s', l_reject_req_id, l_rsp_id );
    ELSE
       p_ret_info := format(
-         'ACCEPTED: doc_req_id=%s, sum_req_id=%s, found=%s, not_found=%s, rsp_id=%s',
-         coalesce(l_doc_req_id::text, '<none>'),
-         coalesce(l_sum_req_id::text, '<none>'),
+         'ACCEPTED: req_id_81=%s, found=%s, not_found=%s, rsp_id=%s',
+          l_req_id_81,
          l_found_count, l_missing_count, l_rsp_id
       );
    END IF;
@@ -602,8 +570,7 @@ $procedure$
 
 
 /*
- * Подготавливает исходящий запрос ВС 8 по одному принятому Doc/Sum
- * запросу ВС 81. Не отправляет запрос: вызывающий код фиксирует
+ * Подготавливает исходящий запрос ВС 8 для одного kind принятого 81. Не отправляет запрос: вызывающий код фиксирует
  * транзакцию, затем отдельно вызывает mi_mbus.send_request().
  *
  * Повторный вызов возвращает ранее созданный req_id ВС 8.
@@ -612,6 +579,7 @@ $procedure$
  */
 CREATE PROCEDURE prepare_Correction(
    IN  p_req_id_81    numeric,
+   IN  p_kind numeric,
    OUT p_req_id_8     numeric,
    OUT p_ires_code    int4,
    OUT p_cres_info    text
@@ -639,11 +607,16 @@ BEGIN
       RETURN;
    END IF;
 
+   IF p_kind IS NULL OR p_kind NOT IN (c_Kind_Doc, c_Kind_Sum) THEN
+      p_cres_info := 'INVALID_KIND';
+      RETURN;
+   END IF;
+
    /*
     * Блокируем исходный заголовок: два конкурентных вызова не должны
     * создавать две коррекции для одного входящего запроса.
     */
-   SELECT r.req_id, r.i1 AS iyear, r.i3 AS kind,
+   SELECT r.req_id, r.i1 AS iyear, r.i3,
           r.ctaxreq_id, r.status_cd, r.result_code
      INTO r_source
      FROM xxi.mi_req AS r
@@ -657,8 +630,7 @@ BEGIN
    END IF;
 
    IF r_source.status_cd <> c_Status_Done
-      OR r_source.kind IS NULL
-      OR r_source.kind NOT IN (c_Kind_Doc, c_Kind_Sum)
+      OR r_source.i3 IS DISTINCT FROM 0
       OR r_source.result_code IS NOT NULL
       OR NULLIF(btrim(r_source.ctaxreq_id), '') IS NULL
    THEN
@@ -674,7 +646,8 @@ BEGIN
      INTO l_count, l_existing
      FROM xxi.mi_req AS r
     WHERE r.inf_id = c_Inf_Id_8
-      AND r.parent_req_id = p_req_id_81;
+      AND r.parent_req_id = p_req_id_81
+       AND r.i3 = p_kind;
 
    IF l_count > 1 THEN
       RAISE EXCEPTION 'MI_0081: multiple outgoing 8 requests for source req_id=%', p_req_id_81;
@@ -696,7 +669,8 @@ BEGIN
        ON m.itm_id = i.source_itm_id
     WHERE i.req_id = p_req_id_81
       AND i.result_code IS NULL
-      AND m.icusnum IS NOT NULL;
+       AND i.kind = p_kind
+       AND m.icusnum IS NOT NULL;
 
    IF l_count = 0 THEN
       p_ires_code := 1;
@@ -713,7 +687,8 @@ BEGIN
        ON m.itm_id = i.source_itm_id
     WHERE i.req_id = p_req_id_81
       AND i.result_code IS NULL
-      AND m.icusnum IS NOT NULL;
+       AND i.kind = p_kind
+       AND m.icusnum IS NOT NULL;
 
    GET DIAGNOSTICS l_updated = ROW_COUNT;
 
@@ -726,7 +701,7 @@ BEGIN
       p_iyear      => r_source.iyear,
       p_itype      => 2::numeric,
       p_irsn_corr  => c_Reason_Fns,
-      p_ireq_kind  => r_source.kind,
+      p_ireq_kind  => p_kind,
       p_cus_marker => l_marker_id,
       p_ctaxreq_id => r_source.ctaxreq_id,
       p_lsr_id     => l_lsr_id,
@@ -766,5 +741,5 @@ $procedure$
 ;
 
 COMMENT ON SCHEMA mi_0081_api IS
-   'MI-edo. Приём запросов ФНС, ВС 81. Версия 0.2.0 {$Id$}'
+   'MI-edo. Приём запросов ФНС, ВС 81. Версия 0.3.0 {$Id$}'
 ;
