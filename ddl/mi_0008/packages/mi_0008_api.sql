@@ -45,8 +45,8 @@ DECLARE
 
    c_Inf_Id  CONSTANT numeric(6) := 8;
 
-   ret_Ok    CONSTANT int4 := 0;
-   ret_Fail  CONSTANT int4 := -1;
+   ret_Ok           CONSTANT int4 := 0;
+   ret_Fail         CONSTANT int4 := -1;
 
    c_result_no_data CONSTANT int4 := 1;
    c_result_busy    CONSTANT int4 := 2;
@@ -266,7 +266,6 @@ BEGIN
              coalesce( c.ccusfirst_name, 'отсутствует' )::varchar(50) AS first_name,
              coalesce( c.ccuslast_name,  'отсутствует' )::varchar(50) AS last_name,
              c.ccusmiddle_name::varchar(50) AS middle_name,
-
              /*
               * Сначала гражданство из CUS, затем fallback из выбранного ДУЛ.
               */
@@ -352,8 +351,8 @@ BEGIN
                   FROM xxi.cus_docum AS d
                   LEFT JOIN xxi.pud AS p
                     ON p.ipudid = d.id_doc_tp
-                 WHERE d.icusnum = root.s_icusnum
-
+                 WHERE 
+                       d.icusnum = root.s_icusnum
                    AND
                    (
                       /* Preferred выбирается независимо от срока действия. */
@@ -365,18 +364,17 @@ BEGIN
                       )
                    )
              ) AS ranked
-
-            WHERE ranked.rn = 1
-              AND
-              (
-                 NOT ranked.is_preferred OR ranked.doc_type_id IS NOT NULL
-              )
-            /*
-             * Распознанный preferred имеет приоритет.
-             * Если он исключён условием выше — остаётся fallback.
-             */
+            WHERE 
+               ranked.rn = 1
+               AND
+               (
+                  NOT ranked.is_preferred OR ranked.doc_type_id IS NOT NULL
+               )
+               /*
+               * Распознанный preferred имеет приоритет.
+               * Если он исключён условием выше — остаётся fallback.
+               */
             ORDER BY ranked.is_preferred DESC
-
             LIMIT 1
         ) AS doc ON true
    ),
@@ -424,8 +422,7 @@ $procedure$
 
 
 /*
- * Распространяем scope/exclusion по подготовленным
- * weak components relation-17.
+ * Распространяем scope/exclusion по подготовленным relation-17.
  *
  *   in_scope    — клиент относится к текущему запуску;
  *   is_excluded — клиент либо его component уже представлен primary-history.
@@ -516,12 +513,10 @@ BEGIN
 
    END IF;
 
-   ---------------------------------------------------------------------------
    -- Семена exclusions для primary.
    --
    -- Сначала только отмечаем клиентов с допустимой primary-history.
    -- Распространение exclusion по relation-17 выполнит общий обход ниже.
-   ---------------------------------------------------------------------------
    IF p_ctx.launch_itype = 1 THEN
 
       INSERT INTO pg_temp.mi_0008_acc_tmp
@@ -555,7 +550,7 @@ END;
 $procedure$
 
 
-/* Загрузка данных из разных источников в отче */
+/* Загрузка данных из разных источников в отчет */
 CREATE PROCEDURE load_Sources (
    IN p_ctx mi_0008_api.run_context_t
 )
@@ -642,61 +637,27 @@ BEGIN
    (
       SELECT DISTINCT
              work.r_icusnum AS root_icusnum
-
-        FROM pg_temp.mi_0008_acc_tmp AS work
-
-       WHERE work.san_result_code = 'CUS_MAP'
+        FROM 
+             pg_temp.mi_0008_acc_tmp AS work
+       WHERE 
+             work.san_result_code = 'CUS_MAP'
    ),
-
    collapsed AS MATERIALIZED
    (
-      SELECT coalesce(
-                work.r_icusnum,
-                work.s_icusnum
-             ) AS root_icusnum,
-
-             bool_or(work.in_scope)     AS in_scope,
-             bool_or(work.is_requested) AS is_requested,
-             bool_or(work.source_seen)  AS source_seen,
-
-             NULLIF(
-                sum(work.msum_f_dep),
-                0
-             )::numeric(22,2) AS msum_f_dep,
-
-             NULLIF(
-                sum(work.msum_i_dep),
-                0
-             )::numeric(22,2) AS msum_i_dep,
-
-             NULLIF(
-                sum(work.msum_f_crd),
-                0
-             )::numeric(22,2) AS msum_f_crd,
-
-             NULLIF(
-                sum(work.msum_i_crd),
-                0
-             )::numeric(22,2) AS msum_i_crd,
-
-             NULLIF(
-                sum(work.msum_f_acc),
-                0
-             )::numeric(22,2) AS msum_f_acc,
-
-             NULLIF(
-                sum(work.msum_i_acc),
-                0
-             )::numeric(22,2) AS msum_i_acc
-
-        FROM pg_temp.mi_0008_acc_tmp AS work
-
+      SELECT coalesce( work.r_icusnum, work.s_icusnum ) AS root_icusnum,
+             bool_or ( work.in_scope    ) AS in_scope,
+             bool_or ( work.is_requested) AS is_requested,
+             bool_or ( work.source_seen ) AS source_seen,
+             NULLIF( sum(work.msum_f_dep), 0 )::numeric(22,2) AS msum_f_dep,
+             NULLIF( sum(work.msum_i_dep), 0 )::numeric(22,2) AS msum_i_dep,
+             NULLIF( sum(work.msum_f_crd), 0 )::numeric(22,2) AS msum_f_crd,
+             NULLIF( sum(work.msum_i_crd), 0 )::numeric(22,2) AS msum_i_crd,
+             NULLIF( sum(work.msum_f_acc), 0 )::numeric(22,2) AS msum_f_acc,
+             NULLIF( sum(work.msum_i_acc), 0 )::numeric(22,2) AS msum_i_acc
+        FROM pg_temp.mi_0008_acc_tmp 
+             AS work
         JOIN affected_roots AS affected
-          ON affected.root_icusnum =
-             coalesce(
-                work.r_icusnum,
-                work.s_icusnum
-             )
+          ON affected.root_icusnum = coalesce( work.r_icusnum, work.s_icusnum )
 
        /*
         * В collapse участвуют:
@@ -709,11 +670,7 @@ BEGIN
        WHERE work.san_result_code IS NULL
           OR work.san_result_code = 'CUS_MAP'
 
-       GROUP BY
-             coalesce(
-                work.r_icusnum,
-                work.s_icusnum
-             )
+       GROUP BY coalesce( work.r_icusnum, work.s_icusnum )
    )
 
    INSERT INTO pg_temp.mi_0008_acc_tmp AS work
@@ -924,9 +881,7 @@ BEGIN
              work.is_requested,
              work.source_seen,
 
-             /*
-              * Текущий финансовый snapshot.
-              */
+             /* Текущий финансовый snapshot. */
              ROW(
                 work.msum_f_dep,
                 work.msum_i_dep,
@@ -936,9 +891,7 @@ BEGIN
                 work.msum_i_acc
              )::mi_0008_api.amounts_t AS current_amounts,
 
-             /*
-              * Последний сохранённый финансовый snapshot.
-              */
+             /* Последний сохранённый финансовый snapshot. */
              ROW(
                 history.msum_f_dep,
                 history.msum_i_dep,
@@ -948,9 +901,7 @@ BEGIN
                 history.msum_i_acc
              )::mi_0008_api.amounts_t AS history_amounts,
 
-             /*
-              * Текущий person snapshot.
-              */
+             /* Текущий person snapshot. */
              ROW(
                 work.first_name,
                 work.last_name,
@@ -977,14 +928,11 @@ BEGIN
                 old_person.doc_issue_date
              )
                 AS person_unchanged,
-
              /*
               * История была разрешена, но сама строка исчезла.
               * Это нарушение внутреннего контракта.
               */
-             work.hist_itm_id IS NOT NULL
-             AND history.itm_id IS NULL
-                AS history_missing
+             work.hist_itm_id IS NOT NULL AND history.itm_id IS NULL AS history_missing
 
         FROM pg_temp.mi_0008_acc_tmp AS work
 
@@ -993,17 +941,14 @@ BEGIN
 
         LEFT JOIN xxi.mi_person AS old_person
           ON old_person.person_id = work.hist_person_id
-
-       WHERE work.san_result_code IS NULL
+       WHERE 
+             work.san_result_code IS NULL
    ),
-
    calculated AS MATERIALIZED
    (
       SELECT src.*,
 
-             /*
-              * Итоговый набор сумм.
-              */
+             /* Итоговый набор сумм. */
              CASE
                 WHEN p_ctx.launch_itype = 3 THEN
                    ROW(
