@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0081 (
       CONSTRAINT ck_mi_0081__iyear CHECK (iyear BETWEEN 1 AND 9999),
 
       CONSTRAINT ck_mi_0081__icorr CHECK (icorr BETWEEN 0 AND 99),
-      CONSTRAINT ck_mi_0081__kind CHECK (kind IN (1, 2))
+      CONSTRAINT ck_mi_0081__kind  CHECK (kind IN (1, 2))
 )
 TABLESPACE users
 ;
@@ -59,6 +59,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_mi_0081__external_uuid ON xxi.mi_0081 (exte
 -- Индекс для поиска входящих позиций по исходной записи ВС 8.
 CREATE INDEX IF NOT EXISTS fx_mi_0081__source_itm_id ON xxi.mi_0081 (source_itm_id) TABLESPACE indexes
 ;
+
+--
+CREATE UNIQUE INDEX IF NOT EXISTS ux_mi_req_0081__original_single 
+   ON xxi.mi_req_0081 (original_request_uuid) TABLESPACE indexes WHERE 
+      original_request_uuid IS NOT NULL AND i3 = 0
+;
+
 -- owner
 ALTER TABLE xxi.mi_0081 OWNER TO "XXI"
 ;
