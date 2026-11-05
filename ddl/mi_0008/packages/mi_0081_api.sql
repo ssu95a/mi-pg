@@ -600,6 +600,167 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $procedure$
 
+
+/*
+ * Подготавливает исходящий запрос ВС 8 по одному принятому Doc/Sum
+ * запросу ВС 81. Не отправляет запрос: вызывающий код фиксирует
+ * транзакцию, затем отдельно вызывает mi_mbus.send_request().
+ *
+ * Повторный вызов возвращает ранее созданный req_id ВС 8.
+ * Все действия (marker, отчёт, parent link) выполняются в транзакции
+ * вызывающей стороны.
+ */
+CREATE PROCEDURE prepare_Correction(
+   IN  p_req_id_81    numeric,
+   OUT p_req_id_8     numeric,
+   OUT p_ires_code    int4,
+   OUT p_cres_info    text
+)
+AS
+$procedure$
+   #package
+DECLARE
+   c_Inf_Id_8  CONSTANT numeric := 8;
+   c_Reason_Fns CONSTANT numeric := 2;
+
+   r_source     record;
+   l_marker_id  bigint;
+   l_count      bigint;
+   l_existing   bigint;
+   l_lsr_id     numeric;
+   l_updated    bigint;
+BEGIN
+   p_req_id_8  := NULL;
+   p_ires_code := -1;
+   p_cres_info := NULL;
+
+   IF p_req_id_81 IS NULL THEN
+      p_cres_info := 'REQUEST_ID_REQUIRED';
+      RETURN;
+   END IF;
+
+   /*
+    * Блокируем исходный заголовок: два конкурентных вызова не должны
+    * создавать две коррекции для одного входящего запроса.
+    */
+   SELECT r.req_id, r.i1 AS iyear, r.i3 AS kind,
+          r.ctaxreq_id, r.status_cd, r.result_code
+     INTO r_source
+     FROM xxi.mi_req AS r
+    WHERE r.req_id = p_req_id_81
+      AND r.inf_id = c_Inf_Id
+    FOR UPDATE;
+
+   IF NOT FOUND THEN
+      p_cres_info := 'SOURCE_81_NOT_FOUND';
+      RETURN;
+   END IF;
+
+   IF r_source.status_cd <> c_Status_Done
+      OR r_source.kind NOT IN (c_Kind_Doc, c_Kind_Sum)
+      OR r_source.result_code IS NOT NULL
+      OR NULLIF(btrim(r_source.ctaxreq_id), '') IS NULL
+   THEN
+      p_cres_info := 'SOURCE_81_NOT_ACCEPTED';
+      RETURN;
+   END IF;
+
+   /*
+    * У уже созданной коррекции отправка могла не состояться.
+    * Не пересоздаём её; возвращаем готовый req_id для отдельной отправки.
+    */
+   SELECT count(*), min(r.req_id)
+     INTO l_count, l_existing
+     FROM xxi.mi_req AS r
+    WHERE r.inf_id = c_Inf_Id_8
+      AND r.parent_req_id = p_req_id_81;
+
+   IF l_count > 1 THEN
+      RAISE EXCEPTION 'MI_0081: multiple outgoing 8 requests for source req_id=%', p_req_id_81;
+   ELSIF l_count = 1 THEN
+      p_req_id_8  := l_existing;
+      p_ires_code := 0;
+      p_cres_info := 'ALREADY_PREPARED';
+      RETURN;
+   END IF;
+
+   /*
+    * Сопоставленные позиции ВС 81 определяют scope коррекции.
+    * В режиме correction build_Scope использует mrk_id2.idarow.
+    */
+   SELECT count(DISTINCT m.icusnum)
+     INTO l_count
+     FROM xxi.mi_0081 AS i
+     JOIN xxi.mi_0008 AS m
+       ON m.itm_id = i.source_itm_id
+    WHERE i.req_id = p_req_id_81
+      AND i.result_code IS NULL
+      AND m.icusnum IS NOT NULL;
+
+   IF l_count = 0 THEN
+      p_ires_code := 1;
+      p_cres_info := 'NO_MATCHED_CLIENTS';
+      RETURN;
+   END IF;
+
+   l_marker_id := util.mrk_getnextmarkerid();
+
+   INSERT INTO xxi.mrk_id2 (idrow, idarow, idmarker)
+   SELECT DISTINCT m.icusnum, m.icusnum, l_marker_id
+     FROM xxi.mi_0081 AS i
+     JOIN xxi.mi_0008 AS m
+       ON m.itm_id = i.source_itm_id
+    WHERE i.req_id = p_req_id_81
+      AND i.result_code IS NULL
+      AND m.icusnum IS NOT NULL;
+
+   GET DIAGNOSTICS l_updated = ROW_COUNT;
+
+   IF l_updated <> l_count THEN
+      RAISE EXCEPTION 'MI_0081: marker cardinality mismatch: expected=%, written=%',
+         l_count, l_updated;
+   END IF;
+
+   CALL mi_0008_api.prepare_Report(
+      p_iyear      => r_source.iyear,
+      p_itype      => 2::numeric,
+      p_irsn_corr  => c_Reason_Fns,
+      p_ireq_kind  => r_source.kind,
+      p_cus_marker => l_marker_id,
+      p_ctaxreq_id => r_source.ctaxreq_id,
+      p_lsr_id     => l_lsr_id,
+      p_req_id     => p_req_id_8,
+      p_ires_code  => p_ires_code,
+      p_cres_info  => p_cres_info
+   );
+
+   /*
+    * Marker используется только во время формирования.
+    * При ошибке транзакции и INSERT, и DELETE откатятся.
+    */
+   CALL util.mrk_deleteall(l_marker_id, 2);
+
+   IF p_ires_code = 0 THEN
+      IF p_req_id_8 IS NULL THEN
+         RAISE EXCEPTION 'MI_0081: prepare_Report succeeded without req_id';
+      END IF;
+
+      UPDATE xxi.mi_req AS r
+         SET parent_req_id = p_req_id_81
+       WHERE r.req_id = p_req_id_8
+         AND r.inf_id = c_Inf_Id_8
+         AND r.parent_req_id IS NULL;
+
+      GET DIAGNOSTICS l_updated = ROW_COUNT;
+      IF l_updated <> 1 THEN
+         RAISE EXCEPTION 'MI_0081: failed to link outgoing req_id=% to source req_id=%',
+            p_req_id_8, p_req_id_81;
+      END IF;
+   END IF;
+END;
+$procedure$
+
+
 /* Конец пакета. */
 ;
 
