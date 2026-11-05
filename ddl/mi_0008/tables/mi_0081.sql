@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0081 (
       iyear          numeric(4)   NOT NULL,
       inum           numeric(12)  NOT NULL,
       icorr          numeric(2)   NOT NULL,
-      kind           numeric(1)   NULL,  -- 1=Doc, 2=Sum; NULL допускается для старых записей
+      kind           numeric(1)   NOT NULL,  -- 1=Doc, 2=Sum
 
    -- NULL = успешное сопоставление; NOT_FOUND = исходная позиция отсутствует.
       result_code    varchar(30) NULL,
