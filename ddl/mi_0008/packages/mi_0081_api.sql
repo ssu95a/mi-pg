@@ -1,7 +1,7 @@
 --
 -- Пакет      : mi_0081_api
 -- Назначение : Приём запросов ФНС (ВС 81), регистрация позиций и подтверждение
--- Версия     : 0.2.0
+-- Версия     : 0.3.0
 --
 -- Контракты:
 --   1. Один входящий payload -> один mi_req (81), kind хранится в позициях.
@@ -570,8 +570,9 @@ $procedure$
 
 
 /*
- * Подготавливает исходящий запрос ВС 8 для одного kind принятого 81. Не отправляет запрос: вызывающий код фиксирует
- * транзакцию, затем отдельно вызывает mi_mbus.send_request().
+ * Подготавливает исходящий запрос ВС 8 для одного kind принятого 81.
+ * Не отправляет запрос: вызывающий код фиксирует транзакцию,
+ * затем отдельно вызывает mi_mbus.send_request().
  *
  * Повторный вызов возвращает ранее созданный req_id ВС 8.
  * Все действия (marker, отчёт, parent link) выполняются в транзакции
@@ -579,7 +580,7 @@ $procedure$
  */
 CREATE PROCEDURE prepare_Correction(
    IN  p_req_id_81    numeric,
-   IN  p_kind numeric,
+   IN  p_kind         numeric,
    OUT p_req_id_8     numeric,
    OUT p_ires_code    int4,
    OUT p_cres_info    text
@@ -614,7 +615,7 @@ BEGIN
 
    /*
     * Блокируем исходный заголовок: два конкурентных вызова не должны
-    * создавать две коррекции для одного входящего запроса.
+    * создавать две коррекции одного kind для входящего запроса.
     */
    SELECT r.req_id, r.i1 AS iyear, r.i3,
           r.ctaxreq_id, r.status_cd, r.result_code
@@ -647,7 +648,7 @@ BEGIN
      FROM xxi.mi_req AS r
     WHERE r.inf_id = c_Inf_Id_8
       AND r.parent_req_id = p_req_id_81
-       AND r.i3 = p_kind;
+      AND r.i3 = p_kind;
 
    IF l_count > 1 THEN
       RAISE EXCEPTION 'MI_0081: multiple outgoing 8 requests for source req_id=%', p_req_id_81;
@@ -669,8 +670,8 @@ BEGIN
        ON m.itm_id = i.source_itm_id
     WHERE i.req_id = p_req_id_81
       AND i.result_code IS NULL
-       AND i.kind = p_kind
-       AND m.icusnum IS NOT NULL;
+      AND i.kind = p_kind
+      AND m.icusnum IS NOT NULL;
 
    IF l_count = 0 THEN
       p_ires_code := 1;
@@ -687,8 +688,8 @@ BEGIN
        ON m.itm_id = i.source_itm_id
     WHERE i.req_id = p_req_id_81
       AND i.result_code IS NULL
-       AND i.kind = p_kind
-       AND m.icusnum IS NOT NULL;
+      AND i.kind = p_kind
+      AND m.icusnum IS NOT NULL;
 
    GET DIAGNOSTICS l_updated = ROW_COUNT;
 
