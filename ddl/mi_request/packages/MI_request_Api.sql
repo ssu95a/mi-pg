@@ -1073,9 +1073,6 @@ declare
    l_reason_code varchar;
 
    l_current_message_uuid uuid;
-   
-   l_expected_stage_cd numeric;
-   l_current_stage_cd  numeric;
 
 begin
 
@@ -1119,13 +1116,6 @@ begin
       RETURN;
    END IF;
 
-   l_expected_stage_cd :=
-      CASE l_reason_code
-         WHEN 'REQUEST_REJECTED' THEN 1::numeric
-         WHEN 'REQUEST_FAILED'   THEN 2::numeric
-         ELSE NULL
-      END;
-
    /* Ищем запрос независимо от текущего статуса
       и блокируем его до завершения процедуры. */
    BEGIN
@@ -1133,13 +1123,11 @@ begin
       SELECT r.req_id,
              r.inf_id,
              r.status_cd,
-             r.stage_cd,
              r.message_uuid
         INTO STRICT
              l_req_id,
              l_inf_id,
              l_status_cd,
-             l_current_stage_cd,
              l_current_message_uuid
         FROM xxi.mi_req r
        WHERE r.external_uuid = p_external_uuid
@@ -1159,22 +1147,12 @@ begin
    -- Запрос уже установлен в ошибочный статус. 
    IF l_status_cd = -1 THEN
 
-      -- Тот же message_uuid должен содержать точно такие же данные.
+      -- Тот же message_uuid означает повторную доставку уже применённого ответа.
       IF l_current_message_uuid = p_message_uuid THEN
-
-         IF l_current_stage_cd IS NOT DISTINCT FROM l_expected_stage_cd
-         THEN
-            p_res_code := ret_Ok;
-            p_res_info := 'Отрицательный ответ уже применён ранее';
-
-            RETURN;
-         END IF;
-
-         p_res_code := ret_Fail;
-         p_res_info := 'Конфликт повторного сообщения: message_uuid=' || p_message_uuid || ' уже применён с другими данными';
+         p_res_code := ret_Ok;
+         p_res_info := 'Отрицательный ответ уже применён ранее';
 
          RETURN;
-
       END IF;
 
       -- Другой ответ пришёл для уже завершённого запроса.
@@ -1198,7 +1176,6 @@ begin
 
    UPDATE xxi.mi_req
       SET status_cd    = -1,
-          stage_cd     = l_expected_stage_cd,
           result_code  = p_error_code,
           result_info  = p_error_info,
           note         = p_error_details,
