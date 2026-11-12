@@ -14,7 +14,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          Пакет для ведения логики MI-edo
          Модуль: ЭДО с ФНС
       */
-      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {05.10.2026} Sukhotina$';
+      c_Version CONSTANT VARCHAR(100) := '$id: {1.0.2} {12.11.2026} Sulimoff$';
 
       RET_OK      CONSTANT INTEGER := 0;
       RET_FAIL    CONSTANT INTEGER := -1;
@@ -396,7 +396,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          l_res.cRes_info := l_message;
       ELSE
          l_res.iRes_Code := RET_FAIL;
-         l_res.cRes_info := coalesce(l_message, 'Ошибка обработки запроса') || coalesce(' [' || l_error || ']', '');
+         l_res.cRes_info := coalesce( l_message, 'Ошибка обработки запроса') || coalesce(' [' || l_error || ']', '') || coalesce( ' [state: ' || l_state::varchar || ']' );
       END IF;
 
       -- Обновление элемента mi_0600
@@ -404,8 +404,9 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          SET ires_code   = l_res.iRes_Code,
              cres_info   = l_res.cRes_info,
              tres_time   = clock_timestamp(),
-             dsend_stamp = coalesce(l_dsend_stamp, dsend_stamp)
-       WHERE itm_id = p_itm_id;
+             dsend_stamp = coalesce(l_dSend_stamp, dSend_stamp )
+       WHERE itm_id = 
+       p_itm_id;
 
       CALL mi_logger.exit_f(
          p_logger_name   => c_Logger,
