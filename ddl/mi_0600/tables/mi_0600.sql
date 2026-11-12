@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS xxi.mi_0600 (
     message_uuid     uuid,                                     -- ID сообщения (для ответчиков)
     cres_info        text,                                     -- Информация о результате
     tres_time        timestamptz,                              -- Время получения результата
+    error_code       varchar(100) NULL,                        -- Код ошибки обработки
     CONSTRAINT pk_mi_0600 PRIMARY KEY (itm_id) USING INDEX TABLESPACE indexes,
     CONSTRAINT uk_mi_0600__req_id UNIQUE (req_id) USING INDEX TABLESPACE indexes,
     CONSTRAINT uk_mi_0600__external_uuid UNIQUE (external_uuid) USING INDEX TABLESPACE indexes,
@@ -50,3 +51,4 @@ COMMENT ON COLUMN xxi.mi_0600.created_at       IS 'Дата создания э�
 COMMENT ON COLUMN xxi.mi_0600.message_uuid     IS 'ID сообщения (для ответчиков)';
 COMMENT ON COLUMN xxi.mi_0600.cres_info        IS 'Информация о результате';
 COMMENT ON COLUMN xxi.mi_0600.tres_time        IS 'Время получения результата';
+COMMENT ON COLUMN xxi.mi_0600.error_code       IS 'Код ошибки обработки элемента'
