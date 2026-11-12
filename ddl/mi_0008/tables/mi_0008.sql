@@ -45,6 +45,13 @@ create index if not exists ix_mi_0008__year_corr_req_cus on xxi.mi_0008 (iyear, 
 ;
 create index if not exists fx_mi_0008__req_id on xxi.mi_0008 (req_id) tablespace indexes
 ;
+-- Для одного входящего 81 и каждого kind может быть не более одного исходящего 8.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_mi_req_0008__parent_kind
+   ON xxi.mi_req_0008 (parent_req_id, i3)
+      TABLESPACE indexes
+         WHERE parent_req_id IS NOT NULL AND i3 IN (1, 2)
+;
+
 ALTER TABLE xxi.mi_0008 OWNER TO "XXI"
 ;
 COMMENT ON TABLE xxi.mi_0008 IS 
