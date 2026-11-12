@@ -7,7 +7,7 @@ CREATE OR REPLACE PACKAGE mi_0062_api
          Пакет для ведения логики MI-edo
          Модуль: Начисления по УИН/ЕИП (вид сведений 0062)
       */
-      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {09.10.2026} Sukhotina$';
+      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.2} {12.11.2026} Sukhotina$';
 
       RET_OK   CONSTANT INTEGER := 0;
       RET_FAIL CONSTANT INTEGER := -1;
@@ -520,6 +520,92 @@ CREATE OR REPLACE PACKAGE mi_0062_api
          p_variable_name => 'kz_charges.sql%rowcount',
          p_value_text    => l_cnt::varchar,
          p_inf_id        => c_Inf_Id
+      );
+   END;
+   $$
+
+   -- Обёртка над create_items + submit_request
+   CREATE PROCEDURE create_And_Send(
+      IN  p_id_type       integer,
+      IN  p_id_list       varchar,
+      OUT p_req_id        numeric,
+      OUT p_items_created integer,
+      OUT p_ret_code      integer,
+      OUT p_ret_info      varchar
+   ) AS $$
+      #package
+   DECLARE
+      l_create_rc integer;
+      l_create_ri varchar;
+      l_submit_rc integer;
+      l_submit_ri varchar;
+   BEGIN
+      CALL mi_logger.enter_f(
+         p_logger_name   => c_Logger,
+         p_function_name => 'create_And_Send',
+         p_message_text  => format('id_type=%s, id_list=%s', p_id_type, p_id_list),
+         p_inf_id        => c_Inf_Id
+      );
+
+      p_req_id        := NULL;
+      p_items_created := 0;
+      p_ret_code      := RET_FAIL;
+      p_ret_info      := NULL;
+
+      -- Шаг 1: создание запроса и элементов
+      CALL mi_0062_api.create_items(
+         p_id_type       => p_id_type,
+         p_id_list       => p_id_list,
+         p_req_id        => p_req_id,
+         p_items_created => p_items_created,
+         p_ret_code      => l_create_rc,
+         p_ret_info      => l_create_ri
+      );
+
+      IF l_create_rc <> RET_OK THEN
+         p_ret_code := l_create_rc;
+         p_ret_info := l_create_ri;
+
+         CALL mi_logger.exit_f(
+            p_logger_name   => c_Logger,
+            p_message_text  => format('create_items failed: %s', coalesce(l_create_ri, 'unknown')),
+            p_inf_id        => c_Inf_Id
+         );
+         RETURN;
+      END IF;
+
+      -- Шаг 2: отправка в СМЭВ
+      CALL mi_0062_api.submit_request(
+         p_req_id   => p_req_id,
+         p_ret_code => l_submit_rc,
+         p_ret_info => l_submit_ri
+      );
+
+      IF l_submit_rc <> RET_OK THEN
+         p_ret_code := RET_FAIL;
+         p_ret_info := format('items created (%s), but submit failed: %s',
+                              p_items_created, coalesce(l_submit_ri, 'unknown'));
+
+         CALL mi_logger.error(
+            p_logger_name   => c_Logger,
+            p_message_text  => 'create_And_Send: submit failed',
+            p_details_text  => coalesce(l_submit_ri, 'unknown'),
+            p_inf_id        => c_Inf_Id,
+            p_req_id        => p_req_id
+         );
+         RETURN;
+      END IF;
+
+      p_ret_code := RET_OK;
+      p_ret_info := format('created %s items, req_id=%s, sent',
+                           p_items_created, p_req_id);
+
+      CALL mi_logger.exit_f(
+         p_logger_name   => c_Logger,
+         p_message_text  => format('ret_code=%s, req_id=%s, items=%s',
+                                   p_ret_code, p_req_id, p_items_created),
+         p_inf_id        => c_Inf_Id,
+         p_req_id        => p_req_id
       );
    END;
    $$
