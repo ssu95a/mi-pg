@@ -1,36 +1,35 @@
 CREATE OR REPLACE PACKAGE mi_0600_api
 
    CREATE TYPE t_schedule_entry AS (
-      dow    smallint,   -- ?? ??? (ISO: 1=? ... 7=?)
-      t_from time,       -- ??? ????
-      t_to   time        -- ??? ?????
+      dow    smallint,   -- день недели (ISO: 1=Пн ... 7=Вс)
+      t_from time,       -- время начала
+      t_to   time        -- время окончания
    )
 
-   -- ??????? ???
+   -- Инициализация пакета
    CREATE FUNCTION __init__() RETURNS void AS $$
    DECLARE
-   
+
       /*
-         ??? ?? ???? ??? MI-edo
-         ???: - ?? ? ??
-                 - ??? ????
+         Пакет для ведения логики MI-edo
+         Модуль: ЭДО с ФНС
       */
-      c_Version   CONSTANT VARCHAR(100) := '$id: {1.0.2} {12.11.2026} Sulimoff$';
+      cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {05.10.2026} Sukhotina$';
 
       RET_OK      CONSTANT INTEGER := 0;
       RET_FAIL    CONSTANT INTEGER := -1;
       RET_NO_DATA CONSTANT INTEGER := 1;
       RET_EXISTS  CONSTANT INTEGER := 4;
-   
+
       c_Pkg_Name  CONSTANT VARCHAR(20) := 'mi_0600_api';
       c_Logger    CONSTANT VARCHAR(20) := 'mi.0600';
 
-      -- ???? ? MI_prp
+      -- Свойства MI_prp
       c_Sched_Key     CONSTANT VARCHAR(50) := 'MI_0600.SCHEDULE';
       c_Sched_Upd_Key CONSTANT VARCHAR(50) := 'MI_0600.SCHEDULE_UPDATED_AT';
 
-      -- ?? ?????
-      g_sched_cache    jsonb       := NULL;
+      -- Кэш расписания
+      g_sched_cache    jsonb     := NULL;
       g_sched_cache_at timestamptz := NULL;
 
    BEGIN
@@ -45,9 +44,8 @@ CREATE OR REPLACE PACKAGE mi_0600_api
    END;
    $$
 
-
-   /* ???? ???? ? mi_req (????? ? Java) */
-   CREATE PROCEDURE create_Request(
+   -- Создание запроса в mi_req (вызывается из Java)
+   CREATE PROCEDURE create_request(
       IN  p_inf_id                numeric,
       IN  p_czip_name             varchar,
       IN  p_bzip_data             bytea,
@@ -58,12 +56,12 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       OUT p_itm_id                numeric,
       OUT p_ret_code              integer,
       OUT p_ret_info              varchar,
-      IN  p_original_request_uuid uuid    DEFAULT NULL,  -- ????
-      IN  p_message_uuid          uuid    DEFAULT NULL,  -- ????
-      IN  p_ctaxreq_id            varchar DEFAULT NULL,  -- ????
+      IN  p_original_request_uuid uuid    DEFAULT NULL,  -- ответчик
+      IN  p_message_uuid          uuid    DEFAULT NULL,  -- ответчик
+      IN  p_ctaxreq_id            varchar DEFAULT NULL,  -- ответчик
       IN  p_icreate_type          integer DEFAULT 0
-   ) 
-   AS 
+   )
+   AS
    $$
       #package
    DECLARE
@@ -83,7 +81,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       CALL mi_logger.enter_f (
          p_logger_name   => c_Logger,
          p_function_name => c_Action_Name,
-         p_message_text  => format('inf_id=%s, zip=%s, size=%s, files=%s', p_inf_id, p_czip_name, p_izip_size, p_izip_files_count), p_inf_id  => p_inf_id 
+         p_message_text  => format('inf_id=%s, zip=%s, size=%s, files=%s', p_inf_id, p_czip_name, p_izip_size, p_izip_files_count), p_inf_id  => p_inf_id
       );
 
       p_req_id   := NULL;
@@ -91,7 +89,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
 
       p_ret_code := RET_FAIL;
       p_ret_info := 'Unknown error in ' || c_Action_Name;
-   
+
       BEGIN
 
          IF p_inf_id IS NULL THEN
@@ -99,20 +97,19 @@ CREATE OR REPLACE PACKAGE mi_0600_api
             RETURN;
          END IF;
 
-         IF p_inf_id NOT IN ( 601, 602, 603, 604, 611, 612) THEN
-            p_ret_info := '??????? p_inf_id: ' || p_inf_id || ' (????? 601, 602, 603, 604, 611, 612)';
+         IF p_inf_id NOT IN (601, 602, 603, 604, 611, 612) THEN
+            p_ret_info := 'Недопустимый p_inf_id: ' || p_inf_id || ' (допустимо 601, 602, 603, 604, 611, 612)';
             RETURN;
          END IF;
-   
+
          IF p_czip_name IS NULL OR btrim(p_czip_name) = '' THEN
             p_ret_info := 'p_czip_name is null or empty';
             RETURN;
          END IF;
 
-         -- ???? ?????
+         -- Проверка дубликатов
          IF p_inf_id IN (601, 603, 611) THEN
-
-            -- ?????: ???? ? ??? ????
+            -- Инициатор: дубликат по имени архива
             SELECT h.req_id, h.itm_id
               INTO l_existing_req_id, l_existing_itm_id
               FROM xxi.mi_0600 h
@@ -120,14 +117,14 @@ CREATE OR REPLACE PACKAGE mi_0600_api
              LIMIT 1;
 
             IF FOUND THEN
-               -- ????? ??? ? ??????
+
                UPDATE xxi.mi_0600
                   SET bzip_data        = p_bzip_data,
                       izip_size        = p_izip_size,
                       izip_files_count = p_izip_files_count
                 WHERE itm_id = l_existing_itm_id;
 
-               -- ?????? ??? ???: ???? ????, ??? ?????
+               -- Пересобираем имена файлов: старые удаляем, новые вставляем
                DELETE FROM xxi.mi_0600_f WHERE itm_id = l_existing_itm_id;
 
                IF p_file_names IS NOT NULL AND array_length(p_file_names, 1) > 0 THEN
@@ -147,7 +144,8 @@ CREATE OR REPLACE PACKAGE mi_0600_api
                p_itm_id   := l_existing_itm_id;
 
                p_ret_code := RET_OK;
-               p_ret_info := '???? ????: ?????? ??????? req_id=' || l_existing_req_id || ', zip_data ? ??? ??? ?????';
+               p_ret_info := 'Дубликат архива: возвращён существующий req_id=' || l_existing_req_id
+                             || ', zip_data и имена файлов обновлены';
 
                CALL mi_logger.info (
                   p_logger_name   => c_Logger,
@@ -160,7 +158,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
             END IF;
 
          ELSIF p_inf_id IN (602, 604, 612) THEN
-            -- ????: ???? ? original_request_uuid
+            -- original_request_uuid
             IF p_original_request_uuid IS NOT NULL THEN
                SELECT h.req_id, h.itm_id
                  INTO l_existing_req_id, l_existing_itm_id
@@ -173,7 +171,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
                   p_req_id   := l_existing_req_id;
                   p_itm_id   := l_existing_itm_id;
                   p_ret_code := RET_EXISTS;
-                  p_ret_info := '???? original_request_uuid: ?? ?????? req_id=' || l_existing_req_id;
+                  p_ret_info := 'Дубликат original_request_uuid: уже существует req_id=' || l_existing_req_id;
 
                   CALL mi_logger.info(
                      p_logger_name   => c_Logger,
@@ -184,8 +182,8 @@ CREATE OR REPLACE PACKAGE mi_0600_api
                END IF;
             END IF;
          END IF;
-   
-         -- ????? ????
+
+         -- Заголовок запроса
          l_req_id := MI_request_Api.create_Request(
             p_inf_id                => p_inf_id,
             p_correlation_id        => gen_random_uuid(),
@@ -194,25 +192,24 @@ CREATE OR REPLACE PACKAGE mi_0600_api
             p_message_uuid          => p_message_uuid,
             p_status_cd             => 0
          );
-   
-         -- ?? ?????? MI_0600 ????? ????? UUID ????
-         -- ?? UUID ??????? ????? ????.
+
+         -- Для исходящих MI_0600 транспорт использует UUID запроса
+         -- как UUID единственного элемента запроса.
          IF p_inf_id IN (601, 603, 611) THEN
 
             SELECT r.external_uuid
               INTO STRICT l_item_external_uuid
-              FROM 
+              FROM
                    xxi.mi_req r
-             WHERE 
+             WHERE
                    r.req_id = l_req_id;
          ELSE
-            -- ?? ????? ??? ????? ????? UUID ?????.
+            -- Для входящих видов сохраняем отдельный UUID элемента.
             l_item_external_uuid := gen_random_uuid();
-         END IF;   
+         END IF;
 
-         -- ???? ????
          l_itm_id := MI_request_Api.next_Itm_Id();
-   
+
          INSERT INTO xxi.mi_0600 (
             itm_id,
             external_uuid,
@@ -234,8 +231,8 @@ CREATE OR REPLACE PACKAGE mi_0600_api
             p_icreate_type,
             clock_timestamp()
          );
-   
-         -- ??? ??? ??? ????
+
+         -- Имена файлов внутри архива
          IF p_file_names IS NOT NULL AND array_length(p_file_names, 1) > 0 THEN
 
             FOREACH l_file_name IN ARRAY p_file_names
@@ -251,35 +248,34 @@ CREATE OR REPLACE PACKAGE mi_0600_api
             END LOOP;
 
          END IF;
-   
+
          p_req_id   := l_req_id;
          p_itm_id   := l_itm_id;
 
          p_ret_code := RET_OK;
-   
+
       EXCEPTION
          WHEN OTHERS THEN
-            
+
             p_ret_info := SQLERRM;
 
             CALL mi_logger.error (
                p_logger_name   => c_Logger,
-               p_message_text  => '??? ? ' || c_Action_Name,
+               p_message_text  => 'Ошибка в create_request',
                p_details_text  => SQLERRM,
                p_inf_id        => p_inf_id
             );
       END;
-   
+
       CALL mi_logger.exit_f (
          p_logger_name   => c_Logger,
-         p_message_text  => format('ret_code=%s, req_id=%s, itm_id=%s, info=%s', p_ret_code, p_req_id, p_itm_id, p_ret_info), p_inf_id  => p_inf_id 
+         p_message_text  => format('ret_code=%s, req_id=%s, itm_id=%s, info=%s', p_ret_code, p_req_id, p_itm_id, p_ret_info), p_inf_id  => p_inf_id
       );
 
    END;
    $$
-   
 
-   -- ????? ?? ????? ??? ? ???? ? ????? ? ?? ? ?? ???
+   -- Получение даты постановки файла в очередь на обработку в ФНС по его имени
    CREATE FUNCTION get_fns_file_inqueue_date(p_file_name varchar)
       RETURNS date AS $$
       #package
@@ -301,17 +297,16 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          );
          RETURN NULL;
       END IF;
-   
-      -- ????: ???? ????? ??
+
+      -- ЗАГЛУШКА: текущая системная дата
       --v_dsend_stamp := date_trunc('day', clock_timestamp());
-   
-      -- ??? ?? ????? ? ??? ???
+
       SELECT MAX(date_trunc('day', h.dsend_stamp))
          INTO v_dsend_stamp
          FROM xxi.mi_0600 h
          JOIN xxi.mi_0600_f f ON f.itm_id = h.itm_id
         WHERE upper(btrim(f.czip_file_name)) = upper(btrim(p_file_name));
-   
+
       CALL mi_logger.exit_f(
          p_logger_name   => c_Logger,
          p_message_text  => 'v_dsend_stamp = ' || coalesce(v_dsend_stamp::text, '<NULL>'),
@@ -321,8 +316,8 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       RETURN v_dsend_stamp;
    END;
    $$
-         
-   -- ?? ????? ? ?????
+
+   -- Приём результата по элементу
    CREATE PROCEDURE apply_item_result(
       IN  p_request_uuid    uuid,
       IN  p_message_uuid    uuid,
@@ -369,7 +364,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
    END;
    $$
 
-   -- ??? payload ??? ? ?????
+   -- Разбор payload ответа по элементу
    CREATE FUNCTION map_item_result(p_itm_id numeric, p_payload jsonb)
       RETURNS MI_Item_Result_Api.Item_Result AS $$
       #package
@@ -388,12 +383,12 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          p_inf_id        => NULL
       );
 
-      -- ????? ???? ? payload ??? (??????)
+      -- Извлечение значений из payload ответа (формат???)
       l_state       := (p_payload ->> 'state')::integer;
       l_message     := p_payload ->> 'message';
       l_error       := p_payload ->> 'errorCode';
 
-      -- ?? ????? ? ???? ?? (?? ?? ?????, ?? ? ????)
+      -- Дата постановки в очередь СМЭВ (поле пока неизвестно, тоже на будущее)
       -- l_dsend_stamp := (p_payload ->> 'inQueueDate')::timestamptz;
 
       IF l_state IS NOT NULL AND l_state >= 0 THEN
@@ -401,10 +396,10 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          l_res.cRes_info := l_message;
       ELSE
          l_res.iRes_Code := RET_FAIL;
-         l_res.cRes_info := coalesce(l_message, '??? ????? ????') || coalesce(' [' || l_error || ']', '');
+         l_res.cRes_info := coalesce(l_message, 'Ошибка обработки запроса') || coalesce(' [' || l_error || ']', '');
       END IF;
 
-      -- ????? ????? mi_0600
+      -- Обновление элемента mi_0600
       UPDATE xxi.mi_0600
          SET ires_code   = l_res.iRes_Code,
              cres_info   = l_res.cRes_info,
@@ -438,7 +433,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
 
          CALL mi_logger.error(
             p_logger_name   => c_Logger,
-            p_message_text  => '??? ? map_item_result',
+            p_message_text  => 'Ошибка в map_item_result',
             p_details_text  => SQLERRM,
             p_inf_id        => NULL
          );
@@ -446,7 +441,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          RETURN l_res;
    END;
    $$
-      
+
    CREATE PROCEDURE send_request(
       IN  p_req_id   numeric,
       OUT p_ret_code integer,
@@ -463,61 +458,61 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          p_message_text  => 'req_id=' || p_req_id,
          p_inf_id        => NULL
       );
-   
+
       p_ret_code := RET_FAIL;
       p_ret_info := NULL;
-   
+
       BEGIN
          IF p_req_id IS NULL THEN
             p_ret_info := 'p_req_id is null';
             RETURN;
          END IF;
-   
+
          SELECT status_cd INTO l_status
            FROM xxi.mi_req
           WHERE req_id = p_req_id;
-   
+
          IF NOT FOUND THEN
-            p_ret_info := '??? ? req_id=' || p_req_id || ' ? ???';
+            p_ret_info := 'Запрос с req_id=' || p_req_id || ' не найден';
             RETURN;
          END IF;
-   
+
          IF l_status IN (2, 3) THEN
             p_ret_code := RET_OK;
-            p_ret_info := '??? ?? ????? (status_cd=' || l_status || ')';
+            p_ret_info := 'Запрос уже отправлен (status_cd=' || l_status || ')';
             RETURN;
          END IF;
-   
+
          IF l_status = 1 THEN
             p_ret_code := RET_OK;
-            p_ret_info := '??? ?? ?????';
+            p_ret_info := 'Запрос уже завершён';
             RETURN;
          END IF;
-   
-         -- ??? ????
+
+         -- Вызов отправки
          CALL mi_mbus.send_request(p_req_id, l_result);
-         
+
          IF l_result.is_success THEN
             p_ret_code := RET_OK;
-            p_ret_info := coalesce(l_result.result_info, '?????');
+            p_ret_info := coalesce(l_result.result_info, 'Отправлено');
          ELSE
-            p_ret_info := coalesce(l_result.result_info, '??? ????');
+            p_ret_info := coalesce(l_result.result_info, 'Ошибка отправки');
          END IF;
-   
+
          --p_ret_code := RET_OK;
-         --p_ret_info := '???? ???? ?????? (??? mi_mbus.send_request ???????? ?? ???)';
-   
+         --p_ret_info := 'Отправка запроса имитирована (вызов mi_mbus.send_request закомментирован для теста)';
+
       EXCEPTION
          WHEN OTHERS THEN
             p_ret_info := SQLERRM;
             CALL mi_logger.error(
                p_logger_name   => c_Logger,
-               p_message_text  => '??? ? send_request',
+               p_message_text  => 'Ошибка в send_request',
                p_details_text  => SQLERRM,
                p_inf_id        => NULL
             );
       END;
-   
+
       CALL mi_logger.exit_f(
          p_logger_name   => c_Logger,
          p_message_text  => format('ret_code=%s, info=%s', p_ret_code, p_ret_info),
@@ -525,7 +520,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       );
    END;
    $$
-   
+
    CREATE PROCEDURE send_response(
       IN  p_rsp_id   numeric,
       OUT p_ret_code integer,
@@ -542,58 +537,58 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          p_message_text  => 'rsp_id=' || p_rsp_id,
          p_inf_id        => NULL
       );
-   
+
       p_ret_code := RET_FAIL;
       p_ret_info := NULL;
-   
+
       BEGIN
          IF p_rsp_id IS NULL THEN
             p_ret_info := 'p_rsp_id is null';
             RETURN;
          END IF;
-   
+
          SELECT status_cd INTO l_status
            FROM xxi.mi_rsp
           WHERE rsp_id = p_rsp_id;
-   
+
          IF NOT FOUND THEN
-            p_ret_info := '??? ? rsp_id=' || p_rsp_id || ' ? ???';
+            p_ret_info := 'Ответ с rsp_id=' || p_rsp_id || ' не найден';
             RETURN;
          END IF;
-   
+
          IF l_status = 2 THEN
             p_ret_code := RET_OK;
-            p_ret_info := '??? ?? ?????';
+            p_ret_info := 'Ответ уже отправлен';
             RETURN;
          ELSIF l_status = 0 THEN
-            p_ret_info := '??? ?? ? ??? ? ???? (status_cd=0)';
+            p_ret_info := 'Ответ ещё не готов к отправке (status_cd=0)';
             RETURN;
          END IF;
-   
-         -- ??? ????
+
+         -- Вызов отправки
          CALL mi_mbus.send_response(p_rsp_id, l_result);
-         
+
          IF l_result.is_success THEN
             p_ret_code := RET_OK;
-            p_ret_info := coalesce(l_result.result_info, '?????');
+            p_ret_info := coalesce(l_result.result_info, 'Отправлено');
          ELSE
-            p_ret_info := coalesce(l_result.result_info, '??? ????');
+            p_ret_info := coalesce(l_result.result_info, 'Ошибка отправки');
          END IF;
-   
+
          --p_ret_code := RET_OK;
-         --p_ret_info := '???? ??? ?????? (??? mi_mbus.send_response ???????? ?? ???)';
-   
+         --p_ret_info := 'Отправка ответа имитирована (вызов mi_mbus.send_response закомментирован для теста)';
+
       EXCEPTION
          WHEN OTHERS THEN
             p_ret_info := SQLERRM;
             CALL mi_logger.error(
                p_logger_name   => c_Logger,
-               p_message_text  => '??? ? send_response',
+               p_message_text  => 'Ошибка в send_response',
                p_details_text  => SQLERRM,
                p_inf_id        => NULL
             );
       END;
-   
+
       CALL mi_logger.exit_f(
          p_logger_name   => c_Logger,
          p_message_text  => format('ret_code=%s, info=%s', p_ret_code, p_ret_info),
@@ -601,8 +596,8 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       );
    END;
    $$
-   
-   -- ??? ????? ???? ? MI_prp (? ???????)
+
+   -- Чтение расписания отправки из MI_prp (с кэшированием)
    CREATE FUNCTION get_schedule() RETURNS jsonb AS $$
       #package
    DECLARE
@@ -612,57 +607,57 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       CALL mi_logger.enter_f(
          p_logger_name   => c_Logger,
          p_function_name => 'get_schedule',
-         p_message_text  => '??? ????? ? MI_prp ? ???? ' || c_Sched_Key,
+         p_message_text  => 'Чтение расписания из MI_prp по ключу ' || c_Sched_Key,
          p_inf_id        => NULL
       );
-   
-      -- ??? timestamp ????? ?????
+
+      -- Читаем timestamp последнего изменения
       l_value := MI_prp.get_sys_property(c_Sched_Upd_Key, NULL);
       IF l_value IS NOT NULL AND btrim(l_value) <> '' THEN
          l_updated_at := l_value::timestamptz;
       END IF;
-   
-      -- ?? ????
+
+      -- Кэш актуален
       IF l_updated_at IS NOT NULL AND g_sched_cache_at IS NOT NULL
          AND l_updated_at = g_sched_cache_at AND g_sched_cache IS NOT NULL THEN
          CALL mi_logger.info(
             p_logger_name   => c_Logger,
-            p_message_text  => '????? ??? ? ???',
+            p_message_text  => 'Расписание взято из кэша',
             p_inf_id        => NULL
          );
          RETURN g_sched_cache;
       END IF;
-   
-      -- ??? JSON
+
+      -- Читаем JSON
       l_value := MI_prp.get_sys_property(c_Sched_Key, '{}');
       IF l_value IS NULL OR btrim(l_value) = '' THEN
          l_value := '{}';
       END IF;
-   
+
       g_sched_cache    := l_value::jsonb;
       g_sched_cache_at := l_updated_at;
-   
+
       CALL mi_logger.exit_f(
          p_logger_name   => c_Logger,
-         p_message_text  => '????? ?????, ??? ' || length(l_value),
+         p_message_text  => 'Расписание прочитано, длина ' || length(l_value),
          p_inf_id        => NULL
       );
-   
+
       RETURN g_sched_cache;
-   
+
    EXCEPTION
       WHEN OTHERS THEN
          CALL mi_logger.error(
             p_logger_name   => c_Logger,
-            p_message_text  => '??? ???? ?????',
+            p_message_text  => 'Ошибка чтения расписания',
             p_details_text  => SQLERRM,
             p_inf_id        => NULL
          );
          RETURN '{}'::jsonb;
    END;
    $$
-   
-   -- ?????? ????? ???? ? MI_prp
+
+   -- Сохранение расписания отправки в MI_prp
    CREATE PROCEDURE set_schedule(
       IN  p_entries  mi_0600_api.t_schedule_entry[],
       OUT p_ret_code integer,
@@ -678,31 +673,31 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       CALL mi_logger.enter_f(
          p_logger_name   => c_Logger,
          p_function_name => 'set_schedule',
-         p_message_text  => '??? ????? ? MI_prp ? ???? ' || c_Sched_Key,
+         p_message_text  => 'Запись расписания в MI_prp по ключу ' || c_Sched_Key,
          p_inf_id        => NULL
       );
-   
+
       p_ret_code := RET_FAIL;
       p_ret_info := NULL;
-   
+
       BEGIN
          IF p_entries IS NULL OR array_length(p_entries, 1) = 0 THEN
             p_ret_info := 'p_entries is null or empty';
             RETURN;
          END IF;
-   
+
          FOREACH l_entry IN ARRAY p_entries
          LOOP
             IF l_entry.dow IS NULL OR l_entry.dow NOT BETWEEN 1 AND 7 THEN
-               p_ret_info := '??????? ?? ???: ' || coalesce(l_entry.dow::varchar, '<NULL>') || ' (????? 1..7)';
+               p_ret_info := 'Недопустимый день недели: ' || coalesce(l_entry.dow::varchar, '<NULL>') || ' (допустимо 1..7)';
                RETURN;
             END IF;
 
             IF l_entry.t_from >= l_entry.t_to THEN
-               p_ret_info := 't_from ??? ?? ???? t_to';
+               p_ret_info := 't_from должно быть меньше t_to';
                RETURN;
             END IF;
-   
+
             l_json := jsonb_set(
                l_json,
                ARRAY[l_entry.dow::text],
@@ -712,19 +707,19 @@ CREATE OR REPLACE PACKAGE mi_0600_api
                )
             );
          END LOOP;
-   
+
          CALL MI_prp.set_sys_property(c_Sched_Key,     l_json::text);
          CALL MI_prp.set_sys_property(c_Sched_Upd_Key, l_now::text);
-   
-         -- ??? ???
+
+         -- Сброс кэша
          g_sched_cache    := NULL;
          g_sched_cache_at := NULL;
-   
+
          p_ret_code := RET_OK;
 
-         -- ?????? MI ? ????? ?????
+         -- Уведомление MI об изменении расписания
          BEGIN
-            -- ? ???-? ???? ??? ? ?????? ????? ? ??? "QUERY_RECEIVE_X cor". ???? ??????.
+            -- По какой-то причине падает в бесконечное зависание на шаге "QUERY_RECEIVE_X cor". Причина выясняется.
             CALL mi_mbus.send_command(
                p_result     => l_cmd_result,
                p_action     => 'SCHEDULE_CHANGE_NOTIFICATION',
@@ -736,7 +731,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
             IF NOT l_cmd_result.is_success THEN
                CALL mi_logger.error(
                   p_logger_name   => c_Logger,
-                  p_message_text  => '?????? MI ? ????? ????? ? ?????',
+                  p_message_text  => 'Уведомление MI об изменении расписания не отправлено',
                   p_details_text  => coalesce(l_cmd_result.result_code, '<NULL>') || ': ' || coalesce(l_cmd_result.result_info, '<NULL>'),
                   p_inf_id        => 601
                );
@@ -745,23 +740,23 @@ CREATE OR REPLACE PACKAGE mi_0600_api
             WHEN OTHERS THEN
                CALL mi_logger.error(
                   p_logger_name   => c_Logger,
-                  p_message_text  => '?????? ?? ?????? MI ? ????? ?????',
+                  p_message_text  => 'Исключение при уведомлении MI об изменении расписания',
                   p_details_text  => SQLERRM,
                   p_inf_id        => 601
                );
          END;
-   
+
       EXCEPTION
          WHEN OTHERS THEN
             p_ret_info := SQLERRM;
             CALL mi_logger.error(
                p_logger_name   => c_Logger,
-               p_message_text  => '??? ?????? ?????',
+               p_message_text  => 'Ошибка сохранения расписания',
                p_details_text  => SQLERRM,
                p_inf_id        => NULL
             );
       END;
-   
+
       CALL mi_logger.exit_f(
          p_logger_name   => c_Logger,
          p_message_text  => format('ret_code=%s, info=%s', p_ret_code, p_ret_info),
@@ -769,7 +764,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       );
    END;
    $$
-   
+
    CREATE PROCEDURE send_pending(
       OUT p_ret_code integer,
       OUT p_ret_info varchar
@@ -796,25 +791,25 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       CALL mi_logger.enter_f(
          p_logger_name   => c_Logger,
          p_function_name => 'send_pending',
-         p_message_text  => '??? ??????? ????',
+         p_message_text  => 'Запуск периодической отправки',
          p_inf_id        => NULL
       );
-   
+
       p_ret_code := RET_FAIL;
       p_ret_info := NULL;
-   
+
       BEGIN
-         -- ??? ????? ??????? ?????
+         -- Чтение настройки использования календаря
          l_use_sched    := MI_prp.get_Wsp_Property(600, 'USE_SCHEDULE', '0');
          l_use_calendar := mi_utils.to_bool(l_use_sched);
-   
+
          CALL mi_logger.info(
             p_logger_name   => c_Logger,
             p_message_text  => 'USE_SCHEDULE=' || l_use_sched || ', use_calendar=' || l_use_calendar,
             p_inf_id        => NULL
          );
-   
-         -- ???? ???? ???????? ????
+
+         -- Проверка наличия неотправленных запросов
          PERFORM 1 FROM xxi.mi_req r
             WHERE r.status_cd = 0 AND r.inf_id IN (601, 603, 611)
          UNION ALL
@@ -825,24 +820,24 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          IF NOT FOUND THEN
             CALL mi_logger.info(
                p_logger_name   => c_Logger,
-               p_message_text  => '?? ???? ? ???? 0 ?? ???? ? ???? 1, ??? ? ????',
+               p_message_text  => 'Нет запросов в статусе 0 или ответов в статусе 1, выход из функции',
                p_inf_id        => NULL
             );
             p_ret_code := RET_OK;
             RETURN;
          END IF;
-   
-         -- ???? ?????
+
+         -- Проверка календаря
          IF l_use_calendar THEN
-            -- ??? ????? ? ????
+            -- Валюта календаря из настроек
             l_currency := MI_prp.get_Wsp_Property(600, 'CURRENCY', NULL);
-            -- pcaliso.is_workday: 0 = ???? ??, 1 = ?????, < 0 = ?? ???? (???????)
+            -- pcaliso.is_workday: 0 = рабочий день, 1 = нерабочий, < 0 = нет данных (инвертировано)
             l_workday := 1 - pcaliso.is_workday(l_currency, clock_timestamp()::date);
-   
+
             IF l_workday = 0 THEN
                CALL mi_logger.info(
                   p_logger_name   => c_Logger,
-                  p_message_text  => '????? ?? ? ?????, ???? ?????',
+                  p_message_text  => 'Нерабочий день по календарю, отправка пропущена',
                   p_inf_id        => NULL
                );
                p_ret_code := RET_OK;
@@ -850,25 +845,25 @@ CREATE OR REPLACE PACKAGE mi_0600_api
             ELSIF l_workday > 1 THEN
                CALL mi_logger.info(
                   p_logger_name   => c_Logger,
-                  p_message_text  => '?? ???? ? ?????, ?? ????? ????',
+                  p_message_text  => 'Нет данных в календаре, день считается рабочим',
                   p_inf_id        => NULL
                );
             END IF;
-   
-            -- ???? ?????
+
+            -- Проверка расписания
             l_schedule := mi_0600_api.get_schedule();
             l_dow      := extract(isodow FROM clock_timestamp())::smallint;
-   
+
             IF l_schedule ? l_dow::text THEN
                l_t_from   := (l_schedule -> l_dow::text ->> 'from')::time;
                l_t_to     := (l_schedule -> l_dow::text ->> 'to')::time;
                l_now_time := clock_timestamp()::time;
-   
+
                IF l_t_from IS NOT NULL AND l_t_to IS NOT NULL
                   AND NOT (l_now_time BETWEEN l_t_from AND l_t_to) THEN
                   CALL mi_logger.info(
                      p_logger_name   => c_Logger,
-                     p_message_text  => format('???? ??? %s ?? ?? %s-%s, ???? ?????',
+                     p_message_text  => format('Текущее время %s вне окна %s-%s, отправка пропущена',
                                                l_now_time, l_t_from, l_t_to),
                      p_inf_id        => NULL
                   );
@@ -878,13 +873,13 @@ CREATE OR REPLACE PACKAGE mi_0600_api
             ELSE
                CALL mi_logger.info(
                   p_logger_name   => c_Logger,
-                  p_message_text  => '????? ?? ????? ?? ? ???, ???? ?? ??????',
+                  p_message_text  => 'Расписание для текущего дня не задано, отправка без ограничений',
                   p_inf_id        => NULL
                );
             END IF;
          END IF;
-   
-         -- 1. ???? ????-?????? (????? ??????)
+
+         -- 1. Отправка запросов-инициаторов (отдельными транзакциями)
          FOR l_item IN
             SELECT r.req_id
                FROM xxi.mi_req r
@@ -895,7 +890,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          LOOP
             l_sub_ret  := NULL;
             l_sub_info := NULL;
-   
+
             BEGIN AUTONOMOUS
                CALL mi_0600_api.send_request(l_item.req_id, l_sub_ret, l_sub_info);
             EXCEPTION
@@ -904,26 +899,26 @@ CREATE OR REPLACE PACKAGE mi_0600_api
                   l_sub_info := SQLERRM;
                   CALL mi_logger.error(
                      p_logger_name   => c_Logger,
-                     p_message_text  => '?????? ?? ???? req_id=' || l_item.req_id,
+                     p_message_text  => 'Исключение при отправке req_id=' || l_item.req_id,
                      p_details_text  => SQLERRM,
                      p_inf_id        => NULL
                   );
             END;
-   
+
             IF l_sub_ret = RET_OK THEN
                l_sent_req := l_sent_req + 1;
             ELSE
                l_failed_req := l_failed_req + 1;
                CALL mi_logger.error(
                   p_logger_name   => c_Logger,
-                  p_message_text  => '??? ???? req_id=' || l_item.req_id,
+                  p_message_text  => 'Ошибка отправки req_id=' || l_item.req_id,
                   p_details_text  => l_sub_info,
                   p_inf_id        => NULL
                );
             END IF;
          END LOOP;
-   
-         -- 2. ???? ???? (????? ??????)
+
+         -- 2. Отправка ответов (отдельными транзакциями)
          FOR l_item IN
             SELECT s.rsp_id
                FROM xxi.mi_rsp s
@@ -935,7 +930,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          LOOP
             l_sub_ret  := NULL;
             l_sub_info := NULL;
-   
+
             BEGIN AUTONOMOUS
                CALL mi_0600_api.send_response(l_item.rsp_id, l_sub_ret, l_sub_info);
             EXCEPTION
@@ -944,45 +939,45 @@ CREATE OR REPLACE PACKAGE mi_0600_api
                   l_sub_info := SQLERRM;
                   CALL mi_logger.error(
                      p_logger_name   => c_Logger,
-                     p_message_text  => '?????? ?? ???? rsp_id=' || l_item.rsp_id,
+                     p_message_text  => 'Исключение при отправке rsp_id=' || l_item.rsp_id,
                      p_details_text  => SQLERRM,
                      p_inf_id        => NULL
                   );
             END;
-   
+
             IF l_sub_ret = RET_OK THEN
                l_sent_rsp := l_sent_rsp + 1;
             ELSE
                l_failed_rsp := l_failed_rsp + 1;
                CALL mi_logger.error(
                   p_logger_name   => c_Logger,
-                  p_message_text  => '??? ???? rsp_id=' || l_item.rsp_id,
+                  p_message_text  => 'Ошибка отправки rsp_id=' || l_item.rsp_id,
                   p_details_text  => l_sub_info,
                   p_inf_id        => NULL
                );
             END IF;
          END LOOP;
-   
+
          CALL mi_logger.info(
             p_logger_name   => c_Logger,
-            p_message_text  => format('?????: ???? %s (??? %s), ???? %s (??? %s)',
+            p_message_text  => format('Отправлено: запросов %s (ошибок %s), ответов %s (ошибок %s)',
                                       l_sent_req, l_failed_req, l_sent_rsp, l_failed_rsp),
             p_inf_id        => NULL
          );
-   
+
          p_ret_code := RET_OK;
-   
+
       EXCEPTION
          WHEN OTHERS THEN
             p_ret_info := SQLERRM;
             CALL mi_logger.error(
                p_logger_name   => c_Logger,
-               p_message_text  => '??? ? send_pending',
+               p_message_text  => 'Ошибка в send_pending',
                p_details_text  => SQLERRM,
                p_inf_id        => NULL
             );
       END;
-   
+
       CALL mi_logger.exit_f(
          p_logger_name   => c_Logger,
          p_message_text  => format('ret_code=%s, info=%s', p_ret_code, p_ret_info),
@@ -991,17 +986,17 @@ CREATE OR REPLACE PACKAGE mi_0600_api
    END;
    $$
 
-   -- ?????? ????? ?? ???? ??????
+   -- Конфигурация расписания для внешнего микросервиса
    CREATE PROCEDURE get_schedule_config(
-      OUT p_use_schedule  integer,   -- 1/0: ?????? ? ?????
-      OUT p_is_workday    integer,   -- 1/0: ???? ? ???? ??
-      OUT p_begin_time    time,      -- ??? ???? ???; NULL = allDay
-      OUT p_end_time      time,      -- ??? ????? ???; NULL = allDay
-      OUT p_schedule_info text,      -- JSON ? ?????? ? ???? (?? p_is_workday = 1)
-      OUT p_resolved_date date,      -- ??, ? ???? ?????? ?????? (p_on_date ?? ?????)
+      OUT p_use_schedule  integer,   -- 1/0: используется ли расписание
+      OUT p_is_workday    integer,   -- 1/0: рабочий ли сегодня день
+      OUT p_begin_time    time,      -- время начала работы; NULL = allDay
+      OUT p_end_time      time,      -- время окончания работы; NULL = allDay
+      OUT p_schedule_info text,      -- JSON с расписанием на сегодня (если p_is_workday = 1)
+      OUT p_resolved_date date,      -- дата, на которую сформирована конфигурация (p_on_date или системная)
       OUT p_ret_code      integer,
       OUT p_ret_info      varchar,
-      IN  p_on_date       date DEFAULT NULL   -- ??, ? ???? ??????? ?????
+      IN  p_on_date       date DEFAULT NULL   -- дата, на которую запрашивается расписание
    ) AS $$
       #package
    DECLARE
@@ -1016,87 +1011,87 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       CALL mi_logger.enter_f(
          p_logger_name   => c_Logger,
          p_function_name => 'get_schedule_config',
-         p_message_text  => '??? ?????? ?????, p_on_date=' || coalesce(p_on_date::text, '<NULL>'),
+         p_message_text  => 'Запрос конфигурации расписания, p_on_date=' || coalesce(p_on_date::text, '<NULL>'),
          p_inf_id        => NULL
       );
-   
+
       p_use_schedule  := 0;
       p_is_workday    := NULL;
       p_begin_time    := NULL;
       p_end_time      := NULL;
-      p_schedule_info := NULL; 
-      p_resolved_date := NULL;  
+      p_schedule_info := NULL;
+      p_resolved_date := NULL;
       p_ret_code      := RET_FAIL;
       p_ret_info      := NULL;
-   
+
       BEGIN
-         -- ???? ??: ????? ?? ?????
+         -- Целевая дата: переданная или системная
          l_target_date := coalesce(p_on_date, clock_timestamp()::date);
          p_resolved_date := l_target_date;
 
-         -- ??? ????? ??????? ?????
+         -- Чтение настройки использования расписания
          l_use_sched := MI_prp.get_Wsp_Property(600, 'USE_SCHEDULE', '0');
          p_use_schedule := CASE WHEN mi_utils.to_bool(l_use_sched) THEN 1 ELSE 0 END;
-   
+
          CALL mi_logger.variable_value(
             p_logger_name   => c_Logger,
             p_variable_name => 'USE_SCHEDULE',
             p_value_text    => l_use_sched,
             p_inf_id        => NULL
          );
-   
-         -- ?? ????? ? ??????, ????? ????? ???????
+
+         -- Если расписание не используется, остальные параметры игнорируются
          IF p_use_schedule = 0 THEN
             p_ret_code := RET_OK;
             CALL mi_logger.exit_f(
                p_logger_name   => c_Logger,
-               p_message_text  => '????? ? ??????',
+               p_message_text  => 'Расписание не используется',
                p_inf_id        => NULL
             );
             RETURN;
          END IF;
-   
-         -- ??? ????? ? ????
+
+         -- Валюта календаря из настроек
          l_currency := MI_prp.get_Wsp_Property(600, 'CURRENCY', NULL);
-         -- pcaliso.is_workday: 0 = ???? ??, 1 = ?????, < 0 = ?? ???? (???????)
+         -- pcaliso.is_workday: 0 = рабочий день, 1 = нерабочий, < 0 = нет данных (инвертировано)
          l_workday := 1 - pcaliso.is_workday(l_currency, l_target_date);
-   
-         -- ?? ???? ? ????? (< 0) ???? ???? ??
+
+         -- Нет данных в календаре (< 0) считаем рабочим днем
          IF l_workday > 1 THEN
             l_workday := 1;
             CALL mi_logger.info(
                p_logger_name   => c_Logger,
-               p_message_text  => '? ?? ' || l_target_date::text || ' ?? ???? ? ?????, ?? ????? ????',
+               p_message_text  => 'На дату ' || l_target_date::text || ' нет данных в календаре, день считается рабочим',
                p_inf_id        => NULL
             );
          END IF;
-   
+
          p_is_workday := l_workday;
-   
+
          CALL mi_logger.variable_value(
             p_logger_name   => c_Logger,
             p_variable_name => 'is_workday',
             p_value_text    => l_workday::varchar,
             p_inf_id        => NULL
          );
-   
-         -- ?? ?? ?????, ????? ? ?????
+
+         -- Если день нерабочий, расписание не формируем
          IF l_workday = 0 THEN
             p_ret_code := RET_OK;
             CALL mi_logger.exit_f(
                p_logger_name   => c_Logger,
-               p_message_text  => '????? ? ??????, ????: ' || l_target_date::text || ' ????? ????? ??',
+               p_message_text  => 'Расписание не сформировано, причина: ' || l_target_date::text || ' является нерабочим днем',
                p_inf_id        => NULL
             );
             RETURN;
          END IF;
-   
-         -- ?????? JSON ? ?????? ? ????
+
+         -- Формирование JSON с расписанием на сегодня
          l_dow       := extract(isodow FROM l_target_date)::smallint;
          l_schedule  := mi_0600_api.get_schedule();
          l_day_sched := l_schedule -> l_dow::text;
 
-         -- ??? ????/?????
+         -- Время начала/окончания
          IF l_day_sched IS NOT NULL AND l_day_sched <> 'null'::jsonb THEN
             p_begin_time := (l_day_sched ->> 'from')::time;
             p_end_time   := (l_day_sched ->> 'to')::time;
@@ -1111,18 +1106,18 @@ CREATE OR REPLACE PACKAGE mi_0600_api
          )::text;
 
          p_ret_code := RET_OK;
-   
+
       EXCEPTION
          WHEN OTHERS THEN
             p_ret_info := SQLERRM;
             CALL mi_logger.error(
                p_logger_name   => c_Logger,
-               p_message_text  => '??? ? get_schedule_config',
+               p_message_text  => 'Ошибка в get_schedule_config',
                p_details_text  => SQLERRM,
                p_inf_id        => NULL
             );
       END;
-   
+
       CALL mi_logger.exit_f(
          p_logger_name   => c_Logger,
          p_message_text  => format('ret_code=%s, use_schedule=%s, is_workday=%s, resolved_date=%s, info=%s',
@@ -1131,8 +1126,8 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       );
    END;
    $$
-   
-   -- ????? dsend_stamp
+
+   -- Установка dsend_stamp
    CREATE PROCEDURE on_request_sent(p_req_id numeric) AS $$
    BEGIN
       UPDATE xxi.mi_0600
@@ -1143,7 +1138,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       WHEN OTHERS THEN
          CALL mi_logger.error(
             p_logger_name   => c_Logger,
-            p_message_text  => '??? ? on_request_sent ?? req_id=' || p_req_id,
+            p_message_text  => 'Ошибка в on_request_sent для req_id=' || p_req_id,
             p_details_text  => SQLERRM,
             p_inf_id        => NULL
          );
