@@ -24,6 +24,7 @@ CREATE OR REPLACE PACKAGE mi_0202_srv
        Схема серверных функций вида сведений 0202.
       */
       cVersion CONSTANT VARCHAR(100) := '$id: {1.0.1} {23.10.2026} Sukhotina$';
+      cPkg_Name CONSTANT VARCHAR(20)  := 'mi_0202_srv';
    BEGIN
       RAISE DEBUG 'Package "%" - % - initialized', cPkg_Name, cVersion;
    END;
