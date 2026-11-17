@@ -88,7 +88,7 @@ CREATE OR REPLACE PACKAGE mi_0600_api
       p_itm_id   := NULL;
 
       p_ret_code := RET_FAIL;
-      p_ret_info := 'Unknown error in ' || c_Action_Name;
+      p_ret_info := NULL;
 
       BEGIN
 
